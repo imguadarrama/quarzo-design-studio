@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String
+  phone        String?
+  createdAt    DateTime @default(now())
+  orders       Order[]
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Product {
+  id          String           @id @default(cuid())
+  slug        String           @unique
+  name        String
+  description String
+  category    String
+  basePrice   Decimal          @db.Decimal(10, 2)
+  images      ProductImage[]
+  variants    ProductVariant[]
+  active      Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+}
+
+model ProductVariant {
+  id         String  @id @default(cuid())
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String
+  priceDelta Decimal @db.Decimal(10, 2) @default(0)
+  stock      Int     @default(0)
+  sku        String  @unique
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+  position  Int     @default(0)
+}
+
+model Order {
+  id              String         @id @default(cuid())
+  publicToken     String         @unique
+  customerId      String?
+  customer        Customer?      @relation(fields: [customerId], references: [id])
+  email           String
+  name            String
+  phone           String
+  shippingMethod  ShippingMethod
+  shippingAddress Json?
+  shippingFee     Decimal        @db.Decimal(10, 2) @default(0)
+  subtotal        Decimal        @db.Decimal(10, 2)
+  total           Decimal        @db.Decimal(10, 2)
+  paymentMethod   PaymentMethod
+  status          OrderStatus    @default(PENDIENTE)
+  mpPreferenceId  String?
+  mpPaymentId     String?
+  notes           String?
+  items           OrderItem[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model OrderItem {
+  id                  String  @id @default(cuid())
+  orderId             String
+  order               Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId           String
+  variantId           String
+  productName         String
+  variantName         String
+  unitPrice           Decimal @db.Decimal(10, 2)
+  quantity            Int
+  personalizationText String
+}
+
+enum ShippingMethod {
+  NACIONAL
+  PICKUP_SALTILLO
+}
+
+enum PaymentMethod {
+  MERCADOPAGO
+  TRANSFERENCIA
+}
+
+enum OrderStatus {
+  PENDIENTE
+  PAGADO
+  ENVIADO
+  ENTREGADO
+  CANCELADO
+}
