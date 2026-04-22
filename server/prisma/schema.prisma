@@ -35,6 +35,9 @@ model Product {
   variants    ProductVariant[]
   active      Boolean          @default(true)
   createdAt   DateTime         @default(now())
+
+  @@index([category])
+  @@index([active])
 }
 
 model ProductVariant {
@@ -45,6 +48,8 @@ model ProductVariant {
   priceDelta Decimal @db.Decimal(10, 2) @default(0)
   stock      Int     @default(0)
   sku        String  @unique
+
+  @@index([productId])
 }
 
 model ProductImage {
@@ -54,6 +59,8 @@ model ProductImage {
   url       String
   alt       String?
   position  Int     @default(0)
+
+  @@index([productId])
 }
 
 model Order {
@@ -77,6 +84,10 @@ model Order {
   items           OrderItem[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model OrderItem {
@@ -90,6 +101,8 @@ model OrderItem {
   unitPrice           Decimal @db.Decimal(10, 2)
   quantity            Int
   personalizationText String
+
+  @@index([orderId])
 }
 
 enum ShippingMethod {
