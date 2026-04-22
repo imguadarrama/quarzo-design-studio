@@ -6,12 +6,17 @@ Execution runbook for setting up the Quarzo deployment pipeline. Work through th
 
 ## 1. Stack
 
-| Component | Provider | Staging | Production |
-|---|---|---|---|
-| Client (static Vite build) | Cloudflare Pages | free | free |
-| Server (Express + Prisma) | Fly.io | free tier, scale-to-zero | free tier, always-on (upgrade if needed) |
-| Postgres | Neon | free, DB branch per PR | free (upgrade to Launch if prod exceeds limits) |
-| DNS | Cloudflare | free | free |
+| Component | Provider | Staging | Production | Monthly cost |
+|---|---|---|---|---|
+| Client (static Vite build) | Cloudflare Pages | free | free | $0 |
+| Server (Express + Prisma) | Fly.io, `qro` region | `shared-cpu-1x` 256 MB, always-on (`min_machines_running = 1`) | `shared-cpu-1x` 256 MB, always-on | $0 |
+| Postgres | Neon | free, DB branch per PR | free (upgrade to Launch if prod exceeds limits) | $0 |
+| DNS | Cloudflare | free | free | $0 |
+| **Total** | | | | **$0** |
+
+**Prod VM sizing is pre-launch-only.** Production is currently a display URL for the client — no public traffic, no expected concurrency. Two 256 MB machines fit inside Fly's Hobby free allowance (3 × `shared-cpu-1x` 256 MB always free). **Before public launch**, bump prod to `shared-cpu-1x` 512 MB (~$1.94/mo) and reassess after the first launch-day spike — see the Phase 7 checklist in `tech-roadmap.md`.
+
+**Why staging is always-on (not scale-to-zero):** MercadoPago webhooks time out after ~15s, but a cold Fly machine takes ~30s to wake. A sleeping staging would silently hide MP integration bugs — you'd see retries eventually succeed once the machine is warm, but never actually exercise the cold-path. Staging stays up.
 
 Domain: GoDaddy (to be purchased). Default hostnames (`*.pages.dev`, `*.fly.dev`) are used until the custom domain is wired up — see §8.
 
@@ -208,7 +213,9 @@ primary_region = "qro"  # Querétaro — closest to Saltillo
   memory_mb = 256
 ```
 
-**`fly.staging.toml`:** same but `app = "quarzo-api-staging"`, `min_machines_running = 0`, `auto_stop_machines = true`.
+**Pre-launch sizing.** `memory_mb = 256` is the pre-launch value — prod is currently a demo URL for the client, not a serving workload. Before public launch, change this to `512` (see Phase 7 in `tech-roadmap.md`).
+
+**`fly.staging.toml`:** same as prod, but `app = "quarzo-api-staging"`. Keep `min_machines_running = 1` and `auto_stop_machines = false` — **staging must stay always-on** so MercadoPago webhooks don't hit a cold machine (see §1). Both 256 MB machines (staging + prod) fit within Fly's Hobby free allowance at **$0/mo** total.
 
 ### 5.7 `.node-version` — new file at repo root
 ```
@@ -508,8 +515,56 @@ Run these only after buying the GoDaddy domain.
 
 - ESLint / Prettier / test runner (Vitest). Add in a later phase; CI is typecheck + build only.
 - E2E tests (Playwright) in the staging pipeline.
-- Sentry / error monitoring.
-- Uptime monitoring (UptimeRobot is a 5-min add later).
+- Sentry / error monitoring (Fly dashboard + UptimeRobot cover enough for v1 — see §11).
 - Blue/green or canary deploys.
 - DB backups beyond Neon's default PITR.
 - Per-branch preview deploys for non-PR pushes.
+
+---
+
+## 11. Monitoring
+
+Wire these in Phase 1.5, not later. At ~10 orders/week and a solo operator, the question isn't "is observability beautiful" — it's "will I notice before the client does." These four things answer that for ~$0/mo.
+
+### 11.1 Fly.io dashboard metrics (built in)
+Already available on every Fly app at no extra cost:
+- CPU % per machine
+- Memory usage per machine
+- HTTP request rate, p50 / p95 latency
+- Healthcheck pass/fail counts
+
+You read these when something feels slow. They also back the alerts below.
+
+### 11.2 Fly.io alerts
+In each app's dashboard → Monitoring → Alerts, create:
+
+| Metric | Threshold | Why |
+|---|---|---|
+| CPU | > 70% sustained 5 min | Early signal to upgrade VM size before users feel it |
+| Memory | > 80% sustained 5 min | Prevents OOM crashes |
+| p95 latency | > 800 ms sustained 5 min | User-perceived slowness before it's a pager |
+| Healthcheck failures | > 3 consecutive | App is broken; page immediately |
+
+Destination: email to the operator's address. Add Slack/Discord later if you want.
+
+### 11.3 UptimeRobot (external uptime ping)
+Free plan gives 50 monitors at 5-min interval. Configure one monitor:
+- Type: HTTP(s)
+- URL: `https://quarzo-api.fly.dev/api/health` (or the prod custom-domain equivalent once §7 Session 3 is done)
+- Interval: 5 min
+- Alert contact: email
+
+Why this matters: Fly's own alerts go dark when the whole Fly region has a problem. UptimeRobot lives outside Fly and tells you when Fly *itself* is the issue.
+
+### 11.4 Provider status-page subscriptions
+Subscribe to incident email/RSS for each provider whose outage can take prod down:
+- https://status.fly.io
+- https://neon.tech/status (or their current status page URL)
+- https://cloudflarestatus.com
+
+When a page lights up during an outage, you know it's not your code before you waste 20 minutes debugging.
+
+### Out of scope for v1
+- Sentry or similar error tracking — add once you have real user errors to triage.
+- Log aggregation (Logtail, Axiom). Fly's built-in `flyctl logs` is sufficient for one operator.
+- Performance tracing (OpenTelemetry). Not warranted at this scale.

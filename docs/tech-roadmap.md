@@ -252,12 +252,14 @@ Three services in `docker-compose.yml`:
 Development environment = production environment. Don't "dockerize later."
 
 ### Deployment — Cloudflare Pages + Fly.io + Neon
-Full setup runbook in [`deploy-setup.md`](./deploy-setup.md). Summary:
-- **Client** on Cloudflare Pages (free, unlimited bandwidth, per-PR previews)
-- **Server** on Fly.io (free tier, always-on, scales up per-VM when traffic warrants)
+Full setup runbook in [`CI-CD/deploy-setup.md`](./CI-CD/deploy-setup.md). Target total cost: **$0/mo pre-launch** (both envs fit Fly's Hobby free allowance), rising to ~$1.94/mo once prod is bumped to 512 MB at public launch — see the stack table in `deploy-setup.md` §1. Summary:
+- **Client** on Cloudflare Pages (free, unlimited bandwidth, per-PR previews, commercial-safe)
+- **Server** on Fly.io, Querétaro region (`qro`) for lowest latency to MX customers — `shared-cpu-1x` 256 MB on both staging and prod while the app is pre-launch (display-only for the client, no traffic). Bump prod to 512 MB before the public launch (tracked in Phase 7)
 - **Postgres** on Neon (free tier with DB branching — each PR gets an isolated DB)
 - Same stack across staging and production so staging actually mirrors prod
+- **Staging is always-on** (`min_machines_running = 1`). MercadoPago webhooks time out (~15s) faster than a cold Fly machine wakes (~30s); a sleeping staging would silently hide MP integration bugs
 - Staging auto-deploys on PR open/sync. Production deploys are triggered manually via `workflow_dispatch` on a weekly cadence
+- Monitoring (Fly dashboard alerts + UptimeRobot external ping) is wired in Phase 1.5 — see `deploy-setup.md` §11
 - Custom domain (GoDaddy, TBD) wired up via Cloudflare DNS once purchased
 
 Future: the Docker-first design keeps the migration path open — the same `Dockerfile` runs unchanged on a DigitalOcean droplet, AWS ECS, or Cloud Run if scaling demands it.
@@ -378,13 +380,22 @@ enum OrderStatus    { PENDIENTE PAGADO ENVIADO ENTREGADO CANCELADO }
 ## 8. Project phases
 
 ### Phase 1 — Setup (Days 1–2)
-- [ ] Init git repo + `main` branch
-- [ ] `docker-compose.yml` with `db` + `api` + `web`
-- [ ] `prisma init`, write initial schema (§7), run first migration
-- [ ] Scaffold Express with the folder structure above
-- [ ] Scaffold Vite + React + Tailwind
-- [ ] `docker-compose up` runs the full stack locally
-- [ ] Seed script: one admin user, 3 sample products with variants
+- [x] Init git repo + `main` branch
+- [x] `docker-compose.yml` with `db` + `api` + `web`
+- [x] `prisma init`, write initial schema (§7), run first migration
+- [ ] Scaffold Express with the folder structure above (only `config/` and `db/` exist so far; `routes/`, `controllers/`, `services/`, `middleware/`, `lib/` still to be created)
+- [x] Scaffold Vite + React + Tailwind
+- [x] `docker-compose up` runs the full stack locally
+- [x] Seed script: one admin user, 4 sample products with variants
+
+### Phase 1.5 — Deploy the skeleton (Days 2–3)
+Ship the scaffold to staging + prod before building any features on top. Goal: discover deploy friction on the smallest possible app, give the client a live URL to react to from week 1, and unlock per-PR preview environments for every subsequent phase.
+- [ ] Execute [`CI-CD/deploy-setup.md`](./CI-CD/deploy-setup.md) Sessions 1 & 2: provider signups, GitHub Environments + secrets, CI workflow, staging + prod services live on Fly.io (Querétaro), Cloudflare Pages projects created, Neon projects created
+- [ ] Confirm `/api/health` responds from prod (`https://quarzo-api.fly.dev/api/health`) and from a per-PR staging URL
+- [ ] Confirm per-PR preview URLs post as PR comments (Cloudflare Pages branch deploy + Neon DB branch)
+- [ ] Wire Fly.io dashboard alerts per `deploy-setup.md` §11 (CPU > 70%, memory > 80%, p95 latency > 800 ms, healthcheck failures)
+- [ ] Add UptimeRobot 5-min external ping on prod `/api/health`
+- [ ] Throwaway PR smoke test end-to-end; confirm Neon `pr-<n>` branch is cleaned up on PR close
 
 ### Phase 2 — Catalog + admin products (Days 3–7)
 - [ ] Admin login (`/admin/login`) + `requireAdmin` middleware
@@ -421,11 +432,13 @@ enum OrderStatus    { PENDIENTE PAGADO ENVIADO ENTREGADO CANCELADO }
 - [ ] Error handling + loading states across the app
 - [ ] Empty states and 404
 
-### Phase 7 — Deploy + handoff (Days 27–30)
-- [ ] Deploy to Railway; connect Postgres add-on
-- [ ] Custom domain + SSL
-- [ ] Seed production admin user
-- [ ] End-to-end test of full purchase flow (both payment methods)
+### Phase 7 — Launch polish + handoff (Days 27–30)
+Prod has been live since Phase 1.5; this phase turns the live URL into the launched site. Deploy plumbing is no longer part of Phase 7 — only pre-launch sizing and the handoff ceremony.
+- [ ] **Bump prod VM from `shared-cpu-1x` 256 MB → 512 MB** in `fly.toml` (pre-launch sizing was free-tier because prod had no traffic; the public launch changes that). Redeploy prod. Expected cost change: $0 → ~$1.94/mo
+- [ ] Custom domain + SSL (per `deploy-setup.md` §7 "Session 3")
+- [ ] Seed production admin user (if not already done in Phase 1.5)
+- [ ] End-to-end test of full purchase flow on prod (both MercadoPago and bank-transfer paths)
+- [ ] After first launch-day spike, reread Fly dashboard metrics (`deploy-setup.md` §11) and decide whether to stay on 512 MB or move to `shared-cpu-2x`
 - [ ] Admin walkthrough with client; record a short Loom
 - [ ] Written admin handoff doc (how to add products, fulfill orders)
 
@@ -446,9 +459,10 @@ enum OrderStatus    { PENDIENTE PAGADO ENVIADO ENTREGADO CANCELADO }
 ## 10. For a new engineer picking this up
 
 If you just landed on this project, read in this order:
-1. `wife-store-discovery.md` — raw answers from the discovery call
-2. `wife-store-resumen-descubrimiento.docx` — the 1-page recap sent to the client
-3. This file (`wife-store-tech-roadmap.md`) — scope, architecture, phases
+1. `docs/client/discovery-with-client.md` — raw answers from the discovery call
+2. This file (`docs/tech-roadmap.md`) — scope, architecture, phases
+3. `CLAUDE.md` — architecture conventions and invariants (coding rules)
+4. `docs/CI-CD/deploy-setup.md` — the deploy pipeline runbook
 
 Then confirm with the project owner:
 - Has §3 "Open decisions" been closed? If not, you need those answers before coding Phase 2 onward.
