@@ -383,7 +383,7 @@ enum OrderStatus    { PENDIENTE PAGADO ENVIADO ENTREGADO CANCELADO }
 - [x] Init git repo + `main` branch
 - [x] `docker-compose.yml` with `db` + `api` + `web`
 - [x] `prisma init`, write initial schema (§7), run first migration
-- [ ] Scaffold Express with the folder structure above (only `config/` and `db/` exist so far; `routes/`, `controllers/`, `services/`, `middleware/`, `lib/` still to be created)
+- [x] Scaffold Express with the folder structure above (all dirs created; files land in Phase 2)
 - [x] Scaffold Vite + React + Tailwind
 - [x] `docker-compose up` runs the full stack locally
 - [x] Seed script: one admin user, 4 sample products with variants

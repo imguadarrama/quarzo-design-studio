@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Quarzo Design Studio is a custom-stationery e-commerce store (Saltillo, Coahuila; Spanish copy, MXN payments) built for the owner's wife as a real client. It doubles as a practice run for a future software company, so the stack choices (build-your-own auth, Prisma, Docker from day one) are deliberately pedagogical — do not replace them with hosted equivalents (Auth0/Clerk/Firebase Auth are explicitly out).
 
-The full scope, data model rationale, phased plan, and locked product decisions live in `docs/tech-roadmap.md`. Read it before making non-trivial changes — it's the source of truth for "why is it this way." `docs/discovery-with-client.md` has the raw client discovery notes.
+The full scope, data model rationale, phased plan, and locked product decisions live in `docs/tech-roadmap.md`. Read it before making non-trivial changes — it's the source of truth for "why is it this way." `docs/client/discovery-with-client.md` has the raw client discovery notes.
 
-As of the current commit the repo is at the end of **Phase 1 (scaffold)**: Docker Compose stack, Prisma schema + seed, Express health endpoint, and a placeholder Vite/React page. No routes, controllers, services, middleware, or frontend pages have been implemented yet — those directories have not been created yet (only `server/src/config/` and `server/src/db/` exist today).
+As of the current commit the repo is at the end of **Phase 1 (scaffold)**: Docker Compose stack, Prisma schema + seed, Express health endpoint, and a placeholder Vite/React page. No routes, controllers, services, middleware, or frontend pages have been implemented yet — those directories are scaffolded but empty.
 
 ## Common commands
 
@@ -19,7 +19,7 @@ pnpm dev           # docker compose up — starts db + api + web
 pnpm dev:rebuild   # rebuild images (run after changing Dockerfiles or root deps)
 pnpm dev:down      # stop the stack
 pnpm migrate       # prisma migrate dev inside the api container
-pnpm seed          # run prisma/seed.ts (admin user + sample products); requires stack to be up
+pnpm seed          # run src/seed.ts (admin user + sample products); requires stack to be up
 ```
 
 Workspace-scoped commands (run inside or outside the container):
@@ -37,7 +37,13 @@ There is no test runner, linter, or formatter wired up yet. If you add one, add 
 
 Copy `.env.example` → `.env` at the repo root. `docker-compose.yml` reads it and forwards a subset into the `api` container. `server/src/config/env.ts` validates with Zod and exits the process on invalid env — always update that schema when adding a new variable. Never read `process.env.*` directly from app code; import `env` from `config/env.ts`.
 
-The admin user is seeded from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (see `server/prisma/seed.ts`). There is intentionally no public admin-registration endpoint.
+The admin user is seeded from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (see `server/src/seed.ts` — lives in `src/` not `prisma/` so the single tsconfig covers it; `package.json`'s `prisma.seed` field points `tsx` at the right path). There is intentionally no public admin-registration endpoint.
+
+## CI
+
+A single GitHub Actions workflow at `.github/workflows/ci.yml` runs on every PR and every push to `main`. It installs deps with pnpm, runs `prisma generate`, typechecks both packages with `tsc --noEmit`, builds both, and uploads the client `dist/` artifact on PRs.
+
+Node version is pinned to `22` in the `.node-version` file at the repo root, which CI reads via `node-version-file: .node-version`. The runtime contract is `engines.node: ">=22"` in root `package.json` — if you bump one, bump the other.
 
 ## Architecture
 

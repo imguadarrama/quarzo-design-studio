@@ -107,7 +107,7 @@ All variables live in `.env` at the repo root. `docker-compose.yml` reads it and
 | `CLIENT_ORIGIN` | Origin allowed by CORS, used for cookie `SameSite` handling (default `http://localhost:5173`) |
 | `COOKIE_DOMAIN` | Domain scope for the auth cookie (default `localhost`) |
 | `JWT_SECRET` | Signing secret for auth JWTs — must be long and random |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Seeded admin-user credentials (consumed by `prisma/seed.ts`). There is intentionally no public admin registration endpoint |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Seeded admin-user credentials (consumed by `server/src/seed.ts`). There is intentionally no public admin registration endpoint |
 
 Never read `process.env.*` directly from app code — import `env` from `server/src/config/env.ts`.
 
