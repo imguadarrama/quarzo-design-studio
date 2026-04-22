@@ -17,7 +17,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter server exec prisma generate
-      - run: pnpm --filter server exec tsc --noEmit
+      - run: pnpm --filter server run typecheck
       - run: pnpm --filter client exec tsc -b --noEmit
       - run: pnpm --filter server build
       - run: pnpm --filter client build
