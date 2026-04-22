@@ -15,4 +15,3 @@ Thumbs.db
 *.tsbuildinfo
 server/prisma/*.db
 server/prisma/*.db-journal
-*CLAUDE.md
