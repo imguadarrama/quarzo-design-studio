@@ -19,7 +19,7 @@ pnpm dev           # docker compose up — starts db + api + web
 pnpm dev:rebuild   # rebuild images (run after changing Dockerfiles or root deps)
 pnpm dev:down      # stop the stack
 pnpm migrate       # prisma migrate dev inside the api container
-pnpm seed          # run prisma/seed.ts (admin user + sample products); requires stack to be up
+pnpm seed          # run src/seed.ts (admin user + sample products); requires stack to be up
 ```
 
 Workspace-scoped commands (run inside or outside the container):
@@ -37,7 +37,13 @@ There is no test runner, linter, or formatter wired up yet. If you add one, add 
 
 Copy `.env.example` → `.env` at the repo root. `docker-compose.yml` reads it and forwards a subset into the `api` container. `server/src/config/env.ts` validates with Zod and exits the process on invalid env — always update that schema when adding a new variable. Never read `process.env.*` directly from app code; import `env` from `config/env.ts`.
 
-The admin user is seeded from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (see `server/prisma/seed.ts`). There is intentionally no public admin-registration endpoint.
+The admin user is seeded from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (see `server/src/seed.ts` — lives in `src/` not `prisma/` so the single tsconfig covers it; `package.json`'s `prisma.seed` field points `tsx` at the right path). There is intentionally no public admin-registration endpoint.
+
+## CI
+
+A single GitHub Actions workflow at `.github/workflows/ci.yml` runs on every PR and every push to `main`. It installs deps with pnpm, runs `prisma generate`, typechecks both packages with `tsc --noEmit`, builds both, and uploads the client `dist/` artifact on PRs.
+
+Node version is pinned to `22` in the `.node-version` file at the repo root, which CI reads via `node-version-file: .node-version`. The runtime contract is `engines.node: ">=22"` in root `package.json` — if you bump one, bump the other.
 
 ## Architecture
 
