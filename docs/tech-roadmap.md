@@ -251,14 +251,16 @@ Three services in `docker-compose.yml`:
 
 Development environment = production environment. Don't "dockerize later."
 
-### Deployment — Railway (start here)
-- Deploy from GitHub on push to `main`
-- Managed Postgres (use Railway's Postgres add-on, not the Docker container, in prod)
-- Environment variables managed in Railway UI
-- SSL + custom domain handled by Railway
-- ~$5–10/month
+### Deployment — Cloudflare Pages + Fly.io + Neon
+Full setup runbook in [`deploy-setup.md`](./deploy-setup.md). Summary:
+- **Client** on Cloudflare Pages (free, unlimited bandwidth, per-PR previews)
+- **Server** on Fly.io (free tier, always-on, scales up per-VM when traffic warrants)
+- **Postgres** on Neon (free tier with DB branching — each PR gets an isolated DB)
+- Same stack across staging and production so staging actually mirrors prod
+- Staging auto-deploys on PR open/sync. Production deploys are triggered manually via `workflow_dispatch` on a weekly cadence
+- Custom domain (GoDaddy, TBD) wired up via Cloudflare DNS once purchased
 
-Future: migrate to a DigitalOcean droplet as a learning exercise. Keep the Docker setup portable so the migration is low-risk.
+Future: the Docker-first design keeps the migration path open — the same `Dockerfile` runs unchanged on a DigitalOcean droplet, AWS ECS, or Cloud Run if scaling demands it.
 
 ### Transactional email
 To be selected: Resend (easiest), Brevo, or AWS SES. Need HTML templates for:
