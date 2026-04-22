@@ -103,5 +103,5 @@ https://www.theatelier.com.mx/
 ## After the call
 
 - Write a 1-page summary and send it to her the same day. "Here's what I heard — correct me."
-- Lock v1 scope against §4 of `wife-store-tech-roadmap.md`. Anything new goes to a v2 list, not into v1.
+- Lock v1 scope against §4 of `docs/tech-roadmap.md`. Anything new goes to a v2 list, not into v1.
 - Only then start Docker + repo setup.

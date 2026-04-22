@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Quarzo Design Studio is a custom-stationery e-commerce store (Saltillo, Coahuila; Spanish copy, MXN payments) built for the owner's wife as a real client. It doubles as a practice run for a future software company, so the stack choices (build-your-own auth, Prisma, Docker from day one) are deliberately pedagogical — do not replace them with hosted equivalents (Auth0/Clerk/Firebase Auth are explicitly out).
 
-The full scope, data model rationale, phased plan, and locked product decisions live in `docs/tech-roadmap.md`. Read it before making non-trivial changes — it's the source of truth for "why is it this way." `docs/discovery-with-client.md` has the raw client discovery notes.
+The full scope, data model rationale, phased plan, and locked product decisions live in `docs/tech-roadmap.md`. Read it before making non-trivial changes — it's the source of truth for "why is it this way." `docs/client/discovery-with-client.md` has the raw client discovery notes.
 
-As of the current commit the repo is at the end of **Phase 1 (scaffold)**: Docker Compose stack, Prisma schema + seed, Express health endpoint, and a placeholder Vite/React page. No routes, controllers, services, middleware, or frontend pages have been implemented yet — those directories have not been created yet (only `server/src/config/` and `server/src/db/` exist today).
+As of the current commit the repo is at the end of **Phase 1 (scaffold)**: Docker Compose stack, Prisma schema + seed, Express health endpoint, and a placeholder Vite/React page. No routes, controllers, services, middleware, or frontend pages have been implemented yet — those directories are scaffolded but empty.
 
 ## Common commands
 
