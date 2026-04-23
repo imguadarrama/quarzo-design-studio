@@ -133,24 +133,10 @@ GitHub → Actions → **Deploy Production** → Run workflow → type `ship` �
 - `curl https://quarzo-api.fly.dev/api/health` returns `{"ok":true}`.
 - `https://quarzo.pages.dev` loads the site with your string change.
 
-### Step 8 — Turn on monitoring (30 minutes total)
-1. **Fly alerts** — https://fly.io/dashboard → click `quarzo-api` → Monitoring → Alerts → add these four, destination = your email:
-   - CPU > 70% for 5 min
-   - Memory > 80% for 5 min
-   - p95 latency > 800 ms for 5 min
-   - Healthcheck failures > 3 consecutive
-   
-   Repeat for `quarzo-api-staging`.
-
-2. **UptimeRobot** — https://uptimerobot.com (free account) → Add New Monitor → HTTP(S) → URL `https://quarzo-api.fly.dev/api/health` → 5 min interval → alert contact = your email.
-
-3. **Status pages** — subscribe to email/RSS alerts at:
-   - https://status.fly.io
-   - https://neon.tech/status
-   - https://www.cloudflarestatus.com
-
-### Step 9 — Tick Phase 1.5 off the roadmap
+### Step 8 — Tick Phase 1.5 off the roadmap
 Open `docs/tech-roadmap.md`, find the Phase 1.5 section, check off each item. Phase 1.5 done — you're ready to start Phase 2 feature work, with every PR getting its own staging URL automatically.
+
+> Monitoring (Fly alerts + UptimeRobot ping + provider status pages) lives in `deploy-setup.md` §11 and is wired up in **Phase 7** before public launch, not now. Pre-launch alerts fire on noise; skip until there's real traffic to monitor.
 
 ---
 

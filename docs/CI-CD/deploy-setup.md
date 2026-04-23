@@ -291,7 +291,7 @@ Run these only after buying the GoDaddy domain.
 
 ## 11. Monitoring
 
-Wire these in Phase 1.5, not later. At ~10 orders/week and a solo operator, the question isn't "is observability beautiful" — it's "will I notice before the client does." These four things answer that for ~$0/mo.
+Wire these in Phase 7, before public launch. Skipped earlier because pre-launch prod has no traffic — alerts would fire on noise and an external uptime ping would only confirm Fly is up, which isn't a question anyone's asking yet. Once the site is serving real customers (~10 orders/week, solo operator), the question flips to "will I notice before the client does." These four things answer that for ~$0/mo.
 
 ### 11.1 Fly.io dashboard metrics (built in)
 Already available on every Fly app at no extra cost:
