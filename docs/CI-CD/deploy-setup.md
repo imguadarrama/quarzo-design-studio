@@ -107,46 +107,16 @@ GitHub → repo Settings → Environments → **New environment**:
 
 ## 5. Repo changes
 
-### 5.1 `server/Dockerfile` — convert to multi-stage
+### 5.1 `server/Dockerfile` — multi-stage
 
-Named stages so `docker-compose` can still target `dev`:
+File: [`../../server/Dockerfile`](../../server/Dockerfile).
 
-```dockerfile
-# syntax=docker/dockerfile:1.7
-FROM node:22-alpine AS base
-RUN apk add --no-cache openssl libc6-compat
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
-WORKDIR /app
+Named stages so one file serves both dev and prod:
 
-FROM base AS dev
-# used by docker-compose.yml with target: dev
-CMD ["pnpm", "--filter", "server", "dev"]
+- **`dev`** — targeted by `docker-compose.yml` (`target: dev`). Self-contained so the container boots without a follow-up install; compose volumes overlay `server/` for hot reload.
+- **`deps` → `build` → `runtime`** — the prod chain. `flyctl deploy` targets `runtime` via `fly.toml`'s `build-target = "runtime"`. The final image is `node:22-alpine` + `dist/` + pruned prod `node_modules` + `prisma/` — no pnpm, no source.
 
-FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY server/package.json ./server/
-RUN pnpm install --frozen-lockfile --filter server
-
-FROM base AS build
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/server/node_modules ./server/node_modules
-COPY server ./server
-COPY tsconfig.base.json ./
-RUN pnpm --filter server exec prisma generate
-RUN pnpm --filter server build
-RUN pnpm --filter server deploy --prod /app/prod-server
-
-FROM node:22-alpine AS runtime
-RUN apk add --no-cache openssl libc6-compat
-WORKDIR /app
-COPY --from=build /app/prod-server/node_modules ./node_modules
-COPY --from=build /app/server/dist ./dist
-COPY --from=build /app/server/prisma ./prisma
-USER node
-ENV NODE_ENV=production
-EXPOSE 3000
-CMD ["node", "dist/index.js"]
-```
+See the file's stage comments for implementation details.
 
 ### 5.2 `docker-compose.yml` — pin dev target
 On the `api` service, change:
@@ -181,41 +151,15 @@ export const apiFetch = (path: string, init?: RequestInit) =>
 ```
 Empty string in dev → Vite proxy handles it. Absolute URL in staging/prod → direct cross-origin call.
 
-### 5.6 `fly.toml` (prod) and `fly.staging.toml` — new files at repo root
+### 5.6 `fly.toml` (prod) and `fly.staging.toml` — at repo root
 
-**`fly.toml`:**
-```toml
-app = "quarzo-api"
-primary_region = "dfw"  # Dallas — closest active Fly region to Saltillo (qro was deprecated 2026)
+Files: [`../../fly.toml`](../../fly.toml), [`../../fly.staging.toml`](../../fly.staging.toml).
 
-[build]
-  dockerfile = "server/Dockerfile"
-  build-target = "runtime"
+Both apps run `shared-cpu-1x` 256 MB in `dfw` (Dallas — closest active Fly region to Saltillo after `qro` was deprecated in 2026). Healthcheck is `GET /api/health`. Both configs point at `server/Dockerfile` with `build-target = "runtime"`.
 
-[http_service]
-  internal_port = 3000
-  force_https = true
-  auto_stop_machines = false
-  auto_start_machines = true
-  min_machines_running = 1
+**Pre-launch sizing.** `memory_mb = 256` fits Fly's Hobby free allowance — prod is currently a demo URL for the client, not a serving workload. Before public launch, bump prod to `512` (see Phase 7 in `tech-roadmap.md`). Expected cost change at that point: $0 → ~$1.94/mo.
 
-  [[http_service.checks]]
-    grace_period = "10s"
-    interval = "30s"
-    method = "GET"
-    path = "/api/health"
-    protocol = "http"
-    timeout = "5s"
-
-[[vm]]
-  cpu_kind = "shared"
-  cpus = 1
-  memory_mb = 256
-```
-
-**Pre-launch sizing.** `memory_mb = 256` is the pre-launch value — prod is currently a demo URL for the client, not a serving workload. Before public launch, change this to `512` (see Phase 7 in `tech-roadmap.md`).
-
-**`fly.staging.toml`:** same as prod, but `app = "quarzo-api-staging"`. Keep `min_machines_running = 1` and `auto_stop_machines = false` — **staging must stay always-on** so MercadoPago webhooks don't hit a cold machine (see §1). Both 256 MB machines (staging + prod) fit within Fly's Hobby free allowance at **$0/mo** total.
+**Staging always-on.** `fly.staging.toml` keeps `min_machines_running = 1` and `auto_stop_machines = false`. MercadoPago webhooks time out at ~15s but a cold Fly machine wakes in ~30s — a sleeping staging would silently hide MP integration bugs. Staging stays up. See §1.
 
 ### 5.7 `.node-version` — new file at repo root
 ```
