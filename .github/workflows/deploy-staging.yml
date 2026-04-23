@@ -8,6 +8,14 @@ concurrency:
   group: staging-pr-${{ github.event.number }}
   cancel-in-progress: true
 
+# The default GITHUB_TOKEN for PRs from the same repo is read-only in many
+# private-repo setups; the "Comment preview URL on PR" step needs write
+# access to post an issue comment. `contents: read` keeps checkout working.
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   deploy:
     if: github.event.pull_request.draft == false

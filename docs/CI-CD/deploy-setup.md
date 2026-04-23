@@ -273,6 +273,13 @@ concurrency:
   group: staging-pr-${{ github.event.number }}
   cancel-in-progress: true
 
+# Needed for the "Comment preview URL on PR" step — GITHUB_TOKEN is
+# read-only by default in many private-repo setups.
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 jobs:
   deploy:
     if: github.event.pull_request.draft == false
