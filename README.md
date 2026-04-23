@@ -131,4 +131,4 @@ Never read `process.env.*` directly from app code — import `env` from `server/
 - [`CLAUDE.md`](CLAUDE.md) — architecture conventions, auth model, data-model invariants, coding rules.
 - [`docs/tech-roadmap.md`](docs/tech-roadmap.md) — full scope, phased plan, and locked product decisions (source of truth for "why is it this way").
 - [`docs/client/discovery-with-client.md`](docs/client/discovery-with-client.md) — raw client discovery notes.
-- [`.env.example`](.env.example) — canonical template for local `.env`.
+- [`.env.example`](.env.example) — canonical template for local `.env`..
