@@ -54,7 +54,7 @@ pnpm seed
 Smoke-check:
 
 - Web: http://localhost:5173 should load the Vite placeholder page.
-- API health: http://localhost:3000/health should return OK.
+- API health: http://localhost:3000/api/health should return `{"ok":true}`.
 
 ---
 
@@ -77,7 +77,7 @@ Hot reload is already wired: the `api` service runs `tsx watch` and the `web` se
 | Port | Service | Notes |
 |---|---|---|
 | `5173` | Vite dev server (`web`) | Frontend. Proxies `/api/*` → `api:3000` (see `client/vite.config.ts`), so the browser calls same-origin `/api/...` |
-| `3000` | Express API (`api`) | `GET /health` available; other routes land in Phase 2 |
+| `3000` | Express API (`api`) | `GET /api/health` available; other routes land in Phase 2 |
 | `5432` | Postgres 16 (`db`) | Exposed on localhost so you can connect with TablePlus / DBeaver / `psql` |
 
 ---
@@ -103,6 +103,7 @@ All variables live in `.env` at the repo root. `docker-compose.yml` reads it and
 |---|---|
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Credentials the `db` container boots with |
 | `DATABASE_URL` | Prisma connection string — must match the Postgres vars above; host is `db` (the Compose service name) |
+| `APP_ENV` | Deploy-env signal used by app code (`development` \| `staging` \| `production`). Separate from `NODE_ENV`, which stays `production` in both staging and prod deploys so libraries behave correctly |
 | `PORT` | Port the Express API listens on (default `3000`) |
 | `CLIENT_ORIGIN` | Origin allowed by CORS, used for cookie `SameSite` handling (default `http://localhost:5173`) |
 | `COOKIE_DOMAIN` | Domain scope for the auth cookie (default `localhost`) |
