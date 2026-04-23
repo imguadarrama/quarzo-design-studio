@@ -226,254 +226,39 @@ primary_region = "dfw"  # Dallas — closest active Fly region to Saltillo (qro 
 
 ## 6. GitHub Actions workflows
 
-All four go under `.github/workflows/`.
+Four workflows under `.github/workflows/`. **The YAML files themselves are the source of truth** — this section describes *when each runs and why*, not *how*. Read the file + its inline comments for implementation. For an operator's narrative of what happens during a deploy, see [`deploy-quickstart.md`](./deploy-quickstart.md).
 
-### 6.1 `ci.yml`
-```yaml
-name: CI
-on:
-  push:
-    branches: [main]
+### 6.1 `ci.yml` — post-merge tripwire on `main`
 
-concurrency:
-  group: ci-main
-  cancel-in-progress: true
+File: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 9.12.0 }
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter server exec prisma generate
-      - run: pnpm --filter server exec tsc --noEmit
-      - run: pnpm --filter client exec tsc -b --noEmit
-      - run: pnpm --filter server build
-      - run: pnpm --filter client build
-```
+Runs on `push: main` only — not on PRs. Typechecks + builds both packages as a sanity check after merge.
 
-**Why CI doesn't run on PRs.** `deploy-staging.yml` already builds both packages (Fly Docker build runs `tsc` via `pnpm --filter server build`; the client's build script is `tsc -b && vite build`), so every type error `ci.yml` would catch is also caught during the staging deploy. Running both on every PR doubled install + `prisma generate` + build work for no new signal. CI on `main` acts as a post-merge tripwire, cheap to run (~2–3 min once per merge).
+**Why CI doesn't run on PRs.** `deploy-staging.yml`'s Fly Docker build runs `tsc` (via `pnpm --filter server build`), and the client's build script is `tsc -b && vite build` — so every type error `ci.yml` would catch is also caught during the staging deploy. Running both on every PR doubled install + build work for no new signal.
 
 Enable branch protection on `main` when the repo goes public: Settings → Branches → Add rule → require `build` status check, require PR, disallow direct pushes. (Paywalled on private repos — skip until public.)
 
-### 6.2 `deploy-staging.yml`
-```yaml
-name: Deploy Staging
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '.gitignore'
+### 6.2 `deploy-staging.yml` — per-PR preview
 
-concurrency:
-  group: staging-pr-${{ github.event.number }}
-  cancel-in-progress: true
+File: [`.github/workflows/deploy-staging.yml`](../../.github/workflows/deploy-staging.yml).
 
-# Needed for the "Comment preview URL on PR" step — GITHUB_TOKEN is
-# read-only by default in many private-repo setups.
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
+Triggered on `pull_request` (opened / synchronize / reopened). Skipped for docs-only PRs via `paths-ignore` (`**/*.md`, `docs/**`, `.gitignore`). Concurrency cancels in-flight runs when you push again to the same PR.
 
-jobs:
-  deploy:
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - uses: actions/checkout@v4
+Creates a per-PR Neon branch, deploys API to Fly staging, deploys client to Cloudflare Pages (preview), and comments two URLs back on the PR: the stable branch-alias URL (`pr-<N>.<project>.pages.dev` — always the latest build for this PR) and the per-commit URL (immutable, good for debugging a specific build).
 
-      - name: Create Neon branch
-        id: neon
-        uses: neondatabase/create-branch-action@v6
-        with:
-          project_id: ${{ secrets.NEON_PROJECT_ID_STAGING }}
-          branch_name: pr-${{ github.event.number }}
-          api_key: ${{ secrets.NEON_API_KEY }}
+### 6.3 `deploy-production.yml` — manual release
 
-      - uses: pnpm/action-setup@v4
-        with: { version: 9.12.0 }
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter server exec prisma generate    # seed.ts imports the generated client at runtime
+File: [`.github/workflows/deploy-production.yml`](../../.github/workflows/deploy-production.yml).
 
-      - name: Run migrations on PR branch
-        # Prisma CLI uses DATABASE_URL; seed.ts reads ADMIN_EMAIL/ADMIN_PASSWORD
-        # from process.env directly. The full env set still goes to Fly at
-        # deploy time below — don't carry it here.
-        env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL_STAGING }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_STAGING }}
-        run: |
-          pnpm --filter server exec prisma migrate deploy
-          pnpm --filter server seed    # not `pnpm seed` — that shells into docker compose exec
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy API to Fly staging
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          flyctl secrets set -a ${{ secrets.FLY_APP_STAGING }} \
-            DATABASE_URL="${{ steps.neon.outputs.db_url_pooled }}" \
-            JWT_SECRET="${{ secrets.JWT_SECRET_STAGING }}" \
-            ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL_STAGING }}" \
-            ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD_STAGING }}" \
-            CLIENT_ORIGIN="${{ secrets.CLIENT_ORIGIN_STAGING }}" \
-            COOKIE_DOMAIN="" \
-            APP_ENV="staging" \
-            NODE_ENV="production"
-          flyctl deploy -a ${{ secrets.FLY_APP_STAGING }} -c fly.staging.toml --remote-only
-
-      - name: Build client
-        env:
-          VITE_API_BASE_URL: https://${{ secrets.FLY_APP_STAGING }}.fly.dev
-        run: pnpm --filter client build
-
-      - name: Deploy client to Cloudflare Pages (preview)
-        uses: cloudflare/pages-action@v1
-        id: pages
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_STAGING }}
-          directory: client/dist
-          branch: pr-${{ github.event.number }}
-
-      - name: Comment preview URL on PR
-        # `alias` = stable branch URL (pr-<N>.<project>.pages.dev) — always
-        # the latest build for this PR, the one to share.
-        # `url`   = per-commit immutable URL — useful for debugging a specific build.
-        uses: actions/github-script@v7
-        env:
-          PAGES_ALIAS: ${{ steps.pages.outputs.alias }}
-          PAGES_URL: ${{ steps.pages.outputs.url }}
-          FLY_APP: ${{ secrets.FLY_APP_STAGING }}
-          CF_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_STAGING }}
-        with:
-          script: |
-            const { PAGES_ALIAS, PAGES_URL, FLY_APP, CF_PROJECT } = process.env;
-            const stable = PAGES_ALIAS || `https://pr-${context.issue.number}.${CF_PROJECT}.pages.dev`;
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: [
-                '**Staging deployed**',
-                `- Web (stable, always latest): ${stable}`,
-                `- Web (this commit): ${PAGES_URL}`,
-                `- API: https://${FLY_APP}.fly.dev/api/health`,
-              ].join('\n')
-            })
-```
-
-### 6.3 `deploy-production.yml`
-```yaml
-name: Deploy Production
-on:
-  workflow_dispatch:
-    inputs:
-      confirm:
-        description: 'Type "ship" to confirm production deploy'
-        required: true
-
-# The "Tag release" step at the bottom pushes a release-<timestamp> tag
-# back to origin. Default GITHUB_TOKEN is read-only — grant contents: write.
-permissions:
-  contents: write
-
-jobs:
-  deploy:
-    if: inputs.confirm == 'ship'
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - uses: pnpm/action-setup@v4
-        with: { version: 9.12.0 }
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter server exec prisma generate
-
-      - name: Migrate production DB
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
-        run: pnpm --filter server exec prisma migrate deploy
-
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-      - name: Deploy API to Fly prod
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: |
-          flyctl secrets set -a ${{ secrets.FLY_APP_PROD }} \
-            DATABASE_URL="${{ secrets.DATABASE_URL_PROD }}" \
-            JWT_SECRET="${{ secrets.JWT_SECRET_PROD }}" \
-            ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL_PROD }}" \
-            ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD_PROD }}" \
-            CLIENT_ORIGIN="${{ secrets.CLIENT_ORIGIN_PROD }}" \
-            COOKIE_DOMAIN="${{ secrets.COOKIE_DOMAIN_PROD }}" \
-            APP_ENV="production" \
-            NODE_ENV="production"
-          flyctl deploy -a ${{ secrets.FLY_APP_PROD }} -c fly.toml --remote-only
-
-      - name: Build client for prod
-        env:
-          VITE_API_BASE_URL: https://${{ secrets.FLY_APP_PROD }}.fly.dev
-        run: pnpm --filter client build
-
-      - name: Deploy client to Cloudflare Pages (prod)
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_PROD }}
-          directory: client/dist
-          branch: main
-
-      - name: Tag release
-        run: |
-          TAG="release-$(date -u +%Y%m%d-%H%M)"
-          git tag "$TAG"
-          git push origin "$TAG"
-```
+`workflow_dispatch` only — you must click the button and type `ship` in the confirmation input. Runs prod migrations, deploys API to Fly prod, deploys client to Cloudflare Pages prod, and tags the commit `release-<utc-stamp>`.
 
 **How to deploy production:** GitHub → Actions tab → "Deploy Production" → Run workflow → type `ship` → Run. That's the weekly release ritual.
 
-### 6.4 `cleanup-staging.yml`
-```yaml
-name: Cleanup Staging
-on:
-  pull_request:
-    types: [closed]
+### 6.4 `cleanup-staging.yml` — per-PR Neon cleanup
 
-jobs:
-  cleanup:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: neondatabase/delete-branch-action@v3
-        with:
-          project_id: ${{ secrets.NEON_PROJECT_ID_STAGING }}
-          branch: pr-${{ github.event.number }}
-          api_key: ${{ secrets.NEON_API_KEY }}
-```
+File: [`.github/workflows/cleanup-staging.yml`](../../.github/workflows/cleanup-staging.yml).
+
+Triggered on `pull_request: closed`. Deletes the `pr-<number>` Neon branch that `deploy-staging.yml` created, regardless of whether the PR was merged or abandoned.
 
 ---
 
