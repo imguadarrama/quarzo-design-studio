@@ -14,7 +14,7 @@ The user's stated goal: *"track what I've done, what I'm doing, and what I need 
 Trigger phrases: "audit my docs", "check if docs are updated", "verify progress", "what phase am I on", "sync docs", "what's next", "are docs still accurate".
 
 Also appropriate:
-- After finishing a phase from `docs/tech-roadmap.md` §8.
+- After finishing a phase from `docs/tech-roadmap.md` §10 "Delivery phases".
 - After a non-trivial commit or branch merge into `main`.
 - Before starting a new phase — to confirm the previous one is really done.
 
@@ -24,8 +24,8 @@ Read these every invocation:
 
 1. `README.md` (repo root) — dev onboarding, commands, ports, env table, troubleshooting.
 2. `CLAUDE.md` (repo root) — architecture conventions and invariants.
-3. `docs/tech-roadmap.md` — phased plan, scope, data model, open decisions.
-4. Every `*.md` under `docs/**` (currently `docs/CI-CD/deploy-setup.md`, `docs/client/discovery-with-client.md` — adapt to whatever exists).
+3. `docs/tech-roadmap.md` — the product PRD: business, scope, constraints, customer flows, open decisions, delivery phases. Data model + architecture + auth mechanics are delegated to `CLAUDE.md` and `server/prisma/schema.prisma`.
+4. Every `*.md` under `docs/**` (currently `docs/CI-CD/deploy-setup.md`, `docs/CI-CD/deploy-quickstart.md`, `docs/client/discovery-with-client.md` — adapt to whatever exists).
 
 Also read (to ground truth):
 
@@ -43,7 +43,7 @@ Also read (to ground truth):
 Run these in order. For each, emit either "OK" or a specific finding with file:line.
 
 ### 1. Phase progress vs. reality
-For each checkbox in `docs/tech-roadmap.md` §8, check whether the work actually exists in the repo. Examples:
+For each checkbox in `docs/tech-roadmap.md` §10 "Delivery phases", check whether the work actually exists in the repo. Examples:
 
 - **Phase 1** — Docker Compose has `db`/`api`/`web`? `server/prisma/schema.prisma` has all models? First migration committed under `server/prisma/migrations/`? `server/prisma/seed.ts` exists?
 - **Phase 2** — `server/src/routes/` has a products route? `server/src/middleware/requireAdmin.ts` exists? `client/src/pages/` has Catalog + ProductDetail?
@@ -79,10 +79,10 @@ Flag vars missing from either side, and vars validated/documented but not in `.e
 - Report uncommitted changes (just list, don't act).
 - If the current branch is `main`, note that any audit-proposed edits will be committed directly — ask before writing.
 
-### 7. Open decisions status (`docs/tech-roadmap.md` §3)
+### 7. Open decisions status (`docs/tech-roadmap.md` §7)
 For each open decision, check for evidence it's been closed:
 
-- **Domain name** → is a concrete domain referenced in `deploy-setup.md` or `.env`? If yes, propose updating §3.
+- **Domain name** → is a concrete domain referenced in `deploy-setup.md` or `.env`? If yes, propose updating §7.
 - **Transactional email provider** → is a specific provider (Resend / Brevo / SES) referenced in code or deps?
 - Same pattern for CFDI, return policy, shipping table, categorization.
 

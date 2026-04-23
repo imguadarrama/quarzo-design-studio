@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Quarzo Design Studio is a custom-stationery e-commerce store (Saltillo, Coahuila; Spanish copy, MXN payments) built for the owner's wife as a real client. It doubles as a practice run for a future software company, so the stack choices (build-your-own auth, Prisma, Docker from day one) are deliberately pedagogical — do not replace them with hosted equivalents (Auth0/Clerk/Firebase Auth are explicitly out).
 
-The full scope, data model rationale, phased plan, and locked product decisions live in `docs/tech-roadmap.md`. Read it before making non-trivial changes — it's the source of truth for "why is it this way." `docs/client/discovery-with-client.md` has the raw client discovery notes.
+The full scope, customer flows, phased plan, and locked product decisions live in `docs/tech-roadmap.md` (the PRD). Read it before making non-trivial changes — it's the source of truth for "what are we building and why." Data-model invariants, architecture, and code conventions live in this file. `docs/client/discovery-with-client.md` has the raw client discovery notes.
 
-As of the current commit the repo is at the end of **Phase 1 (scaffold)**: Docker Compose stack, Prisma schema + seed, Express health endpoint, and a placeholder Vite/React page. No routes, controllers, services, middleware, or frontend pages have been implemented yet — those directories are scaffolded but empty.
+As of the current commit the repo is at the end of **Phase 1.5 (skeleton deployed)**: Docker Compose stack, Prisma schema + seed, Express health endpoint, placeholder Vite/React page, and the full staging/prod CI-CD pipeline (Fly.io + Cloudflare Pages + Neon). No routes, controllers, services, middleware, or frontend pages have been implemented yet — those directories are scaffolded but empty.
 
 ## Common commands
 
@@ -60,7 +60,7 @@ pnpm workspaces with two packages: `server/` (Express + Prisma) and `client/` (V
 
 ### Server
 
-Target shape (from `docs/tech-roadmap.md` §6 — dirs scaffolded, mostly empty):
+Target shape (dirs scaffolded, mostly empty):
 
 ```
 server/src/
@@ -85,7 +85,7 @@ Two separate principals sharing one cookie mechanism:
 - **Customer auth**: `Customer` table, optional (`passwordHash` is nullable — guests allowed). Endpoints `POST /api/auth/{register,login,logout}`, `GET /api/auth/me`. Registration must never be required to complete a purchase.
 - **Admin auth**: `AdminUser` table, single seeded user, separate `/admin/login`. Gate all `/api/admin/*` with a `requireAdmin` middleware that checks the JWT's `role` claim.
 
-Both use **JWT in an HTTP-only cookie** (not `localStorage` — XSS hardening) and `bcrypt` cost 12. See roadmap §4 for the full three-path checkout flow (guest → optional post-purchase account → returning login).
+Both use **JWT in an HTTP-only cookie** (not `localStorage` — XSS hardening) and `bcrypt` cost 12. See `docs/tech-roadmap.md` §8 for the full three-path checkout flow (guest → optional post-purchase account → returning login).
 
 ### Data model invariants (`server/prisma/schema.prisma`)
 

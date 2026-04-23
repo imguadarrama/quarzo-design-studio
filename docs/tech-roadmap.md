@@ -1,182 +1,149 @@
-# Wife's E-Commerce Store — Project Brief & Tech Roadmap
+# Quarzo Design Studio — Product Requirements (v1)
 
-> **Purpose of this document:** complete handoff context for this project. A new engineer (human or agent) should be able to read this file and understand the business, the scope, the architecture, and the starting point for building.
+> **What this is:** the PRD for Quarzo's v1 store — business, users, scope, flows, open decisions, and delivery phases.
+>
+> **What it is not:** an architecture doc or a deploy runbook. Those live elsewhere:
+> - Architecture, code conventions, auth model, data model invariants → [`../CLAUDE.md`](../CLAUDE.md)
+> - Authoritative data model → [`../server/prisma/schema.prisma`](../server/prisma/schema.prisma)
+> - Deploy pipeline → [`CI-CD/deploy-setup.md`](CI-CD/deploy-setup.md)
+> - Raw client discovery notes → [`client/discovery-with-client.md`](client/discovery-with-client.md)
 
 ---
 
-## 1. Project context
+## 1. Summary
 
-### Client
-**Relationship:** user's wife. Functions as a real client for this engagement (discovery, scope, build, deploy, handoff) — this is a deliberate practice run for the user's software company.
+Quarzo Design Studio is a custom-stationery (papelería personalizada) e-commerce store for Saltillo-based entrepreneurs, small businesses, and moms. It replaces a DM-driven sales process so the owner (the builder's wife) reclaims the time she currently spends answering repetitive "tell me about your products" messages on Instagram.
 
-### Business
-**What:** papelería personalizada (custom stationery).
+The project also doubles as a deliberate practice run for a future PERN-stack software company. Stack choices (build-your-own auth, Prisma, Docker from day one) are pedagogical and will not be swapped for hosted equivalents.
 
-**Products for v1 catalog:**
+---
+
+## 2. Business context
+
+**Client.** The user's wife. Functions as a real client for this engagement: discovery → scope → build → deploy → handoff.
+
+**Business.** Papelería personalizada — custom stationery printed to order. v1 catalog:
 - Sobres (envelopes)
 - Stickers
 - Etiquetas de vino (wine labels)
 - Tarjetas de regalo (gift cards)
 
-**Target customers:**
+**Differentiator.** Material quality, attention to detail, close service through the purchase.
+
+**Location & language.** Saltillo, Coahuila, Mexico. All copy in Spanish (Mexico). All payments in MXN.
+
+**Customers.**
 - Emprendedores (solo entrepreneurs)
 - Negocios formales (formal businesses)
 - Mujeres, principalmente mamás
 
-**Differentiator:** material quality, attention to detail, and close customer service throughout the purchase process.
+**Traffic source.** ~4,000 Instagram followers → DM → WhatsApp. Zero customers have ever asked for a website. The recurring question is *"show me your portfolio."*
 
-**Location:** Saltillo, Coahuila, Mexico. All content in Spanish. All payments in MXN.
+---
 
-### Current sales channel
-- ~4,000 Instagram followers → primary entry point
-- Instagram DMs redirect to WhatsApp because the current catalog is a PDF that doesn't display well in IG
-- Zero customers have ever asked for a website; the frequent question is "show me your portfolio"
-- 100% of sales flow through manual DM conversation today
+## 3. Current sales flow & pain
 
-### Current sales flow (the pain we're replacing)
-1. Customer DMs Instagram or WhatsApp asking for information
-2. Client (wife) sends product info
-3. Customer picks print type (foil or color)
+Today every sale is a manual DM loop:
+
+1. Customer DMs Instagram or WhatsApp
+2. Client sends product info
+3. Customer picks print type (foil / color)
 4. Customer states quantity
-5. Client quotes total and requests 50% deposit to schedule the order
+5. Client quotes total, requests 50% deposit
 6. Client sends catalog PDF → customer picks design
-7. Customer sends the personalization text (e.g., name for the envelope)
-8. Delivery date is agreed
+7. Customer sends personalization text (e.g., name for envelope)
+8. Delivery date agreed
 9. Pickup in Saltillo, or national shipping with remaining balance + carrier fee
 
-**Primary pain point:** time spent answering repetitive info-request DMs.
-
-### Success criterion (6 months post-launch)
-The site succeeds if it **automates the sales process** — specifically the "give me information" step — so the client reclaims operational time. Revenue is secondary to time recovery.
+**Primary pain point:** steps 2–4. The "give me information" DM loop consumes hours per week.
 
 ---
 
-## 2. Core product constraints (non-negotiable)
+## 4. Goals & success criterion
 
-These shape the architecture. They were confirmed in discovery.
+**6 months post-launch**, the site succeeds if it **automates the "give me information" step** so the client reclaims operational time.
 
-1. **Customers pick designs from the catalog. They do NOT customize the design.** They only customize the text (name, message). This keeps the product simple and the operation lean — the store must preserve this.
-2. **Every order line item carries personalization text.** Two orders for the same SKU are not identical. The data model must store the customer-supplied text per line item.
-3. **Small scale:** up to ~10 orders/week, packed manually by the client. The admin UX must be efficient for one person doing everything.
-4. **Catalog is small and slow-moving:** <20 SKUs, refreshed roughly every 6 months, managed by the client via the admin panel.
-5. **~3 variants per product on average** (typically print type: foil vs color, but can be size/material).
+Revenue growth is a secondary goal. Time recovery is primary.
+
+---
+
+## 5. Core product constraints (non-negotiable)
+
+Confirmed during discovery. These shape the product and are not open for re-litigation without going back to the client.
+
+1. **Customers pick designs from the catalog. They do NOT customize the design.** They customize only the text (name, message). This keeps operations lean — the store must preserve this.
+2. **Every order line item carries personalization text.** Two orders for the same SKU are not identical.
+3. **Small scale:** up to ~10 orders/week, packed manually by one person. Admin UX must be efficient for a single operator.
+4. **Catalog is small and slow-moving:** <20 SKUs, refreshed ~every 6 months, managed by the client via the admin panel.
+5. **~3 variants per product on average** — typically print type (foil vs color), occasionally size/material.
 6. **Product photos exist** and are ready to upload.
-7. **Must-have on day one:** a browsable catalog / portfolio page. If nothing else works, this must.
+7. **Browsable catalog / portfolio page is day-one non-negotiable.** If only one thing ships, it's this.
 
 ---
 
-## 3. Scope for v1 (locked)
+## 6. Scope — v1
 
 ### In scope
 - Public catalog (list + detail)
-- Product detail with variant selection + **personalization text field per item**
-- Shopping cart (guest-first; localStorage for guests, DB if user creates account)
+- Product detail with variant selection + personalization text per item
+- Shopping cart (guest-first; `localStorage` for guests, DB once a user creates an account)
 - Checkout with two payment paths:
-  - **MercadoPago** (card, Oxxo, SPEI) — handled via webhook
-  - **Bank transfer** (order marked pending until client manually confirms receipt in admin)
-- Shipping logic:
-  - National (Mexico) — fee by package size, default package 25×30 cm envelope
-  - Pickup option — Saltillo, Coahuila only
-- Order confirmation email (customer) and order notification email (admin)
-- **Guest checkout by default** (see §4)
-- **Optional** account creation post-purchase (see §4)
+  - **MercadoPago** (card, Oxxo, SPEI) — webhook-confirmed
+  - **Bank transfer** — order stays pending until admin manually confirms
+- Shipping:
+  - National (Mexico) — fee by package size, default 25×30 cm envelope
+  - Pickup — Saltillo, Coahuila only
+- Order confirmation email (customer) + order alert email (admin)
+- **Guest checkout by default** (see §8)
+- **Optional** account creation post-purchase
 - Customer account area (when opted in): order history
-- Admin panel:
-  - Admin login (separate from customer auth)
-  - CRUD products + variants + images
-  - Order list with status updates (pendiente → pagado → enviado → entregado)
-  - Bank-transfer orders: manual "confirm payment received" action
-  - Inventory per variant (stock decreases on paid order; shows "agotado" at 0)
-- Mobile responsive (primary device: phone, since traffic comes from IG)
-- All copy in Spanish (Mexico)
+- Admin panel: login, product/variant/image CRUD, order list with status transitions, manual bank-transfer confirmation, per-variant inventory
+- Mobile responsive (primary device: phone — traffic comes from IG)
+- Spanish (Mexico) copy throughout
 
-### Out of v1 — reserved for v2
+### Deferred to v2
 - **Digital custom designs** (diseños digitales personalizados)
-- **Digital invitations with categorized templates** (principally children's invitations) where the customer changes variables: character, colors, and data. This is the client's top v2 priority.
+- **Digital invitations with categorized templates** (children's invitations primarily) where the customer picks a template and changes variables: character, colors, data. **Top client priority for v2.**
 - Discount codes
 - Customer saved addresses
 - Multi-address shipping
 - Wholesale / B2B pricing
 - Subscriptions
 
-### Open decisions (must close before coding)
-These came up or were deliberately deferred; lock them before Phase 2.
+---
+
+## 7. Open decisions
+
+Must close before Phase 2 coding begins:
+
 - **CFDI / facturación:** does the client need to issue tax invoices? If yes, this is a real v1 feature (PAC integration), not a checkbox.
-- **Return/refund policy:** what does the site show, and what does admin need to handle?
+- **Return/refund policy:** what the site displays, and what admin handles.
 - **Shipping rate table:** exact prices per size/zone. The client pays by size today — we need the actual numbers.
-- **Product categorization scheme:** flat list vs. categories (Sobres / Stickers / Etiquetas / Tarjetas)?
-- **Domain name:** to be decided.
-- **Transactional email provider:** SMTP service for order emails (Resend / Brevo / AWS SES).
+- **Product categorization:** flat list vs. categories (Sobres / Stickers / Etiquetas / Tarjetas).
+- **Domain name:** TBD (GoDaddy).
+- **Transactional email provider:** Resend, Brevo, or AWS SES.
 
 ---
 
-## 4. Authentication & accounts (critical design decision)
+## 8. Customer journeys
 
-**Principle:** minimize friction for first-time buyers. Most traffic comes from Instagram and may buy once without caring about accounts. Registration must NEVER be required to complete a purchase.
-
-### Customer auth — the three paths
-
-#### Path A: Guest checkout (default, zero friction)
-1. Customer adds items to cart (cart held in `localStorage`)
-2. Clicks "Comprar"
-3. Checkout form asks for: email, full name, phone, shipping address (or selects pickup), payment method
-4. Customer pays (MercadoPago) or submits bank-transfer order
-5. Receives order confirmation email with order number + tracking link (public URL with unguessable order token)
-6. Done. No password. No account. No login.
-
-#### Path B: Optional account creation post-purchase
-On the order confirmation screen, show a prompt:
-> **"¿Quieres guardar tus datos para la próxima vez?"**
-> One-click account creation using the email already provided. Customer sets a password inline (or receives a magic-link email to set one).
-
-If they opt in, the existing order is linked to the new customer account automatically.
-
-#### Path C: Returning customer logs in before checkout
-Login form on the checkout page (or in the header). Once logged in:
-- Shipping info auto-fills from last order
-- Past orders visible in `/mi-cuenta`
-
-### Auth mechanics
-- **JWT in HTTP-only cookie** — not `localStorage` (XSS hardening)
-- Passwords hashed with `bcrypt` (cost factor 12)
-- Endpoints:
-  - `POST /api/auth/register` — create account (post-purchase or standalone)
-  - `POST /api/auth/login` — returns cookie
-  - `POST /api/auth/logout` — clears cookie
-  - `GET /api/auth/me` — current user
-- Customer table carries `role = 'customer'`; no admin role here.
-
-### Admin auth (separate)
-- Admin is the client herself — a single user
-- Seeded manually at deploy time (no public registration endpoint for admin)
-- Separate login page at `/admin/login`
-- Admin JWT carries `role = 'admin'`; middleware `requireAdmin` gates all `/api/admin/*` routes
-- Same cookie mechanism, different role claim
-
-### What NOT to do
-- Do not use Auth0 / Clerk / Firebase Auth. Build it from scratch. The point of this project is to understand how auth works end-to-end.
-- Do not force registration before checkout. Ever.
-- Do not store JWTs in `localStorage`.
-
----
-
-## 5. Customer order flow (end-to-end)
+### End-to-end purchase flow
 
 ```
 Browse catalog
     ↓
 Product detail page
-    ├── pick variant (e.g., foil | color)
-    ├── enter personalization text (free-text, required, max 80 chars)
+    ├── pick variant (foil | color)
+    ├── enter personalization text (required, max 80 chars)
     ├── pick quantity
     └── Add to cart
     ↓
 Cart page (localStorage; syncs to DB if logged in)
     ↓
 Checkout
-    ├── Shipping method: national shipping | pickup Saltillo
+    ├── Shipping method: nacional | pickup Saltillo
     ├── Shipping address (if shipping)
-    ├── Contact info (email, name, phone)
+    ├── Contact info: email, name, phone
     ├── Payment method: MercadoPago | Bank transfer
     └── Review & confirm
     ↓
@@ -189,286 +156,100 @@ Checkout
     ↓
 Order confirmation page + email (order number + public tracking link)
     ↓
-Optional: "¿Crear cuenta para la próxima vez?" → Path B (§4)
+Optional: "¿Crear cuenta para la próxima vez?"
 ```
 
----
+### Auth & accounts — the three paths (UX)
 
-## 6. Tech stack
+**Principle:** minimize friction. Most traffic is Instagram → one-time buyer. Registration must NEVER be required to complete a purchase.
 
-### Database — PostgreSQL
-Relational fit for e-commerce (products, variants, orders, order items, customers). Reinforces the "P" in PERN, which is what the company will sell to clients.
+**A. Guest checkout (default).** Customer checks out with email + contact + shipping details. Receives confirmation email with order number and public tracking URL (unguessable token). No password. No account.
 
-### ORM — Prisma
-Typed schema, migrations, fast iteration. Drop to raw SQL only for reports if needed.
+**B. Optional account creation post-purchase.** On the confirmation screen, prompt *"¿Quieres guardar tus datos para la próxima vez?"* — one-click account creation using the email already on file. The existing order links to the new account automatically.
 
-### Backend — Node.js + Express
-```
-server/
-  src/
-    routes/        → REST endpoints
-    controllers/   → Request handlers
-    services/      → Business logic (orders, payments, email)
-    db/            → Prisma client + helpers
-    middleware/    → auth, requireAdmin, errorHandler, validator
-    config/        → env loader
-    lib/           → MercadoPago SDK wrapper, mailer, etc.
-    index.ts
-  prisma/
-    schema.prisma
-    migrations/
-```
+**C. Returning customer logs in before checkout.** Shipping info auto-fills from last order; past orders visible in `/mi-cuenta`.
 
-**Libraries:** `express`, `prisma`, `@prisma/client`, `zod` (validation), `cors`, `helmet`, `cookie-parser`, `bcrypt`, `jsonwebtoken`, `nodemailer`, `mercadopago`, `dotenv`.
+**Admin is separate** — single seeded user, separate `/admin/login`, no public admin registration.
 
-### Frontend — React + Vite + Tailwind
-```
-client/
-  src/
-    pages/         → Home, Catalog, ProductDetail, Cart, Checkout,
-                     OrderConfirmation, OrderTracking, MiCuenta,
-                     Login, Admin/*
-    components/    → ProductCard, VariantSelector, PersonalizationInput,
-                     CartDrawer, Navbar, Footer, AdminLayout, …
-    hooks/         → useCart, useAuth, useProducts
-    store/         → zustand stores (cart, auth)
-    services/      → api/products.ts, api/orders.ts, api/auth.ts
-    lib/           → formatters (MXN, date), zod schemas shared w/ server
-    i18n/          → not needed for v1 (Spanish only)
-```
-**Libraries:** `react-router-dom`, `zustand`, `react-hook-form`, `zod`, `tailwindcss`, native `fetch`, `@mercadopago/sdk-react` for checkout UI.
-
-### Payments — MercadoPago
-- Use the Checkout Pro or Checkout API (server-creates-preference → client pays → webhook confirms)
-- Webhook endpoint verifies signature, updates order to `pagado`, sends confirmation email
-- Store `mp_preference_id` and `mp_payment_id` on the order for reconciliation
-
-### Containerization — Docker + Docker Compose (from day one)
-Three services in `docker-compose.yml`:
-- `db` — `postgres:16`
-- `api` — Node backend, hot-reload in dev
-- `web` — Vite dev server in dev; built + served by Nginx in prod
-
-Development environment = production environment. Don't "dockerize later."
-
-### Deployment — Cloudflare Pages + Fly.io + Neon
-Full setup runbook in [`CI-CD/deploy-setup.md`](./CI-CD/deploy-setup.md). Target total cost: **$0/mo pre-launch** (both envs fit Fly's Hobby free allowance), rising to ~$1.94/mo once prod is bumped to 512 MB at public launch — see the stack table in `deploy-setup.md` §1. Summary:
-- **Client** on Cloudflare Pages (free, unlimited bandwidth, per-PR previews, commercial-safe)
-- **Server** on Fly.io, Dallas region (`dfw`) — closest active region to Saltillo after Fly deprecated `qro` (Querétaro) in 2026. `shared-cpu-1x` 256 MB on both staging and prod while the app is pre-launch (display-only for the client, no traffic). Bump prod to 512 MB before the public launch (tracked in Phase 7)
-- **Postgres** on Neon (free tier with DB branching — each PR gets an isolated DB)
-- Same stack across staging and production so staging actually mirrors prod
-- **Staging is always-on** (`min_machines_running = 1`). MercadoPago webhooks time out (~15s) faster than a cold Fly machine wakes (~30s); a sleeping staging would silently hide MP integration bugs
-- Staging auto-deploys on PR open/sync. Production deploys are triggered manually via `workflow_dispatch` on a weekly cadence
-- Monitoring (Fly dashboard alerts + UptimeRobot external ping) is wired in Phase 7 before public launch — see `deploy-setup.md` §11. Skipped pre-launch because with zero traffic the alerts answer no real question and the ping just confirms Fly is up.
-- Custom domain (GoDaddy, TBD) wired up via Cloudflare DNS once purchased
-
-Future: the Docker-first design keeps the migration path open — the same `Dockerfile` runs unchanged on a DigitalOcean droplet, AWS ECS, or Cloud Run if scaling demands it.
-
-### Transactional email
-To be selected: Resend (easiest), Brevo, or AWS SES. Need HTML templates for:
-- Order confirmation (customer)
-- New order alert (admin)
-- Payment confirmed (customer, for MP and bank-transfer flows)
-
----
-
-## 7. Initial data model
-
-Prisma schema sketch — authoritative version lives in `prisma/schema.prisma` once the project starts.
-
-```prisma
-model Customer {
-  id          String    @id @default(cuid())
-  email       String    @unique
-  passwordHash String?              // null = guest who never created account
-  name        String
-  phone       String?
-  createdAt   DateTime  @default(now())
-  orders      Order[]
-}
-
-model AdminUser {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-}
-
-model Product {
-  id          String    @id @default(cuid())
-  slug        String    @unique
-  name        String
-  description String
-  category    String    // "sobres" | "stickers" | "etiquetas-vino" | "tarjetas-regalo"
-  basePrice   Decimal   @db.Decimal(10,2)
-  images      ProductImage[]
-  variants    ProductVariant[]
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-}
-
-model ProductVariant {
-  id         String   @id @default(cuid())
-  productId  String
-  product    Product  @relation(fields: [productId], references: [id])
-  name       String   // e.g., "Foil dorado", "Color estándar"
-  priceDelta Decimal  @db.Decimal(10,2) @default(0)  // added to basePrice
-  stock      Int      @default(0)
-  sku        String   @unique
-}
-
-model ProductImage {
-  id        String  @id @default(cuid())
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
-  url       String
-  alt       String?
-  position  Int     @default(0)
-}
-
-model Order {
-  id              String       @id @default(cuid())
-  publicToken     String       @unique           // unguessable URL for guest tracking
-  customerId      String?                         // null = pure guest
-  customer        Customer?    @relation(fields: [customerId], references: [id])
-  // Snapshot of contact info at order time
-  email           String
-  name            String
-  phone           String
-  shippingMethod  ShippingMethod
-  shippingAddress Json?                           // null if pickup
-  shippingFee     Decimal      @db.Decimal(10,2) @default(0)
-  subtotal        Decimal      @db.Decimal(10,2)
-  total           Decimal      @db.Decimal(10,2)
-  paymentMethod   PaymentMethod
-  status          OrderStatus  @default(PENDIENTE)
-  mpPreferenceId  String?
-  mpPaymentId     String?
-  notes           String?
-  items           OrderItem[]
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-}
-
-model OrderItem {
-  id                 String   @id @default(cuid())
-  orderId            String
-  order              Order    @relation(fields: [orderId], references: [id])
-  productId          String
-  variantId          String
-  // Snapshotted at purchase time — products may change later
-  productName        String
-  variantName        String
-  unitPrice          Decimal  @db.Decimal(10,2)
-  quantity           Int
-  personalizationText String                       // the custom name/message
-}
-
-enum ShippingMethod { NACIONAL PICKUP_SALTILLO }
-enum PaymentMethod  { MERCADOPAGO TRANSFERENCIA }
-enum OrderStatus    { PENDIENTE PAGADO ENVIADO ENTREGADO CANCELADO }
-```
-
-**Key design notes:**
-- `Order.customerId` is nullable → supports pure guests
-- `OrderItem.personalizationText` is **required** (empty string allowed only if the product doesn't support personalization, which for v1 means: none — all products personalize)
-- Order snapshots product/variant name and price so historical orders stay correct when the catalog changes
-- `publicToken` lets guests view their order via a URL without logging in
-
----
-
-## 8. Project phases
-
-### Phase 1 — Setup (Days 1–2)
-- [x] Init git repo + `main` branch
-- [x] `docker-compose.yml` with `db` + `api` + `web`
-- [x] `prisma init`, write initial schema (§7), run first migration
-- [x] Scaffold Express with the folder structure above (all dirs created; files land in Phase 2)
-- [x] Scaffold Vite + React + Tailwind
-- [x] `docker-compose up` runs the full stack locally
-- [x] Seed script: one admin user, 4 sample products with variants
-
-### Phase 1.5 — Deploy the skeleton (Days 2–3)
-Ship the scaffold to staging + prod before building any features on top. Goal: discover deploy friction on the smallest possible app, give the client a live URL to react to from week 1, and unlock per-PR preview environments for every subsequent phase.
-- [x] Execute [`CI-CD/deploy-setup.md`](./CI-CD/deploy-setup.md) Sessions 1 & 2: provider signups, GitHub Environments + secrets, CI workflow, staging + prod services live on Fly.io (Dallas — `dfw`), Cloudflare Pages projects created, Neon projects created
-- [x] Confirm `/api/health` responds from prod (`https://quarzo-api.fly.dev/api/health`) — staging confirmed; prod deploy not yet triggered
-- [x] Confirm per-PR preview URLs post as PR comments (Cloudflare Pages branch deploy + Neon DB branch)
-- [x] Throwaway PR smoke test end-to-end; confirm Neon `pr-<n>` branch is cleaned up on PR close
-
-Monitoring (Fly alerts + UptimeRobot ping) is deferred to Phase 7 — see rationale in §6 "Deployment" above.
-
-### Phase 2 — Catalog + admin products (Days 3–7)
-- [ ] Admin login (`/admin/login`) + `requireAdmin` middleware
-- [ ] Admin product CRUD (list, create, edit, delete) — including variants and image upload
-- [ ] Public `/api/products` + catalog page + product detail page
-- [ ] Variant selector + personalization text input on detail page
-- [ ] Mobile-responsive catalog layout
-
-### Phase 3 — Cart + guest checkout foundation (Days 8–12)
-- [ ] Cart in zustand + `localStorage`
-- [ ] Cart drawer / cart page
-- [ ] Checkout form (contact, shipping, payment method) with `react-hook-form` + `zod`
-- [ ] Shipping logic: national rate by size, pickup = free
-- [ ] Create pending order on submit (no payment yet)
-
-### Phase 4 — Payments (Days 13–18)
-- [ ] MercadoPago integration: create preference, redirect/SDK, webhook
-- [ ] Bank transfer flow: show bank details, leave order `PENDIENTE`, admin confirms manually
-- [ ] Order confirmation page with `publicToken` URL
-- [ ] Transactional email provider wired up
-- [ ] Order confirmation email + admin new-order alert
-
-### Phase 5 — Accounts + order history (Days 19–22)
-- [ ] Customer register/login endpoints
-- [ ] Post-purchase "create account" prompt (Path B, §4)
-- [ ] `/mi-cuenta` with order history
-- [ ] Order tracking page (public, by token)
-- [ ] Inventory decrement on `PAGADO` transition; "agotado" UI at stock 0
-
-### Phase 6 — Admin orders + polish (Days 23–26)
-- [ ] Admin order list with filters and status transitions
-- [ ] Admin view of personalization text per line item (client needs this to produce the order)
-- [ ] Print-friendly order view (packing slip)
-- [ ] Error handling + loading states across the app
-- [ ] Empty states and 404
-
-### Phase 7 — Launch polish + handoff (Days 27–30)
-Prod has been live since Phase 1.5; this phase turns the live URL into the launched site. Deploy plumbing is no longer part of Phase 7 — only pre-launch sizing, monitoring, and the handoff ceremony.
-- [ ] **Bump prod VM from `shared-cpu-1x` 256 MB → 512 MB** in `fly.toml` (pre-launch sizing was free-tier because prod had no traffic; the public launch changes that). Redeploy prod. Expected cost change: $0 → ~$1.94/mo
-- [ ] Custom domain + SSL (per `deploy-setup.md` §7 "Session 3")
-- [ ] Seed production admin user (if not already done in Phase 1.5)
-- [ ] Wire Fly.io dashboard alerts per `deploy-setup.md` §11.2 (CPU > 70%, memory > 80%, p95 latency > 800 ms, healthcheck failures) — destination = operator email
-- [ ] Add UptimeRobot 5-min external ping on prod `/api/health` (use custom-domain URL if wired, else `quarzo-api.fly.dev/api/health`)
-- [ ] End-to-end test of full purchase flow on prod (both MercadoPago and bank-transfer paths)
-- [ ] After first launch-day spike, reread Fly dashboard metrics (`deploy-setup.md` §11) and decide whether to stay on 512 MB or move to `shared-cpu-2x`
-- [ ] Admin walkthrough with client; record a short Loom
-- [ ] Written admin handoff doc (how to add products, fulfill orders)
+Auth mechanics (JWT-in-HTTP-only-cookie, bcrypt cost, endpoint paths, `requireAdmin` middleware, role claims) are specified in [`../CLAUDE.md`](../CLAUDE.md) → "Auth model". No hosted auth (Auth0 / Clerk / Firebase) — the pedagogical goal of this project is to understand auth end-to-end.
 
 ---
 
 ## 9. Brand & visual direction
 
 **References the client provided:**
-- https://sugarpaper.com/ — clean, editorial, lots of whitespace, serif headings
+- https://sugarpaper.com/ — clean, editorial, whitespace, serif headings
 - https://www.theatelier.com.mx/ — warm, refined, Mexican boutique feel
 
-**Assets:** the client will deliver logo, color palette, and typography before Phase 2 visual work starts. Do not design the visual identity yourself — wait for her assets.
+**Tone:** clean and editorial, not e-commerce-busy. Product photos should breathe. Closer to a boutique stationery studio than Amazon.
 
-**Tone:** clean and editorial, not e-commerce-busy. Product photos should breathe. This is not Amazon; it's closer to a boutique stationery studio.
+**Assets:** the client will deliver logo, color palette, and typography before Phase 2 visual work starts. Do not invent the brand identity — wait for her assets.
 
 ---
 
-## 10. For a new engineer picking this up
+## 10. Delivery phases
 
-If you just landed on this project, read in this order:
-1. `docs/client/discovery-with-client.md` — raw answers from the discovery call
-2. This file (`docs/tech-roadmap.md`) — scope, architecture, phases
-3. `CLAUDE.md` — architecture conventions and invariants (coding rules)
-4. `docs/CI-CD/deploy-setup.md` — the deploy pipeline runbook (full reference)
-5. `docs/CI-CD/deploy-quickstart.md` — plain-language operator checklist for running the deploy pipeline
+### Phase 1 — Setup ✅
+- [x] Git repo + `main` branch
+- [x] `docker-compose.yml` with `db` + `api` + `web`
+- [x] `prisma init`, initial schema, first migration
+- [x] Express scaffolded with target folder structure
+- [x] Vite + React + Tailwind scaffolded
+- [x] `docker-compose up` runs the full stack locally
+- [x] Seed script: admin user + 4 sample products with variants
 
-Then confirm with the project owner:
-- Has §3 "Open decisions" been closed? If not, you need those answers before coding Phase 2 onward.
-- Has the client delivered brand assets? If not, defer visual polish.
+### Phase 1.5 — Deploy the skeleton ✅
+Ship the scaffold to staging + prod before building features. Discover deploy friction on the smallest possible app; give the client a live URL from week 1; unlock per-PR preview environments for every subsequent phase. Full runbook: [`CI-CD/deploy-setup.md`](CI-CD/deploy-setup.md).
+- [x] Provider signups + GitHub Environments + secrets (`deploy-setup.md` Sessions 1 & 2)
+- [x] `/api/health` confirmed from staging (prod deploy not yet triggered)
+- [x] Per-PR preview URLs posted as PR comments (Cloudflare Pages branch deploy + Neon DB branch)
+- [x] Throwaway PR smoke test; Neon `pr-<n>` branch cleans up on PR close
 
-Start with Phase 1. Do not skip Docker setup.
+Monitoring (Fly alerts + UptimeRobot) is deferred to Phase 7 — with zero traffic there is nothing the alerts would answer. See `deploy-setup.md` §11.
+
+### Phase 2 — Catalog + admin products (next)
+- [ ] Admin login (`/admin/login`) + `requireAdmin` middleware
+- [ ] Admin product CRUD — variants + image upload
+- [ ] Public `/api/products` + catalog page + product detail page
+- [ ] Variant selector + personalization text input on the detail page
+- [ ] Mobile-responsive catalog layout
+
+### Phase 3 — Cart + guest checkout foundation
+- [ ] Cart in zustand + `localStorage`
+- [ ] Cart drawer / cart page
+- [ ] Checkout form (contact, shipping, payment method) with `react-hook-form` + `zod`
+- [ ] Shipping logic: national rate by size, pickup = free
+- [ ] Create pending order on submit (no payment yet)
+
+### Phase 4 — Payments
+- [ ] MercadoPago integration: preference, redirect/SDK, webhook
+- [ ] Bank transfer flow: show bank details, order stays `PENDIENTE`, admin confirms manually
+- [ ] Order confirmation page with `publicToken` URL
+- [ ] Transactional email provider wired up
+- [ ] Order confirmation email + admin new-order alert
+
+### Phase 5 — Accounts + order history
+- [ ] Customer register/login endpoints
+- [ ] Post-purchase "create account" prompt (§8, Path B)
+- [ ] `/mi-cuenta` order history
+- [ ] Order tracking page (public, by token)
+- [ ] Inventory decrement on `PAGADO` transition; "agotado" UI at stock 0
+
+### Phase 6 — Admin orders + polish
+- [ ] Admin order list with filters and status transitions
+- [ ] Admin view of personalization text per line item (needed to produce the order)
+- [ ] Print-friendly order view (packing slip)
+- [ ] Error and loading states across the app
+- [ ] Empty states and 404
+
+### Phase 7 — Launch polish + handoff
+Prod has been live since Phase 1.5; this phase turns the live URL into the launched site. Pre-launch sizing, monitoring wiring, and the handoff ceremony. Deploy plumbing details live in [`CI-CD/deploy-setup.md`](CI-CD/deploy-setup.md) §11.
+- [ ] Bump prod VM from 256 MB → 512 MB (rationale + steps: `deploy-setup.md` §1)
+- [ ] Custom domain + SSL (`deploy-setup.md` §7)
+- [ ] Seed production admin user (if not already done in Phase 1.5)
+- [ ] Fly.io dashboard alerts (`deploy-setup.md` §11.2)
+- [ ] UptimeRobot 5-min external ping on prod `/api/health`
+- [ ] End-to-end test of full purchase flow on prod (both MercadoPago and bank-transfer paths)
+- [ ] After first launch-day spike, reread Fly metrics and decide stay-at-512-MB vs `shared-cpu-2x`
+- [ ] Admin walkthrough with client; record a short Loom
+- [ ] Written admin handoff doc (add products, fulfill orders)

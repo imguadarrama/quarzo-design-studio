@@ -2,7 +2,7 @@
 
 Custom-stationery e-commerce store (Saltillo, Coahuila — Spanish copy, MXN payments) built on a deliberately pedagogical stack: TypeScript monorepo, Express + Prisma, Vite + React, Postgres, all wrapped in Docker Compose.
 
-> **Status:** end of Phase 1 (scaffold). Docker stack, Prisma schema, seed script, health endpoint, and a placeholder Vite page are in place. Routes, controllers, and pages are not implemented yet.
+> **Status:** end of Phase 1.5 (skeleton deployed). Docker stack, Prisma schema, seed script, health endpoint, placeholder Vite page, and the staging + prod CI-CD pipelines (Fly.io + Cloudflare Pages + Neon) are in place. Routes, controllers, and pages are not implemented yet — Phase 2 (catalog + admin) is next.
 >
 > See [`docs/tech-roadmap.md`](docs/tech-roadmap.md) for the phased plan and [`CLAUDE.md`](CLAUDE.md) for architecture conventions and invariants.
 
