@@ -9,6 +9,9 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
   CLIENT_ORIGIN: z.string().url(),
   COOKIE_DOMAIN: z.string().default("localhost"),
+  ADMIN_AUTH_COOKIE_NAME: z.string().min(1).default("quarzo_admin_session"),
+  CUSTOMER_AUTH_COOKIE_NAME: z.string().min(1).default("quarzo_customer_session"),
+  AUTH_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(12),
   ADMIN_EMAIL: z.string().email(),
   ADMIN_PASSWORD: z.string().min(8),
 });
