@@ -20,12 +20,14 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
+      target: dev
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
       NODE_ENV: development
+      APP_ENV: development
       DATABASE_URL: ${DATABASE_URL}
       PORT: ${PORT}
       CLIENT_ORIGIN: ${CLIENT_ORIGIN}
