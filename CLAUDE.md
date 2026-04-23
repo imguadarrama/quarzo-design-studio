@@ -67,7 +67,7 @@ server/src/
   index.ts      app bootstrap
 ```
 
-`server/src/index.ts` is the entrypoint; `helmet`, `cors` (with `credentials: true` against `CLIENT_ORIGIN`), `cookie-parser`, and `express.json({ limit: "1mb" })` are already wired. Currently exposes only `GET /health`.
+`server/src/index.ts` is the entrypoint; `helmet`, `cors` (with `credentials: true` against `CLIENT_ORIGIN`), `cookie-parser`, and `express.json({ limit: "1mb" })` are already wired. Route modules mount under `/api` — currently only `healthRouter` from `routes/health.ts` (`GET /api/health`). All future routes go through `routes/` the same way.
 
 Import Prisma via `import { prisma } from "../db/prisma.js"` (note the `.js` extension — required for NodeNext ESM resolution even though the source is `.ts`).
 
