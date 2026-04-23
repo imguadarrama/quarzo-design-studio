@@ -34,6 +34,20 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter server exec prisma generate
 
+      - name: Typecheck server
+        run: pnpm --filter server exec tsc --noEmit
+
+      - name: Typecheck client
+        run: pnpm --filter client exec tsc -b --noEmit
+
+      - name: Build server
+        run: pnpm --filter server build
+
+      - name: Build client for prod
+        env:
+          VITE_API_BASE_URL: https://${{ secrets.FLY_APP_PROD }}.fly.dev
+        run: pnpm --filter client build
+
       - name: Migrate production DB
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
@@ -55,11 +69,6 @@ jobs:
             APP_ENV="production" \
             NODE_ENV="production"
           flyctl deploy -a ${{ secrets.FLY_APP_PROD }} -c fly.toml --remote-only
-
-      - name: Build client for prod
-        env:
-          VITE_API_BASE_URL: https://${{ secrets.FLY_APP_PROD }}.fly.dev
-        run: pnpm --filter client build
 
       - name: Deploy client to Cloudflare Pages (prod)
         uses: cloudflare/pages-action@v1

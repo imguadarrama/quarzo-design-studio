@@ -2,6 +2,13 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.editorconfig'
+      - '.gitattributes'
 
 concurrency:
   group: ci-main

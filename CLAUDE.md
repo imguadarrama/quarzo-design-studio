@@ -43,9 +43,9 @@ The admin user is seeded from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (see `server/src/
 
 Four workflows under `.github/workflows/`:
 
-- `ci.yml` — **`push: main` only** (not on PRs). Post-merge tripwire: install → `prisma generate` → `tsc --noEmit` (both packages) → build both. ~2–3 min. PR coverage comes from `deploy-staging.yml`'s Docker build (which runs `tsc` via `pnpm --filter server build`) and the client's `vite build` (which is `tsc -b && vite build`) — ci on PRs was duplicate work.
-- `deploy-staging.yml` — PR-triggered (with `paths-ignore` for `**/*.md`, `docs/**`, `.gitignore`). Creates/reuses a per-PR Neon branch, deploys API to Fly staging, client to Cloudflare Pages, posts a PR comment with both stable + per-commit URLs.
-- `deploy-production.yml` — `workflow_dispatch` only. Requires typing `ship` to confirm.
+- `ci.yml` — **`push: main` only** (not on PRs). Post-merge tripwire: install → `prisma generate` → `tsc --noEmit` (both packages) → build both. ~6–8 min. Skips pushes that only touch `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes` via `paths-ignore`. PR coverage comes from `deploy-staging.yml`'s Docker build (which runs `tsc` via `pnpm --filter server build`) and the client's `vite build` (which is `tsc -b && vite build`) — ci on PRs was duplicate work.
+- `deploy-staging.yml` — PR-triggered (with `paths-ignore` for `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes`). Creates/reuses a per-PR Neon branch, deploys API to Fly staging, client to Cloudflare Pages, posts a PR comment with both stable + per-commit URLs.
+- `deploy-production.yml` — `workflow_dispatch` only. Requires typing `ship` to confirm. All typechecks and builds (server tsc, client tsc, server build, client build) run **before** `prisma migrate deploy`, `flyctl deploy`, and the Cloudflare upload — so prod state is never mutated unless every check has passed.
 - `cleanup-staging.yml` — deletes the per-PR Neon branch when the PR closes.
 
 Node version is pinned to `22` in the `.node-version` file at the repo root, read via `node-version-file: .node-version`. The runtime contract is `engines.node: ">=22"` in root `package.json` — if you bump one, bump the other.
