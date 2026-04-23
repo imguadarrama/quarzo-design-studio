@@ -389,6 +389,11 @@ on:
         description: 'Type "ship" to confirm production deploy'
         required: true
 
+# The "Tag release" step at the bottom pushes a release-<timestamp> tag
+# back to origin. Default GITHUB_TOKEN is read-only — grant contents: write.
+permissions:
+  contents: write
+
 jobs:
   deploy:
     if: inputs.confirm == 'ship'
