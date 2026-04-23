@@ -1,5 +1,5 @@
 app = "quarzo-api-staging"
-primary_region = "qro"
+primary_region = "dfw"  # qro (Querétaro) deprecated; dfw is next-closest to Saltillo
 
 [build]
   dockerfile = "server/Dockerfile"

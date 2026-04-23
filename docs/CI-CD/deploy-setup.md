@@ -9,7 +9,7 @@ Execution runbook for setting up the Quarzo deployment pipeline. Work through th
 | Component | Provider | Staging | Production | Monthly cost |
 |---|---|---|---|---|
 | Client (static Vite build) | Cloudflare Pages | free | free | $0 |
-| Server (Express + Prisma) | Fly.io, `qro` region | `shared-cpu-1x` 256 MB, always-on (`min_machines_running = 1`) | `shared-cpu-1x` 256 MB, always-on | $0 |
+| Server (Express + Prisma) | Fly.io, `dfw` region | `shared-cpu-1x` 256 MB, always-on (`min_machines_running = 1`) | `shared-cpu-1x` 256 MB, always-on | $0 |
 | Postgres | Neon | free, DB branch per PR | free (upgrade to Launch if prod exceeds limits) | $0 |
 | DNS | Cloudflare | free | free | $0 |
 | **Total** | | | | **$0** |
@@ -186,7 +186,7 @@ Empty string in dev → Vite proxy handles it. Absolute URL in staging/prod → 
 **`fly.toml`:**
 ```toml
 app = "quarzo-api"
-primary_region = "qro"  # Querétaro — closest to Saltillo
+primary_region = "dfw"  # Dallas — closest active Fly region to Saltillo (qro was deprecated 2026)
 
 [build]
   dockerfile = "server/Dockerfile"

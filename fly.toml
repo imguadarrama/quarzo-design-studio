@@ -1,5 +1,5 @@
 app = "quarzo-api"
-primary_region = "qro"  # Querétaro — closest Fly region to Saltillo
+primary_region = "dfw"  # Dallas — closest still-active Fly region to Saltillo (qro was deprecated)
 
 [build]
   dockerfile = "server/Dockerfile"
