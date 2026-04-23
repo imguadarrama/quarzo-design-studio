@@ -296,6 +296,7 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter server exec prisma generate    # seed.ts imports the generated client at runtime
 
       - name: Run migrations on PR branch
         env:
@@ -380,6 +381,7 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter server exec prisma generate
 
       - name: Migrate production DB
         env:

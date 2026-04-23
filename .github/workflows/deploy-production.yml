@@ -28,6 +28,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm --filter server exec prisma generate
+
       - name: Migrate production DB
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL_PROD }}
