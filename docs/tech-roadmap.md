@@ -84,16 +84,16 @@ Confirmed during discovery. These shape the product and are not open for re-liti
 ## 6. Scope — v1
 
 ### In scope
-- Public catalog (list + detail)
+- Public catalog (list + detail), organized by 4 categories: Sobres, Stickers, Etiquetas de vino, Tarjetas de regalo
 - Product detail with variant selection + personalization text per item
 - Shopping cart (guest-first; `localStorage` for guests, DB once a user creates an account)
 - Checkout with two payment paths:
   - **MercadoPago** (card, Oxxo, SPEI) — webhook-confirmed
   - **Bank transfer** — order stays pending until admin manually confirms
 - Shipping:
-  - National (Mexico) — fee by package size, default 25×30 cm envelope
+  - National (Mexico) — flat rate (amount TBD)
   - Pickup — Saltillo, Coahuila only
-- Order confirmation email (customer) + order alert email (admin)
+- Order confirmation email (customer) + order alert email (admin), sent via Resend
 - **Guest checkout by default** (see §8)
 - **Optional** account creation post-purchase
 - Customer account area (when opted in): order history
@@ -114,14 +114,8 @@ Confirmed during discovery. These shape the product and are not open for re-liti
 
 ## 7. Open decisions
 
-Must close before Phase 2 coding begins:
-
-- **CFDI / facturación:** does the client need to issue tax invoices? If yes, this is a real v1 feature (PAC integration), not a checkbox. She answered NO
-- **Return/refund policy:** what the site displays, and what admin handles. She answered NO, it will be via sending a report via whatsapp.
-- **Shipping rate table:** exact prices per size/zone. The client pays by size today — we need the actual numbers. We have a cotization website that sells the shipping guide and we will standarize the price, if its ~100 MXN - 250 MXN we can standarize a same shipping price or how can we calculate this? the website we use is called www.envia.com maybe they have an api?
-- **Product categorization:** flat list vs. categories (Sobres / Stickers / Etiquetas / Tarjetas).
+- **Shipping flat-rate amount (MXN):** client to provide. No envia.com API integration in v1.
 - **Domain name:** TBD (GoDaddy).
-- **Transactional email provider:** Resend, Brevo, or AWS SES. I don't know which one can we use, i need a reliable but free or very cheap email provider. something like how we picked Fly.io, Neon and CloudFlare.
 
 ---
 
@@ -218,14 +212,14 @@ Monitoring (Fly alerts + UptimeRobot) is deferred to Phase 7 — with zero traff
 - [ ] Cart in zustand + `localStorage`
 - [ ] Cart drawer / cart page
 - [ ] Checkout form (contact, shipping, payment method) with `react-hook-form` + `zod`
-- [ ] Shipping logic: national rate by size, pickup = free
+- [ ] Shipping logic: flat national rate, pickup = free
 - [ ] Create pending order on submit (no payment yet)
 
 ### Phase 4 — Payments
 - [ ] MercadoPago integration: preference, redirect/SDK, webhook
 - [ ] Bank transfer flow: show bank details, order stays `PENDIENTE`, admin confirms manually
 - [ ] Order confirmation page with `publicToken` URL
-- [ ] Transactional email provider wired up
+- [ ] Resend wired up
 - [ ] Order confirmation email + admin new-order alert
 
 ### Phase 5 — Accounts + order history
