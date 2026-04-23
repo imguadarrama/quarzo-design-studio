@@ -1,8 +1,11 @@
 name: CI
 on:
-  pull_request:
   push:
     branches: [main]
+
+concurrency:
+  group: ci-main
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -21,8 +24,3 @@ jobs:
       - run: pnpm --filter client exec tsc -b --noEmit
       - run: pnpm --filter server build
       - run: pnpm --filter client build
-      - uses: actions/upload-artifact@v4
-        if: github.event_name == 'pull_request'
-        with:
-          name: client-dist
-          path: client/dist

@@ -39,11 +39,18 @@ Copy `.env.example` → `.env` at the repo root. `docker-compose.yml` reads it a
 
 The admin user is seeded from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (see `server/src/seed.ts` — lives in `src/` not `prisma/` so the single tsconfig covers it; `package.json`'s `prisma.seed` field points `tsx` at the right path). There is intentionally no public admin-registration endpoint.
 
-## CI
+## CI / deploy workflows
 
-A single GitHub Actions workflow at `.github/workflows/ci.yml` runs on every PR and every push to `main`. It installs deps with pnpm, runs `prisma generate`, typechecks both packages with `tsc --noEmit`, builds both, and uploads the client `dist/` artifact on PRs.
+Four workflows under `.github/workflows/`:
 
-Node version is pinned to `22` in the `.node-version` file at the repo root, which CI reads via `node-version-file: .node-version`. The runtime contract is `engines.node: ">=22"` in root `package.json` — if you bump one, bump the other.
+- `ci.yml` — **`push: main` only** (not on PRs). Post-merge tripwire: install → `prisma generate` → `tsc --noEmit` (both packages) → build both. ~2–3 min. PR coverage comes from `deploy-staging.yml`'s Docker build (which runs `tsc` via `pnpm --filter server build`) and the client's `vite build` (which is `tsc -b && vite build`) — ci on PRs was duplicate work.
+- `deploy-staging.yml` — PR-triggered (with `paths-ignore` for `**/*.md`, `docs/**`, `.gitignore`). Creates/reuses a per-PR Neon branch, deploys API to Fly staging, client to Cloudflare Pages, posts a PR comment with both stable + per-commit URLs.
+- `deploy-production.yml` — `workflow_dispatch` only. Requires typing `ship` to confirm.
+- `cleanup-staging.yml` — deletes the per-PR Neon branch when the PR closes.
+
+Node version is pinned to `22` in the `.node-version` file at the repo root, read via `node-version-file: .node-version`. The runtime contract is `engines.node: ">=22"` in root `package.json` — if you bump one, bump the other.
+
+Operator runbooks: `docs/CI-CD/deploy-setup.md` (full reference) and `docs/CI-CD/deploy-quickstart.md` (plain-language operator checklist).
 
 ## Architecture
 
@@ -67,7 +74,7 @@ server/src/
   index.ts      app bootstrap
 ```
 
-`server/src/index.ts` is the entrypoint; `helmet`, `cors` (with `credentials: true` against `CLIENT_ORIGIN`), `cookie-parser`, and `express.json({ limit: "1mb" })` are already wired. Currently exposes only `GET /health`.
+`server/src/index.ts` is the entrypoint; `helmet`, `cors` (with `credentials: true` against `CLIENT_ORIGIN`), `cookie-parser`, and `express.json({ limit: "1mb" })` are already wired. Route modules mount under `/api` — currently only `healthRouter` from `routes/health.ts` (`GET /api/health`). All future routes go through `routes/` the same way.
 
 Import Prisma via `import { prisma } from "../db/prisma.js"` (note the `.js` extension — required for NodeNext ESM resolution even though the source is `.ts`).
 

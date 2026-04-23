@@ -1,0 +1,115 @@
+name: Deploy Staging
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
+
+concurrency:
+  group: staging-pr-${{ github.event.number }}
+  cancel-in-progress: true
+
+# The default GITHUB_TOKEN for PRs from the same repo is read-only in many
+# private-repo setups; the "Comment preview URL on PR" step needs write
+# access to post an issue comment. `contents: read` keeps checkout working.
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  deploy:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create Neon branch
+        id: neon
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID_STAGING }}
+          branch_name: pr-${{ github.event.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter server exec prisma generate
+
+      - name: Run migrations on PR branch
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL_STAGING }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_STAGING }}
+        run: |
+          pnpm --filter server exec prisma migrate deploy
+          pnpm --filter server seed
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy API to Fly staging
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: |
+          flyctl secrets set -a ${{ secrets.FLY_APP_STAGING }} \
+            DATABASE_URL="${{ steps.neon.outputs.db_url_pooled }}" \
+            JWT_SECRET="${{ secrets.JWT_SECRET_STAGING }}" \
+            ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL_STAGING }}" \
+            ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD_STAGING }}" \
+            CLIENT_ORIGIN="${{ secrets.CLIENT_ORIGIN_STAGING }}" \
+            COOKIE_DOMAIN="" \
+            APP_ENV="staging" \
+            NODE_ENV="production"
+          flyctl deploy -a ${{ secrets.FLY_APP_STAGING }} -c fly.staging.toml --remote-only
+
+      - name: Build client
+        env:
+          VITE_API_BASE_URL: https://${{ secrets.FLY_APP_STAGING }}.fly.dev
+        run: pnpm --filter client build
+
+      - name: Deploy client to Cloudflare Pages (preview)
+        id: pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_STAGING }}
+          directory: client/dist
+          branch: pr-${{ github.event.number }}
+
+      - name: Comment preview URL on PR
+        uses: actions/github-script@v7
+        env:
+          PAGES_ALIAS: ${{ steps.pages.outputs.alias }}
+          PAGES_URL: ${{ steps.pages.outputs.url }}
+          FLY_APP: ${{ secrets.FLY_APP_STAGING }}
+          CF_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_STAGING }}
+        with:
+          script: |
+            const { PAGES_ALIAS, PAGES_URL, FLY_APP, CF_PROJECT } = process.env;
+            const stable = PAGES_ALIAS || `https://pr-${context.issue.number}.${CF_PROJECT}.pages.dev`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: [
+                '**Staging deployed**',
+                `- Web (stable, always latest): ${stable}`,
+                `- Web (this commit): ${PAGES_URL}`,
+                `- API: https://${FLY_APP}.fly.dev/api/health`,
+              ].join('\n')
+            })
