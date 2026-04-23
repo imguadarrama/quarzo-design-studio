@@ -300,9 +300,15 @@ jobs:
       - name: Run migrations on PR branch
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET_STAGING }}
+          CLIENT_ORIGIN: ${{ secrets.CLIENT_ORIGIN_STAGING }}
+          COOKIE_DOMAIN: ""
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL_STAGING }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_STAGING }}
+          APP_ENV: staging
         run: |
           pnpm --filter server exec prisma migrate deploy
-          pnpm seed
+          pnpm --filter server seed    # not `pnpm seed` — that shells into docker compose exec
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
       - name: Deploy API to Fly staging
