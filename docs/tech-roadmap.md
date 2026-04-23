@@ -390,9 +390,9 @@ enum OrderStatus    { PENDIENTE PAGADO ENVIADO ENTREGADO CANCELADO }
 
 ### Phase 1.5 — Deploy the skeleton (Days 2–3)
 Ship the scaffold to staging + prod before building any features on top. Goal: discover deploy friction on the smallest possible app, give the client a live URL to react to from week 1, and unlock per-PR preview environments for every subsequent phase.
-- [ ] Execute [`CI-CD/deploy-setup.md`](./CI-CD/deploy-setup.md) Sessions 1 & 2: provider signups, GitHub Environments + secrets, CI workflow, staging + prod services live on Fly.io (Dallas — `dfw`), Cloudflare Pages projects created, Neon projects created
-- [ ] Confirm `/api/health` responds from prod (`https://quarzo-api.fly.dev/api/health`) and from a per-PR staging URL
-- [ ] Confirm per-PR preview URLs post as PR comments (Cloudflare Pages branch deploy + Neon DB branch)
+- [x] Execute [`CI-CD/deploy-setup.md`](./CI-CD/deploy-setup.md) Sessions 1 & 2: provider signups, GitHub Environments + secrets, CI workflow, staging + prod services live on Fly.io (Dallas — `dfw`), Cloudflare Pages projects created, Neon projects created
+- [ ] Confirm `/api/health` responds from prod (`https://quarzo-api.fly.dev/api/health`) — staging confirmed; prod deploy not yet triggered
+- [x] Confirm per-PR preview URLs post as PR comments (Cloudflare Pages branch deploy + Neon DB branch)
 - [ ] Wire Fly.io dashboard alerts per `deploy-setup.md` §11 (CPU > 70%, memory > 80%, p95 latency > 800 ms, healthcheck failures)
 - [ ] Add UptimeRobot 5-min external ping on prod `/api/health`
 - [ ] Throwaway PR smoke test end-to-end; confirm Neon `pr-<n>` branch is cleaned up on PR close
@@ -462,7 +462,8 @@ If you just landed on this project, read in this order:
 1. `docs/client/discovery-with-client.md` — raw answers from the discovery call
 2. This file (`docs/tech-roadmap.md`) — scope, architecture, phases
 3. `CLAUDE.md` — architecture conventions and invariants (coding rules)
-4. `docs/CI-CD/deploy-setup.md` — the deploy pipeline runbook
+4. `docs/CI-CD/deploy-setup.md` — the deploy pipeline runbook (full reference)
+5. `docs/CI-CD/deploy-quickstart.md` — plain-language operator checklist for running the deploy pipeline
 
 Then confirm with the project owner:
 - Has §3 "Open decisions" been closed? If not, you need those answers before coding Phase 2 onward.
