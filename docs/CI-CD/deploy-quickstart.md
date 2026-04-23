@@ -11,21 +11,23 @@ You've added the GitHub secrets. This file picks up from there. It assumes zero 
 There are **three automated workflows** and **one manual trigger**. They all live in `.github/workflows/`.
 
 ### When you open a PR → `deploy-staging.yml` runs
-GitHub sees a new PR and fires this workflow. It does five things in sequence:
+GitHub sees a new PR (or a push to an existing PR) and fires this workflow. It does five things in sequence:
 
-1. **Make a throwaway DB.** Calls Neon to clone the `main` branch of your staging Postgres into a short-lived branch named `pr-<number>`. Outputs a connection string.
+1. **Make a throwaway DB.** Calls Neon to clone the `main` branch of your staging Postgres into a short-lived branch named `pr-<number>`. Outputs a connection string. Subsequent pushes to the same PR reuse this branch.
 2. **Get the code ready.** Installs pnpm deps, runs `prisma generate` (builds the typed DB client), applies pending migrations to the throwaway DB, seeds the admin user + sample products.
-3. **Ship the server.** Runs `flyctl deploy` against `quarzo-api-staging` with the throwaway DB's connection string. Fly builds your Dockerfile's `runtime` stage and swaps the running container.
-4. **Ship the website.** Runs `pnpm --filter client build` with `VITE_API_BASE_URL` pointing at the staging Fly URL, then uploads `client/dist/` to Cloudflare Pages as a preview deployment.
-5. **Tell you.** Posts a comment on the PR with the preview URL and the API health URL.
+3. **Ship the server.** Runs `flyctl deploy` against `quarzo-api-staging`. Fly builds your Dockerfile's `runtime` stage (which runs `tsc` — so type errors fail the build here) and blue-green-swaps the running container. There's always exactly **one** running staging API, at the same URL.
+4. **Ship the website.** Runs `pnpm --filter client build` (which is `tsc -b && vite build` — type errors fail here) with `VITE_API_BASE_URL` pointing at the staging Fly URL, then uploads `client/dist/` to Cloudflare Pages as a preview deployment.
+5. **Tell you.** Posts a comment on the PR with the **stable URL** (`pr-<N>.<project>.pages.dev` — always the latest build for this PR), the **per-commit URL** (immutable, good for debugging a specific build), and the API health URL.
 
-Every push to the PR repeats this. Every PR gets its own isolated DB — your staging data never collides between features.
+Every push to the PR repeats this. The `concurrency` block cancels in-flight runs when you push again, so rapid pushes produce only one completed deployment.
+
+**Doc-only PRs are skipped.** The workflow has `paths-ignore` for `**/*.md`, `docs/**`, and `.gitignore` — README or runbook changes don't spin up Fly + Neon.
 
 ### When the PR is closed (merged or abandoned) → `cleanup-staging.yml` runs
 Deletes the `pr-<number>` Neon branch. Keeps your Neon project tidy.
 
-### When you merge to `main` → only `ci.yml` runs
-Typecheck + build. **No deploy.** This is deliberate — prod is a manual ritual.
+### When you merge to `main` → only `ci.yml` runs (post-merge tripwire)
+Typecheck + build. **No deploy.** This runs on `main` pushes only — **not on PRs**. Why? `deploy-staging.yml`'s Docker build and client `vite build` already typecheck everything, so running ci on PRs was duplicate work. On main it's a cheap sanity check that catches any merge-conflict weirdness that slipped past staging.
 
 ### When you want to ship prod → you click a button
 GitHub → Actions tab → **Deploy Production** → **Run workflow** → type the word **`ship`** → Run. This runs `deploy-production.yml`:
@@ -35,6 +37,22 @@ GitHub → Actions tab → **Deploy Production** → **Run workflow** → type t
 - Tags the commit `release-YYYYMMDD-HHMM`.
 
 Typing `ship` is the safety gate — you can't accidentally deploy prod.
+
+---
+
+## Mental model for URLs (the thing that confused you)
+
+Three hosting systems, three URL behaviors:
+
+| System | What changes per push? | What stays stable? |
+|---|---|---|
+| **Fly.io** | Nothing. A new machine boots, old one shuts down (blue-green swap). Always exactly one API running per app. | `quarzo-api-staging.fly.dev` — one URL, always points at the latest deploy. |
+| **Cloudflare Pages** | A new immutable URL is published per build (`<hash>.<project>.pages.dev`). Old URLs stay live forever — free rollback snapshots, zero cost (unlimited bandwidth). | `pr-<N>.<project>.pages.dev` — the branch-alias URL. Always serves the latest build for the PR. This is the URL the PR comment surfaces as "stable." |
+| **Neon** | Nothing per push — the same `pr-<N>` DB branch is reused until the PR closes. | The branch URL Neon hands back is the same across all pushes to the PR. |
+
+**Practical takeaway:** when you or the client want to "see the latest staging" for a PR, use the stable URL from the PR comment. The per-commit URLs are there for debugging ("the build 2 pushes ago worked, this one doesn't — what changed?") and are free to ignore.
+
+**Old per-commit URLs piling up in your CF dashboard?** Not a cost or correctness issue. If they bother you, CF Pages has a retention setting per project (Settings → Preview deployments). Or leave them — each is a one-click rollback.
 
 ---
 
@@ -159,12 +177,7 @@ Always start in the **Actions tab** of your GitHub repo. Click the failed run. E
 - Auth error → `CLOUDFLARE_API_TOKEN` is wrong or lacks the `Cloudflare Pages: Edit` permission. Recreate the token.
 
 ### If the PR comment never appears but everything else green
-- `github-script` uses the default `GITHUB_TOKEN` and needs `pull-requests: write`. On private repos with default permissions that should work. If not, add this at the top of `deploy-staging.yml` above `jobs:`:
-  ```yaml
-  permissions:
-    pull-requests: write
-    contents: read
-  ```
+The workflow has a top-level `permissions:` block granting `issues: write` + `pull-requests: write`. If comments still fail, check repo Settings → Actions → General → Workflow permissions. "Read and write" should be allowed, or at minimum "Read repository contents and packages permissions" plus per-workflow permissions via the block (which is what we use).
 
 ### General rule
 Before asking me for help, **copy the last ~30 lines of the failing step** and paste them in chat. I need the real error, not "it broke." The logs are where the truth lives.

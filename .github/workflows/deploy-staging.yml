@@ -3,6 +3,10 @@ name: Deploy Staging
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
 
 concurrency:
   group: staging-pr-${{ github.event.number }}
@@ -49,12 +53,8 @@ jobs:
       - name: Run migrations on PR branch
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET_STAGING }}
-          CLIENT_ORIGIN: ${{ secrets.CLIENT_ORIGIN_STAGING }}
-          COOKIE_DOMAIN: ""
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL_STAGING }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_STAGING }}
-          APP_ENV: staging
         run: |
           pnpm --filter server exec prisma migrate deploy
           pnpm --filter server seed
@@ -93,11 +93,23 @@ jobs:
 
       - name: Comment preview URL on PR
         uses: actions/github-script@v7
+        env:
+          PAGES_ALIAS: ${{ steps.pages.outputs.alias }}
+          PAGES_URL: ${{ steps.pages.outputs.url }}
+          FLY_APP: ${{ secrets.FLY_APP_STAGING }}
+          CF_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_STAGING }}
         with:
           script: |
+            const { PAGES_ALIAS, PAGES_URL, FLY_APP, CF_PROJECT } = process.env;
+            const stable = PAGES_ALIAS || `https://pr-${context.issue.number}.${CF_PROJECT}.pages.dev`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `**Staging deployed**\n- Web: ${{ steps.pages.outputs.url }}\n- API: https://${{ secrets.FLY_APP_STAGING }}.fly.dev/api/health`
+              body: [
+                '**Staging deployed**',
+                `- Web (stable, always latest): ${stable}`,
+                `- Web (this commit): ${PAGES_URL}`,
+                `- API: https://${FLY_APP}.fly.dev/api/health`,
+              ].join('\n')
             })

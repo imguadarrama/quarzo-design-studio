@@ -232,9 +232,12 @@ All four go under `.github/workflows/`.
 ```yaml
 name: CI
 on:
-  pull_request:
   push:
     branches: [main]
+
+concurrency:
+  group: ci-main
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -253,14 +256,11 @@ jobs:
       - run: pnpm --filter client exec tsc -b --noEmit
       - run: pnpm --filter server build
       - run: pnpm --filter client build
-      - uses: actions/upload-artifact@v4
-        if: github.event_name == 'pull_request'
-        with:
-          name: client-dist
-          path: client/dist
 ```
 
-Enable branch protection on `main`: Settings → Branches → Add rule → require `build` status check, require PR, disallow direct pushes.
+**Why CI doesn't run on PRs.** `deploy-staging.yml` already builds both packages (Fly Docker build runs `tsc` via `pnpm --filter server build`; the client's build script is `tsc -b && vite build`), so every type error `ci.yml` would catch is also caught during the staging deploy. Running both on every PR doubled install + `prisma generate` + build work for no new signal. CI on `main` acts as a post-merge tripwire, cheap to run (~2–3 min once per merge).
+
+Enable branch protection on `main` when the repo goes public: Settings → Branches → Add rule → require `build` status check, require PR, disallow direct pushes. (Paywalled on private repos — skip until public.)
 
 ### 6.2 `deploy-staging.yml`
 ```yaml
@@ -268,6 +268,10 @@ name: Deploy Staging
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
 
 concurrency:
   group: staging-pr-${{ github.event.number }}
@@ -306,14 +310,13 @@ jobs:
       - run: pnpm --filter server exec prisma generate    # seed.ts imports the generated client at runtime
 
       - name: Run migrations on PR branch
+        # Prisma CLI uses DATABASE_URL; seed.ts reads ADMIN_EMAIL/ADMIN_PASSWORD
+        # from process.env directly. The full env set still goes to Fly at
+        # deploy time below — don't carry it here.
         env:
           DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET_STAGING }}
-          CLIENT_ORIGIN: ${{ secrets.CLIENT_ORIGIN_STAGING }}
-          COOKIE_DOMAIN: ""
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL_STAGING }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_STAGING }}
-          APP_ENV: staging
         run: |
           pnpm --filter server exec prisma migrate deploy
           pnpm --filter server seed    # not `pnpm seed` — that shells into docker compose exec
@@ -350,14 +353,29 @@ jobs:
           branch: pr-${{ github.event.number }}
 
       - name: Comment preview URL on PR
+        # `alias` = stable branch URL (pr-<N>.<project>.pages.dev) — always
+        # the latest build for this PR, the one to share.
+        # `url`   = per-commit immutable URL — useful for debugging a specific build.
         uses: actions/github-script@v7
+        env:
+          PAGES_ALIAS: ${{ steps.pages.outputs.alias }}
+          PAGES_URL: ${{ steps.pages.outputs.url }}
+          FLY_APP: ${{ secrets.FLY_APP_STAGING }}
+          CF_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_STAGING }}
         with:
           script: |
+            const { PAGES_ALIAS, PAGES_URL, FLY_APP, CF_PROJECT } = process.env;
+            const stable = PAGES_ALIAS || `https://pr-${context.issue.number}.${CF_PROJECT}.pages.dev`;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `**Staging deployed**\n- Web: ${{ steps.pages.outputs.url }}\n- API: https://${{ secrets.FLY_APP_STAGING }}.fly.dev/api/health`
+              body: [
+                '**Staging deployed**',
+                `- Web (stable, always latest): ${stable}`,
+                `- Web (this commit): ${PAGES_URL}`,
+                `- API: https://${FLY_APP}.fly.dev/api/health`,
+              ].join('\n')
             })
 ```
 
