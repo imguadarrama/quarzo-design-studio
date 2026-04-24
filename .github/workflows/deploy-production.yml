@@ -20,33 +20,10 @@ jobs:
         with:
           ref: main
 
-      - uses: pnpm/action-setup@v4
+      - name: Build, typecheck, and smoke-test image
+        uses: ./.github/actions/build-and-check
         with:
-          version: 9.12.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm --filter server exec prisma generate
-
-      - name: Typecheck server
-        run: pnpm --filter server exec tsc --noEmit
-
-      - name: Typecheck client
-        run: pnpm --filter client exec tsc -b --noEmit
-
-      - name: Build server
-        run: pnpm --filter server build
-
-      - name: Build client for prod
-        env:
-          VITE_API_BASE_URL: https://${{ secrets.FLY_APP_PROD }}.fly.dev
-        run: pnpm --filter client build
+          vite-api-base-url: https://${{ secrets.FLY_APP_PROD }}.fly.dev
 
       - name: Migrate production DB
         env:
