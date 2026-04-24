@@ -2,7 +2,7 @@
 
 > **Purpose:** step-by-step playbook to finish Phase 2 cleanly. Built from an audit of the current branch against `docs/tech-roadmap.md` §10 Phase 2. Every task is a checkbox you tick as you go.
 >
-> **Mindset:** Phase 2 is ~80% functionally built. This plan is mostly *verify + clean up + harden*, not *rebuild*. Resist the urge to start over.
+> **Mindset:** the Phase 2 *foundation* merged via PR #8 on 2026-04-24 (catalog, admin CRUD, admin auth, staging CORS + cross-site cookie fix). What remains is **cleanup** — no rebuilds, no new features. Resist the urge to start over.
 
 ---
 
@@ -16,6 +16,22 @@
   - All requests below use `{{baseUrl}}` and rely on cookies being auto-sent.
 - Every task here is `- [ ]`. Tick them.
 - File paths are from repo root. `server/src/routes/admin-auth.ts:18` means "file, line 18".
+
+---
+
+## 0.5. PR split (post-merge)
+
+The Phase 2 foundation is on `main` via PR #8. The remaining cleanup is split across three branches so each review stays small and reviewable. Branches are already pushed and ready to work on:
+
+| Branch | Owns | Plan sections |
+|--------|------|---------------|
+| `refactor/phase2-server-cleanup` | Shared product serializer, global error handler, image payload caps, duplicate-slug 409, `passwordHash`-in-response audit | §3.7, §4.1–4.5 |
+| `refactor/phase2-client-auth` | Zustand auth store, `useAuth` hook, `<RequireAdmin>` route guard, `AdminLoginPage`/`AdminProductsPage` refactor, font-family fix | §5.1–5.6 |
+| `feat/ui-foundation` | Shadcn primitives (Card / Input / Label), `cn()` helper, Tailwind tokens — evolving editorial/boutique look | *not in this plan — UI track runs in parallel* |
+
+**Suggested order.** Open `refactor/phase2-server-cleanup` and `feat/ui-foundation` PRs in parallel (disjoint files, zero conflict surface). Start `refactor/phase2-client-auth` *after* `feat/ui-foundation` merges so the auth refactor can consume the new UI primitives.
+
+§6 is the **phase-completion gate** — run it only after all three branches land on main. Until then, leave §6 boxes unticked even if individual parts pass.
 
 ---
 
@@ -155,11 +171,11 @@ Each item is a property to **prove** with Postman or a quick file read. The code
 
 ### 3.2 Cookie flags
 
-Read `server/src/auth/cookies.ts:15-25`. Confirm:
+Read `server/src/auth/cookies.ts:16-28`. Confirm:
 
 - [x] `httpOnly: true`. *Blocks JS from reading the cookie → XSS can't steal the token.*
-- [x] `sameSite: "lax"`. *Blocks CSRF on POST from third-party sites; still lets normal top-level navigation work.*
-- [x] `secure: APP_ENV === "production"` (or equivalent). *HTTPS-only in prod. Not in dev because `http://localhost` wouldn't receive it.*
+- [x] `sameSite: isLocalDevelopment ? "lax" : "none"`. *Staging and prod are cross-site (`*.fly.dev` API and `*.pages.dev` client are on separate eTLD+1s per the Public Suffix List), so the browser only sends the cookie on XHR with `None`. Dev stays `Lax` because the Vite proxy keeps everything same-origin and `None` would require HTTPS. **Changed on 2026-04-24** — the previous `Lax` everywhere silently broke staging admin login.*
+- [x] `secure: !isLocalDevelopment`. *HTTPS-only outside dev. `SameSite=None` is rejected by browsers without `Secure`, so these two flags must move together.*
 
 
 
@@ -189,16 +205,18 @@ An attacker must not be able to learn which emails are admins by diffing error r
 
 Open `server/src/index.ts`:
 
-- [ ] `helmet()` is mounted **before** any routes. *Sets X-Content-Type-Options, X-Frame-Options, Referrer-Policy, etc.*
-- [ ] `cors({ origin: env.CLIENT_ORIGIN, credentials: true })`. `origin` is an explicit URL, never `"*"`. *Browsers will refuse `credentials: true` with a wildcard origin anyway, but being explicit is the contract.*
+- [x] `helmet()` is mounted **before** any routes. *Sets X-Content-Type-Options, X-Frame-Options, Referrer-Policy, etc.*
+- [x] CORS `origin` is a **predicate function**, not a string or `"*"`. It allows three cases: (1) no `Origin` header (curl / server-to-server), (2) exact match on `env.CLIENT_ORIGIN`, (3) regex match on `env.CLIENT_ORIGIN_PREVIEW_PATTERN` (staging-only — prod leaves it unset, so prod is strict by omission). *Hotfixed on 2026-04-24 after Cloudflare Pages per-commit preview URLs were blocked. Empty string in the env normalizes to `undefined` at `config/env.ts` so an unset prod secret cannot silently open CORS.*
 
-### 3.7 No passwords in responses
+**Extension note.** If prod ever needs a second canonical origin (e.g. `quarzo.mx` + `www.quarzo.mx`), extend `CLIENT_ORIGIN` to accept comma-separated values and adjust the predicate. Do **not** widen the preview regex to cover prod — preview is a staging-only relaxation by design.
+
+### 3.7 No passwords in responses *(belongs in `refactor/phase2-server-cleanup`)*
 
 - [ ] Grep `server/src/routes/` for `passwordHash`. No route should include it in a response body. *Never publish hashes, even bcrypt ones.*
 
 ---
 
-## 4. Server cleanup (do in order)
+## 4. Server cleanup (do in order) *(branch: `refactor/phase2-server-cleanup`)*
 
 ### 4.1 Extract shared product serializer
 
@@ -284,7 +302,7 @@ Log in first, then:
 
 ---
 
-## 5. Client cleanup (do in order)
+## 5. Client cleanup (do in order) *(branch: `refactor/phase2-client-auth`)*
 
 ### 5.1 Zustand auth store
 
@@ -429,10 +447,23 @@ Usually a cookie-flag mismatch:
 - `pnpm dev` hasn't fully started `db` yet. Watch `docker compose logs db` — wait for `database system is ready to accept connections`.
 - `.env` has `DATABASE_URL=postgresql://...@localhost:5432/...`. Inside the `api` container, the hostname is `db`, not `localhost`. Should be `postgresql://quarzo:...@db:5432/quarzo?schema=public`.
 
-### 7.4 "CORS error in the browser"
+### 7.4 "CORS error in the browser" (local dev)
 
 - `CLIENT_ORIGIN` in `.env` doesn't match the URL you loaded (`5173` vs `3000`, `localhost` vs `127.0.0.1`).
 - API not running → the "CORS error" is actually a connection refused. Check `docker compose ps`.
+
+### 7.5 "CORS blocked on a Cloudflare Pages preview URL" (staging)
+
+The allowlist in `server/src/index.ts` accepts `env.CLIENT_ORIGIN` (exact match) plus `env.CLIENT_ORIGIN_PREVIEW_PATTERN` (optional regex). If previews aren't matching:
+
+- Secret `CLIENT_ORIGIN_PREVIEW_PATTERN_STAGING` is unset or misspelled in the GitHub `staging` environment. Expected value: `^https://[a-z0-9-]+\.quarzo-staging\.pages\.dev$`
+- Anchors matter. Without `^` and `$` the regex accepts origins like `https://evil.example.com/?x=quarzo-staging.pages.dev`.
+- Empty string (secret exists but value is empty) is safe — `config/env.ts` normalizes it to `undefined`, so CORS falls back to exact-match only on `CLIENT_ORIGIN`.
+- Prod intentionally does *not* set this secret. If you see prod accepting preview-shaped origins, someone added it — remove it.
+
+### 7.6 "Admin login works but `/me` 401s" (staging / prod, browser)
+
+Cross-site cookie policy. Verify `Set-Cookie` on the login response includes `SameSite=None; Secure; HttpOnly`. If it shows `SameSite=Lax`, the `APP_ENV` on Fly is `development` (shouldn't be) or the cookie helper was reverted. See `server/src/auth/cookies.ts:21`.
 
 ---
 

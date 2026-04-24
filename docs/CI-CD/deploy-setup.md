@@ -186,7 +186,7 @@ Enable branch protection on `main` when the repo goes public: Settings → Branc
 
 File: [`.github/workflows/deploy-staging.yml`](../../.github/workflows/deploy-staging.yml).
 
-Triggered on `pull_request` (opened / synchronize / reopened). Skipped for docs-only PRs via `paths-ignore` (`**/*.md`, `docs/**`, `.gitignore`). Concurrency cancels in-flight runs when you push again to the same PR.
+Triggered on `pull_request` (opened / synchronize / reopened). Skipped for docs-only PRs via `paths-ignore` (`**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes`). Concurrency cancels in-flight runs when you push again to the same PR.
 
 Creates a per-PR Neon branch, deploys API to Fly staging, deploys client to Cloudflare Pages (preview), and comments two URLs back on the PR: the stable branch-alias URL (`pr-<N>.<project>.pages.dev` — always the latest build for this PR) and the per-commit URL (immutable, good for debugging a specific build).
 
