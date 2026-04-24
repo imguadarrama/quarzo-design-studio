@@ -4,19 +4,23 @@
 
 @layer base {
   :root {
-    color: #1c1917;
-    background: #fcfaf7;
-    font-family: Georgia, "Times New Roman", serif;
+    @apply bg-surface text-neutral;
   }
 
   body {
+    @apply font-body;
     margin: 0;
     min-width: 320px;
     background:
-      radial-gradient(circle at top left, rgba(245, 158, 11, 0.16), transparent 22%),
-      linear-gradient(180deg, #fcfaf7 0%, #f6f0e6 100%);
-    color: #1c1917;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      radial-gradient(circle at top left, theme("colors.secondary" / 16%), transparent 22%),
+      linear-gradient(180deg, theme("colors.surface") 0%, #f6f0e6 100%);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading;
   }
 
   * {
