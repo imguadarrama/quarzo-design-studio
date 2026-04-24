@@ -1,4 +1,5 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
 import bcrypt from "bcrypt";
 import "dotenv/config";
 
@@ -96,7 +97,7 @@ async function main() {
         name: p.name,
         description: p.description,
         category: p.category,
-        basePrice: new Prisma.Decimal(p.basePrice),
+        basePrice: new Decimal(p.basePrice),
         images: {
           create: [{ url: p.imageUrl, alt: p.name, position: 0 }],
         },
@@ -104,7 +105,7 @@ async function main() {
           create: p.variants.map((v) => ({
             name: v.name,
             sku: v.sku,
-            priceDelta: new Prisma.Decimal(v.priceDelta),
+            priceDelta: new Decimal(v.priceDelta),
             stock: v.stock,
           })),
         },

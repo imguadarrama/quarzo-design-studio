@@ -2,15 +2,27 @@ import express, { type Request, type Response, type NextFunction } from "express
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import { adminProductsRouter } from "./routes/admin-products.js";
 import { env } from "./config/env.js";
+import { adminAuthRouter } from "./routes/admin-auth.js";
 import { healthRouter } from "./routes/health.js";
+import { productsRouter } from "./routes/products.js";
 
 const app = express();
+
+const previewOriginRegex = env.CLIENT_ORIGIN_PREVIEW_PATTERN
+  ? new RegExp(env.CLIENT_ORIGIN_PREVIEW_PATTERN)
+  : null;
 
 app.use(helmet());
 app.use(
   cors({
-    origin: env.CLIENT_ORIGIN,
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (origin === env.CLIENT_ORIGIN) return cb(null, true);
+      if (previewOriginRegex && previewOriginRegex.test(origin)) return cb(null, true);
+      return cb(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   }),
 );
@@ -18,6 +30,9 @@ app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
 
 app.use("/api", healthRouter);
+app.use("/api", productsRouter);
+app.use("/api/admin/auth", adminAuthRouter);
+app.use("/api/admin", adminProductsRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });

@@ -3,7 +3,7 @@
 > **What this is:** the PRD for Quarzo's v1 store — business, users, scope, flows, open decisions, and delivery phases.
 >
 > **What it is not:** an architecture doc or a deploy runbook. Those live elsewhere:
-> - Architecture, code conventions, auth model, data model invariants → [`../CLAUDE.md`](../CLAUDE.md)
+> - Architecture, code conventions, auth model, data model invariants → [`../AGENTS.md`](../AGENTS.md)
 > - Authoritative data model → [`../server/prisma/schema.prisma`](../server/prisma/schema.prisma)
 > - Deploy pipeline → [`CI-CD/deploy-setup.md`](CI-CD/deploy-setup.md)
 > - Raw client discovery notes → [`client/discovery-with-client.md`](client/discovery-with-client.md)
@@ -165,7 +165,7 @@ Optional: "¿Crear cuenta para la próxima vez?"
 
 **Admin is separate** — single seeded user, separate `/admin/login`, no public admin registration.
 
-Auth mechanics (JWT-in-HTTP-only-cookie, bcrypt cost, endpoint paths, `requireAdmin` middleware, role claims) are specified in [`../CLAUDE.md`](../CLAUDE.md) → "Auth model". No hosted auth (Auth0 / Clerk / Firebase) — the pedagogical goal of this project is to understand auth end-to-end.
+Auth mechanics (JWT-in-HTTP-only-cookie, bcrypt cost, endpoint paths, `requireAdmin` middleware, role claims) are specified in [`../AGENTS.md`](../AGENTS.md) → "Auth model". No hosted auth (Auth0 / Clerk / Firebase) — the pedagogical goal of this project is to understand auth end-to-end.
 
 ---
 
@@ -201,14 +201,14 @@ Ship the scaffold to staging + prod before building features. Discover deploy fr
 
 Monitoring (Fly alerts + UptimeRobot) is deferred to Phase 7 — with zero traffic there is nothing the alerts would answer. See `deploy-setup.md` §11.
 
-### Phase 2 — Catalog + admin products (next)
-- [ ] Admin login (`/admin/login`) + `requireAdmin` middleware
-- [ ] Admin product CRUD — variants + image upload
-- [ ] Public `/api/products` + catalog page + product detail page
-- [ ] Variant selector + personalization text input on the detail page
-- [ ] Mobile-responsive catalog layout
+### Phase 2 — Catalog + admin products ✅
+- [x] Admin login (`/admin/login`) + `requireAdmin` middleware
+- [x] Admin product CRUD — variants + image upload
+- [x] Public `/api/products` + catalog page + product detail page
+- [x] Variant selector + personalization text input on the detail page
+- [x] Mobile-responsive catalog layout
 
-### Phase 3 — Cart + guest checkout foundation
+### Phase 3 — Cart + guest checkout foundation (next)
 - [ ] Cart in zustand + `localStorage`
 - [ ] Cart drawer / cart page
 - [ ] Checkout form (contact, shipping, payment method) with `react-hook-form` + `zod`
