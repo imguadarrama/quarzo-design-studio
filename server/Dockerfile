@@ -39,6 +39,7 @@ WORKDIR /app
 COPY --from=build /app/prod-server/node_modules ./node_modules
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/prisma ./prisma
+COPY --from=build /app/server/scripts ./scripts
 USER node
 ENV NODE_ENV=production
 EXPOSE 3000

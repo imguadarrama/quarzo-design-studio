@@ -14,20 +14,18 @@ concurrency:
   group: ci-main
   cancel-in-progress: true
 
+# Post-merge tripwire. Branch protection is not enforced (private repo, solo
+# dev), so this is the only gate if a commit lands on main outside a PR —
+# direct push, Dependabot auto-merge, etc. Delegates to the same composite
+# action the deploy workflows use so the two gates can't drift apart.
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with: { version: 9.12.0 }
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/build-and-check
         with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter server exec prisma generate
-      - run: pnpm --filter server exec tsc --noEmit
-      - run: pnpm --filter client exec tsc -b --noEmit
-      - run: pnpm --filter server build
-      - run: pnpm --filter client build
+          # Not a real deploy — this is a tripwire, not a build shipped to
+          # Cloudflare. Use the prod URL so the baked value matches what
+          # prod would actually bake in.
+          vite-api-base-url: https://${{ secrets.FLY_APP_PROD }}.fly.dev

@@ -176,7 +176,7 @@ Four workflows under `.github/workflows/`. **The YAML files themselves are the s
 
 File: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).
 
-Runs on `push: main` only — not on PRs. Typechecks + builds both packages as a sanity check after merge.
+Runs on `push: main` only — not on PRs. Delegates to the shared `build-and-check` composite action (install → build server → build client → docker smoke), so post-merge runs the same pipeline the deploy workflows run.
 
 **Why CI doesn't run on PRs.** `deploy-staging.yml`'s Fly Docker build runs `tsc` (via `pnpm --filter server build`), and the client's build script is `tsc -b && vite build` — so every type error `ci.yml` would catch is also caught during the staging deploy. Running both on every PR doubled install + build work for no new signal.
 
@@ -280,7 +280,7 @@ Run these only after buying the GoDaddy domain.
 
 ## 10. Out of scope for now
 
-- ESLint / Prettier / test runner (Vitest). Add in a later phase; CI is typecheck + build only.
+- ESLint / Prettier / test runner (Vitest). Add in a later phase; CI is install + build both packages + docker smoke only.
 - E2E tests (Playwright) in the staging pipeline.
 - Sentry / error monitoring (Fly dashboard + UptimeRobot cover enough for v1 — see §11).
 - Blue/green or canary deploys.

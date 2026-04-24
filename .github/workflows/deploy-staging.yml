@@ -39,19 +39,10 @@ jobs:
           branch_name: pr-${{ github.event.number }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
-      - uses: pnpm/action-setup@v4
+      - name: Build, typecheck, and smoke-test image
+        uses: ./.github/actions/build-and-check
         with:
-          version: 9.12.0
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm --filter server exec prisma generate
+          vite-api-base-url: https://${{ secrets.FLY_APP_STAGING }}.fly.dev
 
       - name: Run migrations on PR branch
         env:
@@ -78,11 +69,6 @@ jobs:
             APP_ENV="staging" \
             NODE_ENV="production"
           flyctl deploy -a ${{ secrets.FLY_APP_STAGING }} -c fly.staging.toml --remote-only
-
-      - name: Build client
-        env:
-          VITE_API_BASE_URL: https://${{ secrets.FLY_APP_STAGING }}.fly.dev
-        run: pnpm --filter client build
 
       - name: Deploy client to Cloudflare Pages (preview)
         id: pages

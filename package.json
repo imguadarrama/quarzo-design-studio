@@ -13,6 +13,9 @@
     "server": "pnpm --filter server",
     "client": "pnpm --filter client",
     "seed": "docker compose exec api pnpm --filter server seed",
-    "migrate": "docker compose run --rm api pnpm --filter server exec prisma migrate dev"
+    "migrate": "docker compose run --rm api pnpm --filter server exec prisma migrate dev",
+    "preflight": "pnpm --filter server exec prisma generate && pnpm --filter server exec tsc --noEmit && pnpm --filter client exec tsc -b --noEmit && pnpm --filter server build && pnpm --filter client build",
+    "preflight:image": "docker build -f server/Dockerfile --target runtime -t quarzo-preflight . && docker run --rm --entrypoint node quarzo-preflight scripts/smoke-prisma.mjs",
+    "preflight:full": "pnpm preflight && pnpm preflight:image"
   }
 }
