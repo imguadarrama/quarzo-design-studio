@@ -8,6 +8,22 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
   CLIENT_ORIGIN: z.string().url(),
+  CLIENT_ORIGIN_PREVIEW_PATTERN: z
+    .string()
+    .optional()
+    .transform((p) => (p && p.length > 0 ? p : undefined))
+    .refine(
+      (p) => {
+        if (!p) return true;
+        try {
+          new RegExp(p);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      "CLIENT_ORIGIN_PREVIEW_PATTERN must be a valid regex",
+    ),
   COOKIE_DOMAIN: z.string().default("localhost"),
   ADMIN_AUTH_COOKIE_NAME: z.string().min(1).default("quarzo_admin_session"),
   CUSTOMER_AUTH_COOKIE_NAME: z.string().min(1).default("quarzo_customer_session"),

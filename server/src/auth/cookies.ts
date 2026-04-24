@@ -18,7 +18,7 @@ const buildCookieOptions = (maxAgeMs: number): CookieOptions => {
 
   return {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: isLocalDevelopment ? "lax" : "none",
     secure: !isLocalDevelopment,
     path: "/",
     maxAge: maxAgeMs,

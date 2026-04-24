@@ -65,6 +65,7 @@ jobs:
             ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL_STAGING }}" \
             ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD_STAGING }}" \
             CLIENT_ORIGIN="${{ secrets.CLIENT_ORIGIN_STAGING }}" \
+            CLIENT_ORIGIN_PREVIEW_PATTERN="${{ secrets.CLIENT_ORIGIN_PREVIEW_PATTERN_STAGING }}" \
             COOKIE_DOMAIN="" \
             APP_ENV="staging" \
             NODE_ENV="production"

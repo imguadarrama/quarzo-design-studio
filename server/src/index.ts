@@ -10,10 +10,19 @@ import { productsRouter } from "./routes/products.js";
 
 const app = express();
 
+const previewOriginRegex = env.CLIENT_ORIGIN_PREVIEW_PATTERN
+  ? new RegExp(env.CLIENT_ORIGIN_PREVIEW_PATTERN)
+  : null;
+
 app.use(helmet());
 app.use(
   cors({
-    origin: env.CLIENT_ORIGIN,
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      if (origin === env.CLIENT_ORIGIN) return cb(null, true);
+      if (previewOriginRegex && previewOriginRegex.test(origin)) return cb(null, true);
+      return cb(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   }),
 );
