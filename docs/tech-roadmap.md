@@ -3,7 +3,7 @@
 > **What this is:** the PRD for Quarzo's v1 store — business, users, scope, flows, open decisions, and delivery phases.
 >
 > **What it is not:** an architecture doc or a deploy runbook. Those live elsewhere:
-> - Architecture, code conventions, auth model, data model invariants → [`../AGENTS.md`](../AGENTS.md)
+> - Architecture, code conventions, auth model, data model invariants → [`../CLAUDE.md`](../CLAUDE.md)
 > - Authoritative data model → [`../server/prisma/schema.prisma`](../server/prisma/schema.prisma)
 > - Deploy pipeline → [`CI-CD/deploy-setup.md`](CI-CD/deploy-setup.md)
 > - Raw client discovery notes → [`client/discovery-with-client.md`](client/discovery-with-client.md)
@@ -165,7 +165,7 @@ Optional: "¿Crear cuenta para la próxima vez?"
 
 **Admin is separate** — single seeded user, separate `/admin/login`, no public admin registration.
 
-Auth mechanics (JWT-in-HTTP-only-cookie, bcrypt cost, endpoint paths, `requireAdmin` middleware, role claims) are specified in [`../AGENTS.md`](../AGENTS.md) → "Auth model". No hosted auth (Auth0 / Clerk / Firebase) — the pedagogical goal of this project is to understand auth end-to-end.
+Auth mechanics (JWT-in-HTTP-only-cookie, bcrypt cost, endpoint paths, `requireAdmin` middleware, role claims) are specified in [`../CLAUDE.md`](../CLAUDE.md) → "Auth model". No hosted auth (Auth0 / Clerk / Firebase) — the pedagogical goal of this project is to understand auth end-to-end.
 
 ---
 
@@ -207,6 +207,22 @@ Monitoring (Fly alerts + UptimeRobot) is deferred to Phase 7 — with zero traff
 - [x] Public `/api/products` + catalog page + product detail page
 - [x] Variant selector + personalization text input on the detail page
 - [x] Mobile-responsive catalog layout
+
+### Phase 2.5 — Frontend refactor (DRY/SOLID/KISS pass) — in progress
+Phase 2 shipped the functional frontend (~1,082 lines across 8 `.tsx` files), but quality is uneven: `AdminProductsPage.tsx` is 571 lines of mixed concerns, every page re-rolls its own buttons/inputs/loading states, `react-hook-form` + `zod` are installed but unused, brand colors are scattered across ~300 raw Tailwind classes, and loading/error UX is inconsistent page to page. Before Phase 3 adds cart, checkout, and customer auth to this surface, the foundations get cleaned up so Phase 3 builds on solid ground instead of widening the mess.
+
+No backend changes, no new pages, no test runner. Image upload stays base64 for this phase; server-side payload caps are handled separately in [`phase-2-execution-plan.md`](phase-2-execution-plan.md) §4.4.
+
+- [ ] **Step 1 — Theme tokens.** Extend `tailwind.config.ts` with semantic `brand.*` colors (ink / paper / accent / muted) mapped to the current stone/amber scale. Extend `theme.fontFamily.serif`. Replace hardcoded hex in `client/src/index.css @layer base` with `theme()` references.
+- [ ] **Step 2 — Primitive components** under `client/src/components/ui/` — `Button`, `Input`, `Textarea`, `Card`, `Spinner`. ≤80 lines each, named-export props interface. No Modal / Toast / Select / Badge / EmptyState yet (build when a page actually needs them).
+- [ ] **Step 3 — Shared feedback helpers** — one file `client/src/components/feedback/PageState.tsx` exporting `<PageLoading />`, `<PageError message />`, `<PageEmpty message />`.
+- [ ] **Step 4 — Migrate existing pages** to the primitives: `App.tsx`, `CatalogPage`, `ProductDetailPage`, `AdminLoginPage` (gains `react-hook-form` + `zod`), `ProductCard`, `VariantSelector`, `PersonalizationInput`.
+- [ ] **Step 5 — Split `AdminProductsPage`** (571 → ≤150 lines each) into `pages/admin/AdminProductsPage.tsx` (orchestration), `components/ProductListTable.tsx`, `components/ProductForm.tsx` (`useForm` + `zodResolver`), `components/ProductImageEditor.tsx` (`useFieldArray` for images, 2 MB zod cap), `components/ProductVariantEditor.tsx` (`useFieldArray` for variants), `schema.ts` (shared zod schema).
+- [ ] **Step 6 — Cleanup pass.** Remove `.gitkeep` where real files now exist, strip unused imports and dead helpers, `pnpm preflight` clean, browser smoke on `/`, `/productos/:slug`, `/admin/login`, `/admin/productos`.
+
+Full execution-level detail (acceptance criteria per step, files touched, verification commands): [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md).
+
+Exit criteria: no file in `pages/admin/` exceeds 150 lines; `grep -r "Cargando\.\.\." client/src/` returns hits only inside `PageState.tsx`; `pnpm preflight` green; all four pages smoke-test in a browser.
 
 ### Phase 3 — Cart + guest checkout foundation (next)
 - [ ] Cart in zustand + `localStorage`

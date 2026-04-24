@@ -8,7 +8,7 @@ Quarzo Design Studio is a custom-stationery e-commerce store (Saltillo, Coahuila
 
 The full scope, customer flows, phased plan, and locked product decisions live in `docs/tech-roadmap.md` (the PRD). Read it before making non-trivial changes — it's the source of truth for "what are we building and why." Data-model invariants, architecture, and code conventions live in this file. `docs/client/discovery-with-client.md` has the raw client discovery notes.
 
-As of the current commit the repo is at the end of **Phase 1.5 (skeleton deployed)**: Docker Compose stack, Prisma schema + seed, Express health endpoint, placeholder Vite/React page, and the full staging/prod CI-CD pipeline (Fly.io + Cloudflare Pages + Neon). No routes, controllers, services, middleware, or frontend pages have been implemented yet — those directories are scaffolded but empty.
+As of the current commit: **Phase 2 functional foundation is merged on `main`** — public `/api/products` + catalog and detail pages, admin auth (JWT-in-HTTP-only-cookie), `authenticateAdmin` + `requireAdmin` middleware, admin product CRUD with nested variants + base64 images. **Phase 2.5 (frontend refactor — theme tokens, UI primitives, split the 571-line `AdminProductsPage`, migrate pages to `react-hook-form` + `zod`) is the active phase**, in flight by a specialist agent per `docs/phase-2.5-execution-plan.md`. Phase 2 server cleanup (shared serializer, global error handler, image payload caps, 409 on duplicate slug, `passwordHash` response audit) runs in parallel per `docs/phase-2-execution-plan.md`. Phase 3 (cart + guest checkout) is blocked on both and has not started.
 
 ## Common commands
 
@@ -74,30 +74,34 @@ pnpm workspaces with two packages: `server/` (Express + Prisma) and `client/` (V
 
 ### Server
 
-Target shape (dirs scaffolded, mostly empty):
+Current layout (folders land when their first occupant does):
 
 ```
 server/src/
-  routes/       REST endpoints
-  controllers/  request handlers
-  services/     business logic (orders, payments, email)
-  middleware/   auth, requireAdmin, errorHandler, validator
-  db/           Prisma client singleton (prisma.ts)
+  auth/         JWT sign/verify, cookie helpers, shared auth types
   config/       env loader (env.ts)
-  lib/          MercadoPago wrapper, mailer
+  db/           Prisma client singleton (prisma.ts)
+  middleware/   authenticateAdmin, requireAdmin
+  routes/       REST endpoints (health, products, admin-auth, admin-products)
+  types/        Express augmentations (e.g. req.auth shape)
   index.ts      app bootstrap
+  seed.ts       admin user + sample products seed
 ```
 
-`server/src/index.ts` is the entrypoint; `helmet`, `cors` (with `credentials: true` against `CLIENT_ORIGIN`), `cookie-parser`, and `express.json({ limit: "1mb" })` are already wired. Route modules mount under `/api` — currently only `healthRouter` from `routes/health.ts` (`GET /api/health`). All future routes go through `routes/` the same way.
+Planned (added when their first consumer lands): `controllers/` (if routes grow thick enough to justify splitting), `services/` (orders, payments, email — Phase 3+), `lib/` (MercadoPago wrapper, Resend mailer — Phase 4).
+
+`server/src/index.ts` is the entrypoint; `helmet`, `cors` (predicate function — exact match on `env.CLIENT_ORIGIN` plus optional `env.CLIENT_ORIGIN_PREVIEW_PATTERN` regex for Cloudflare Pages previews, `credentials: true`), `cookie-parser`, and `express.json({ limit: "1mb" })` are already wired. Routes currently mounted under `/api` and `/api/admin`: `healthRouter` (`GET /api/health`), `productsRouter` (public `/api/products`, `/api/products/:slug`), `adminAuthRouter` (`/api/admin/auth/{login,logout,me}`), `adminProductsRouter` (`/api/admin/products*`, gated by `authenticateAdmin` + `requireAdmin`). Future routes follow the same pattern.
 
 Import Prisma via `import { prisma } from "../db/prisma.js"` (note the `.js` extension — required for NodeNext ESM resolution even though the source is `.ts`).
 
-### Auth model (to be built — non-negotiable)
+### Auth model
+
+**Status:** admin path is implemented (`server/src/routes/admin-auth.ts`, `server/src/auth/*`, `server/src/middleware/{authenticateAdmin,requireAdmin}.ts`). Customer path is Phase 5 — not implemented yet.
 
 Two separate principals sharing one cookie mechanism:
 
-- **Customer auth**: `Customer` table, optional (`passwordHash` is nullable — guests allowed). Endpoints `POST /api/auth/{register,login,logout}`, `GET /api/auth/me`. Registration must never be required to complete a purchase.
-- **Admin auth**: `AdminUser` table, single seeded user, separate `/admin/login`. Gate all `/api/admin/*` with a `requireAdmin` middleware that checks the JWT's `role` claim.
+- **Customer auth** *(Phase 5 — pending)*: `Customer` table, optional (`passwordHash` is nullable — guests allowed). Endpoints `POST /api/auth/{register,login,logout}`, `GET /api/auth/me`. Registration must never be required to complete a purchase.
+- **Admin auth** *(implemented)*: `AdminUser` table, single seeded user, separate `/admin/login`. All `/api/admin/*` routes mount `authenticateAdmin` + `requireAdmin` which check the JWT's `role` claim.
 
 Both use **JWT in an HTTP-only cookie** (not `localStorage` — XSS hardening) and `bcrypt` cost 12. See `docs/tech-roadmap.md` §8 for the full three-path checkout flow (guest → optional post-purchase account → returning login).
 

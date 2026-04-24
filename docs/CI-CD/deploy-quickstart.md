@@ -21,7 +21,7 @@ GitHub sees a new PR (or a push to an existing PR) and fires this workflow. It d
 
 Every push to the PR repeats this. The `concurrency` block cancels in-flight runs when you push again, so rapid pushes produce only one completed deployment.
 
-**Doc-only PRs are skipped.** The workflow has `paths-ignore` for `**/*.md`, `docs/**`, and `.gitignore` — README or runbook changes don't spin up Fly + Neon.
+**Doc-only PRs are skipped.** The workflow has `paths-ignore` for `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, and `.gitattributes` — README or runbook changes don't spin up Fly + Neon.
 
 ### When the PR is closed (merged or abandoned) → `cleanup-staging.yml` runs
 Deletes the `pr-<number>` Neon branch. Keeps your Neon project tidy.

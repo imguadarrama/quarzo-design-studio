@@ -1,11 +1,11 @@
 ---
 name: audit-docs
-description: Audit Quarzo's living docs against the repo's real state. Reads README.md, AGENTS.md, and every file under docs/, then cross-references them against git state, the file tree, package scripts, env vars, and Prisma schema. Reports drift (broken links, outdated references, wrong phase checkboxes, stale commands) and proposes/applies fixes. Use when the user asks things like "audit my docs", "verify progress", "are my docs updated", "what phase am I on", after finishing a phase, or before a release.
+description: Audit Quarzo's living docs against the repo's real state. Reads README.md, CLAUDE.md, and every file under docs/, then cross-references them against git state, the file tree, package scripts, env vars, and Prisma schema. Reports drift (broken links, outdated references, wrong phase checkboxes, stale commands) and proposes/applies fixes. Use when the user asks things like "audit my docs", "verify progress", "are my docs updated", "what phase am I on", after finishing a phase, or before a release.
 ---
 
 # audit-docs — keep Quarzo's docs honest
 
-Quarzo ships with a set of living docs (`README.md`, `AGENTS.md`, `docs/tech-roadmap.md`, `docs/CI-CD/deploy-setup.md`, `docs/client/discovery-with-client.md`, plus anything else under `docs/`). They are the project's source of truth for "what are we building, where are we, what's next." They **will** drift from reality as code lands. This skill finds that drift and fixes it.
+Quarzo ships with a set of living docs (`README.md`, `CLAUDE.md`, `docs/tech-roadmap.md`, `docs/CI-CD/deploy-setup.md`, `docs/client/discovery-with-client.md`, plus anything else under `docs/`). They are the project's source of truth for "what are we building, where are we, what's next." They **will** drift from reality as code lands. This skill finds that drift and fixes it.
 
 The user's stated goal: *"track what I've done, what I'm doing, and what I need to do so I can deliver this app the best way possible."* Orient every check toward that goal.
 
@@ -23,8 +23,8 @@ Also appropriate:
 Read these every invocation:
 
 1. `README.md` (repo root) — dev onboarding, commands, ports, env table, troubleshooting.
-2. `AGENTS.md` (repo root) — architecture conventions and invariants.
-3. `docs/tech-roadmap.md` — the product PRD: business, scope, constraints, customer flows, open decisions, delivery phases. Data model + architecture + auth mechanics are delegated to `AGENTS.md` and `server/prisma/schema.prisma`.
+2. `CLAUDE.md` (repo root) — architecture conventions and invariants.
+3. `docs/tech-roadmap.md` — the product PRD: business, scope, constraints, customer flows, open decisions, delivery phases. Data model + architecture + auth mechanics are delegated to `CLAUDE.md` and `server/prisma/schema.prisma`.
 4. Every `*.md` under `docs/**` (currently `docs/CI-CD/deploy-setup.md`, `docs/CI-CD/deploy-quickstart.md`, `docs/client/discovery-with-client.md` — adapt to whatever exists).
 
 Also read (to ground truth):
@@ -60,7 +60,7 @@ Scan for known stale text:
 - "Railway" as a deploy target → replace with "Cloudflare Pages + Fly.io + Neon" (canonical per `docs/CI-CD/deploy-setup.md`).
 - Old filenames (e.g. `wife-store-discovery.md`, `wife-store-resumen-descubrimiento.docx`, `wife-store-tech-roadmap.md`) → use current names (`docs/client/discovery-with-client.md`, `docs/tech-roadmap.md`, etc.).
 - Port numbers, env var names, command names that don't appear in the current code.
-- Library names in `AGENTS.md` that aren't in `package.json` dependencies (server or client).
+- Library names in `CLAUDE.md` that aren't in `package.json` dependencies (server or client).
 
 ### 4. Command accuracy
 Every command in `README.md` "First-time setup" / "Daily workflow" sections must exist as a pnpm script in root `package.json`, or be a well-known CLI (git, docker, curl). Flag any that don't resolve.
@@ -117,7 +117,7 @@ After presenting the report, apply the **safe** edits directly using the `Edit` 
 - Adding a new section or checklist item.
 - Changing phase definitions or scope.
 - Marking an Open Decision as closed (requires user confirmation of the decision).
-- Any edit to `AGENTS.md` conventions/rules (vs. mere factual corrections).
+- Any edit to `CLAUDE.md` conventions/rules (vs. mere factual corrections).
 - Any edit when the current branch is `main` (commit there should go through a PR).
 
 When applying, batch edits per file and keep each change minimal — the goal is to remove drift, not to editorialize.
