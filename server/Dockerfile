@@ -12,9 +12,9 @@ FROM base AS dev
 COPY package.json pnpm-workspace.yaml ./
 COPY tsconfig.base.json ./
 COPY server/package.json ./server/
+COPY server/prisma ./server/prisma
 RUN pnpm install --filter server
 COPY server ./server
-RUN pnpm --filter server exec prisma generate
 EXPOSE 3000
 CMD ["pnpm", "--filter", "server", "dev"]
 
@@ -22,6 +22,7 @@ CMD ["pnpm", "--filter", "server", "dev"]
 FROM base AS deps
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY server/package.json ./server/
+COPY server/prisma ./server/prisma
 RUN pnpm install --frozen-lockfile --filter server
 
 FROM base AS build
@@ -29,7 +30,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/server/node_modules ./server/node_modules
 COPY server ./server
 COPY tsconfig.base.json ./
-RUN pnpm --filter server exec prisma generate
 RUN pnpm --filter server build
 RUN pnpm --filter server deploy --prod /app/prod-server
 
