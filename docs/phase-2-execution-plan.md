@@ -62,8 +62,8 @@
 
 ### 2.1 Boot the stack
 
-- [ ] From repo root: `pnpm dev`. Wait for `api | listening on :3000` and `web | Local:   http://localhost:5173/`.
-- [ ] In a second terminal: `pnpm seed`. You should see the admin email and 4 product names printed.
+- [x] From repo root: `pnpm dev`. Wait for `api | listening on :3000` and `web | Local:   http://localhost:5173/`.
+- [x] In a second terminal: `pnpm seed`. You should see the admin email and 4 product names printed.
 
 ### 2.2 Health check
 
@@ -74,7 +74,7 @@ GET {{baseUrl}}/health
 { "ok": true }
 ```
 
-- [ ] Works.
+- [x] Works.
 
 ### 2.3 Admin login (captures the cookie)
 
@@ -89,7 +89,7 @@ Set-Cookie: quarzo_admin_session=eyJ...; HttpOnly; SameSite=Lax; Path=/
 { "admin": { "id": "c...", "email": "admin@quarzo.local" } }
 ```
 
-- [ ] 200. Open Postman Settings → Cookies → `localhost` and confirm `quarzo_admin_session` is stored. If not, your cookie jar is off.
+- [x] 200. Open Postman Settings → Cookies → `localhost` and confirm `quarzo_admin_session` is stored. If not, your cookie jar is off.
 
 ### 2.4 Session check
 
@@ -100,7 +100,7 @@ GET {{baseUrl}}/admin/auth/me
 { "admin": { "id": "...", "email": "..." } }
 ```
 
-- [ ] 200.
+- [x] 200.
 
 ### 2.5 Public catalog
 
@@ -111,7 +111,7 @@ GET {{baseUrl}}/products
 { "products": [ { "slug":"sobres-clasicos", "basePrice":"180.00", "startingPrice":"180.00", "variants":[...], "images":[...] }, ... ] }
 ```
 
-- [ ] 200. Four products returned.
+- [x] 200. Four products returned.
 
 ### 2.6 Public product detail
 
@@ -122,7 +122,7 @@ GET {{baseUrl}}/products/sobres-clasicos
 { "product": { "slug":"sobres-clasicos", "variants":[...], "images":[...] } }
 ```
 
-- [ ] 200.
+- [x] 200.
 
 ### 2.7 Admin logout
 
@@ -133,7 +133,7 @@ POST {{baseUrl}}/admin/auth/logout
 Set-Cookie: quarzo_admin_session=; Max-Age=0
 ```
 
-- [ ] 200. Cookie gone from Postman's jar.
+- [x] 200. Cookie gone from Postman's jar.
 
 **If everything above is green, continue. If any step fails, see §7 before touching code.**
 
@@ -145,37 +145,45 @@ Each item is a property to **prove** with Postman or a quick file read. The code
 
 ### 3.1 Secrets & hashing
 
-- [ ] Open `.env`: `JWT_SECRET` is ≥ 16 chars, looks random, is *not* the placeholder from `.env.example`. *Short/predictable secrets are brute-forceable. The env schema in `server/src/config/env.ts:9` rejects < 16 at boot.*
-- [ ] `server/src/seed.ts` → bcrypt cost = 12. *~250 ms per verify: slow enough to hurt brute-forcers, fast enough for interactive login.*
-- [ ] `.env` → `ADMIN_PASSWORD` ≥ 8 chars. *Enforced by `env.ts:16`.*
-- [ ] `.env` is in `.gitignore`; `.env.example` contains only placeholders. *Never commit real secrets.*
+- [x] Open `.env`: `JWT_SECRET` is ≥ 16 chars, looks random, is *not* the placeholder from `.env.example`. *Short/predictable secrets are brute-forceable. The env schema in `server/src/config/env.ts:9` rejects < 16 at boot.*
+- [x] `server/src/seed.ts` → bcrypt cost = 12. *~250 ms per verify: slow enough to hurt brute-forcers, fast enough for interactive login.*
+- [x] `.env` → `ADMIN_PASSWORD` ≥ 8 chars. *Enforced by `env.ts:16`.*
+- [x] `.env` is in `.gitignore`; `.env.example` contains only placeholders. *Never commit real secrets.*
+
+
+> **Resolved — `APP_ENV` is not a GitHub secret.** It's hardcoded as a string literal in each deploy workflow: `deploy-staging.yml:78` sets `APP_ENV="staging"` and `deploy-production.yml:69` sets `APP_ENV="production"`. `docker-compose.yml:30` sets `APP_ENV: development` for local. There is nothing to store under `${{ secrets.APP_ENV }}` — neither staging nor prod reads from one. Your staging failure is caused by a *different* missing/invalid secret (likely one of `FLY_API_TOKEN`, `FLY_APP_STAGING`, `JWT_SECRET_STAGING`, `ADMIN_EMAIL_STAGING`, `ADMIN_PASSWORD_STAGING`, `CLIENT_ORIGIN_STAGING`, `CLOUDFLARE_*`, or `NEON_*`). Diagnostic path: open the failed `deploy-staging` run on the Actions tab → read the red step's log → cross-check secret names against the list in `docs/CI-CD/deploy-setup.md`.
 
 ### 3.2 Cookie flags
 
 Read `server/src/auth/cookies.ts:15-25`. Confirm:
 
-- [ ] `httpOnly: true`. *Blocks JS from reading the cookie → XSS can't steal the token.*
-- [ ] `sameSite: "lax"`. *Blocks CSRF on POST from third-party sites; still lets normal top-level navigation work.*
-- [ ] `secure: APP_ENV === "production"` (or equivalent). *HTTPS-only in prod. Not in dev because `http://localhost` wouldn't receive it.*
+- [x] `httpOnly: true`. *Blocks JS from reading the cookie → XSS can't steal the token.*
+- [x] `sameSite: "lax"`. *Blocks CSRF on POST from third-party sites; still lets normal top-level navigation work.*
+- [x] `secure: APP_ENV === "production"` (or equivalent). *HTTPS-only in prod. Not in dev because `http://localhost` wouldn't receive it.*
+
+
 
 ### 3.3 No user enumeration
 
 An attacker must not be able to learn which emails are admins by diffing error responses.
 
-- [ ] Postman: `POST /admin/auth/login` with `email="ghost@nope.com"` → 401.
-- [ ] Postman: `POST /admin/auth/login` with correct `adminEmail` and **wrong** password → 401.
-- [ ] The `error` field in both responses is **identical** (e.g. `"Credenciales inválidas"`). *Different messages leak which email exists.*
+- [x] Postman: `POST /admin/auth/login` with `email="ghost@nope.com"` → 401.
+- [x] Postman: `POST /admin/auth/login` with correct `adminEmail` and **wrong** password → 401.
+- [x] The `error` field in both responses is **identical** (e.g. `"Credenciales inválidas"`). *Different messages leak which email exists.*
 
 ### 3.4 Token tampering / missing token
 
-- [ ] Postman: clear cookies. `GET /admin/auth/me` → 401.
-- [ ] Postman: manually set `Cookie: quarzo_admin_session=garbage.jwt.here` in the request headers. `GET /admin/auth/me` → 401.
-- [ ] Postman: clear cookies. `GET /admin/products` → 401. *Confirms `requireAdmin` is actually mounted on the admin product routes.*
+- [x] Postman: clear cookies. `GET /admin/auth/me` → 401.
+- [x] Postman: manually set `Cookie: quarzo_admin_session=garbage.jwt.here` in the request headers. `GET /admin/auth/me` → 401.
+- [x] Postman: clear cookies. `GET /admin/products` → 401. *Confirms `requireAdmin` is actually mounted on the admin product routes.*
 
 ### 3.5 No admin self-registration
 
-- [ ] In your editor, search the whole repo for `AdminUser.create` and `prisma.adminUser.create`. Only hit should be `server/src/seed.ts`. *A runtime admin-create endpoint is a permanent backdoor.*
-- [ ] There is no `POST /admin/auth/register` route. Confirm by scanning `server/src/routes/admin-auth.ts`.
+> **Resolved — the absence is the design.** Repo-wide grep for `adminUser.create|AdminUser.create|adminUser.upsert` returns exactly one match: `prisma.adminUser.upsert` in `server/src/seed.ts:84`. No `.create` call exists anywhere, and `server/src/routes/admin-auth.ts` exposes only `/login`, `/logout`, `/me` — no register route. This is intentional (CLAUDE.md: *"There is intentionally no public admin-registration endpoint"*). A runtime admin-create endpoint would be a permanent backdoor; the only path is `pnpm seed` driven by `ADMIN_EMAIL` / `ADMIN_PASSWORD`, which the operator controls. `upsert` keeps seed idempotent.
+
+- [x] In your editor, search the whole repo for `AdminUser.create` and `prisma.adminUser.create`. Only hit should be `server/src/seed.ts`. *A runtime admin-create endpoint is a permanent backdoor.*
+
+- [x] There is no `POST /admin/auth/register` route. Confirm by scanning `server/src/routes/admin-auth.ts`.
 
 ### 3.6 Transport headers + CORS
 
