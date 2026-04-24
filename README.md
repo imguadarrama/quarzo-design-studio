@@ -103,7 +103,8 @@ All variables live in `.env` at the repo root. `docker-compose.yml` reads it and
 |---|---|
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Credentials the `db` container boots with |
 | `DATABASE_URL` | Prisma connection string — must match the Postgres vars above; host is `db` (the Compose service name) |
-| `APP_ENV` | Deploy-env signal used by app code (`development` \| `staging` \| `production`). Separate from `NODE_ENV`, which stays `production` in both staging and prod deploys so libraries behave correctly |
+| `NODE_ENV` | Standard Node/library signal (`development` \| `test` \| `production`). Defaults to `development` via the Zod schema; left as-is locally, set to `production` in both staging and prod deploys so libraries behave correctly |
+| `APP_ENV` | Deploy-env signal used by app code (`development` \| `staging` \| `production`). Separate from `NODE_ENV` — drives things like cookie `secure` flag |
 | `PORT` | Port the Express API listens on (default `3000`) |
 | `CLIENT_ORIGIN` | Origin allowed by CORS, used for cookie `SameSite` handling (default `http://localhost:5173`) |
 | `COOKIE_DOMAIN` | Domain scope for the auth cookie (default `localhost`) |

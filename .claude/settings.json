@@ -1,0 +1,21 @@
+{
+  "model": "claude-sonnet-4-6",
+  "permissions": {
+    "allow": [
+      "Bash(pnpm dev)",
+      "Bash(pnpm dev:*)",
+      "Bash(pnpm migrate)",
+      "Bash(pnpm seed)",
+      "Bash(pnpm --filter *)",
+      "Bash(docker compose:*)",
+      "Bash(git status)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh run:*)"
+    ]
+  }
+}

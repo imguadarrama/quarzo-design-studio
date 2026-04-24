@@ -22,6 +22,16 @@ pnpm migrate       # prisma migrate dev inside the api container
 pnpm seed          # run src/seed.ts (admin user + sample products); requires stack to be up
 ```
 
+Pre-push preflight (run before `git push` to catch bugs locally that CI would otherwise catch on the PR):
+
+```bash
+pnpm preflight         # fast (~30s): prisma generate + tsc both + build both
+pnpm preflight:image   # slower (~3–5 min): docker build runtime image + smoke the Prisma client loads
+pnpm preflight:full    # both of the above in sequence
+```
+
+Run `pnpm preflight:image` (or `:full`) when you change `server/Dockerfile`, `server/prisma/**`, `server/package.json`, or any deploy-affecting root file — that's when runtime-only Docker bugs sneak in.
+
 Workspace-scoped commands (run inside or outside the container):
 
 ```bash
@@ -43,10 +53,14 @@ The admin user is seeded from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (see `server/src/
 
 Four workflows under `.github/workflows/`:
 
-- `ci.yml` — **`push: main` only** (not on PRs). Post-merge tripwire: install → `prisma generate` → `tsc --noEmit` (both packages) → build both. ~6–8 min. Skips pushes that only touch `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes` via `paths-ignore`. PR coverage comes from `deploy-staging.yml`'s Docker build (which runs `tsc` via `pnpm --filter server build`) and the client's `vite build` (which is `tsc -b && vite build`) — ci on PRs was duplicate work.
-- `deploy-staging.yml` — PR-triggered (with `paths-ignore` for `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes`). Creates/reuses a per-PR Neon branch, deploys API to Fly staging, client to Cloudflare Pages, posts a PR comment with both stable + per-commit URLs.
-- `deploy-production.yml` — `workflow_dispatch` only. Requires typing `ship` to confirm. All typechecks and builds (server tsc, client tsc, server build, client build) run **before** `prisma migrate deploy`, `flyctl deploy`, and the Cloudflare upload — so prod state is never mutated unless every check has passed.
+- `ci.yml` — **`push: main` only** (not on PRs). Post-merge tripwire: delegates to the shared `build-and-check` composite action, so post-merge runs the same install → build server → build client → docker-smoke pipeline the deploy workflows run. Skips pushes that only touch `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes` via `paths-ignore`. PR coverage comes from `deploy-staging.yml` invoking the same composite — no duplicated install/tsc/build work.
+- `deploy-staging.yml` — PR-triggered (with `paths-ignore` for `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes`). Creates/reuses a per-PR Neon branch, runs `build-and-check`, deploys API to Fly staging, client to Cloudflare Pages, posts a PR comment with both stable + per-commit URLs.
+- `deploy-production.yml` — `workflow_dispatch` only. Requires typing `ship` to confirm. Runs `build-and-check` **before** `prisma migrate deploy`, `flyctl deploy`, and the Cloudflare upload — so prod state is never mutated unless every gate has passed.
 - `cleanup-staging.yml` — deletes the per-PR Neon branch when the PR closes.
+
+Shared pre-deploy gate: `.github/actions/build-and-check/action.yml`. Both deploy workflows and `ci.yml` invoke it so staging, prod, and post-merge main run the exact same pipeline (install → build server → build client → `docker build --target runtime` + Prisma-client smoke test). `pnpm install` runs `postinstall: prisma generate` automatically, and the `build` scripts (`tsc` for server, `tsc -b && vite build` for client) run the TypeScript compiler — so explicit `prisma generate` / `tsc --noEmit` steps would be duplicate work. Changing the pre-deploy gates = edit one file, all three workflows pick it up. The smoke step specifically catches runtime-only Dockerfile bugs (e.g. missing generated Prisma client in the image) that typechecks can't see.
+
+Belt-and-suspenders at the Fly layer: `fly.toml` and `fly.staging.toml` both set `[deploy] release_command = "node scripts/smoke-prisma.mjs"`. Fly runs this in an ephemeral machine before rolling out serving machines; a non-zero exit aborts the deploy, so even a hand-run `flyctl deploy` can't push a broken image.
 
 Node version is pinned to `22` in the `.node-version` file at the repo root, read via `node-version-file: .node-version`. The runtime contract is `engines.node: ">=22"` in root `package.json` — if you bump one, bump the other.
 
@@ -128,3 +142,15 @@ All customer-facing copy is Spanish (Mexico). No i18n layer for v1.
 - Validate every request body with Zod. Validate env with Zod at boot.
 - Never store JWTs in `localStorage`. Never force registration before checkout. Never bypass the `requireAdmin` middleware for `/api/admin/*`.
 - Don't run `prisma migrate` or `prisma generate` on the host — use `pnpm migrate` (which shells into the `api` container) so the generated client matches the container's Node/OpenSSL.
+
+## Model / agent ladder (Claude Max cost discipline)
+
+Project-level `.claude/settings.json` pins the main loop to **Sonnet** so routine work doesn't burn the weekly Opus cap. Use `/model opus` explicitly for hard sessions (architecture, security review, tricky multi-file refactors), then `/model default` to drop back.
+
+Subagent defaults (see `.claude/agents/`):
+
+- **Explore → Haiku** — open-ended codebase lookups. Spawn freely.
+- **general-purpose → Sonnet** — multi-step research and coding across files.
+- **Plan → Opus** — only when architectural trade-offs are actually in play.
+
+Prefer `Grep` / `Glob` / `Read` directly when the target file is known — don't spawn `Explore` for a file you can name. Skills under `.agents/skills/*` inherit the main model, so don't invoke `audit-docs` while the main model is on Opus unless you need Opus-level reasoning.

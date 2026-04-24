@@ -5,6 +5,15 @@ primary_region = "dfw"  # qro (Querétaro) deprecated; dfw is next-closest to Sa
   dockerfile = "server/Dockerfile"
   build-target = "runtime"
 
+# Runs in an ephemeral machine before any serving machine is updated. A
+# non-zero exit aborts the deploy and leaves the current release in place.
+# We load the Prisma singleton to catch missing generated-client bugs that
+# no typecheck surfaces. Same gate as the CI docker smoke — belt and
+# suspenders in case someone runs `flyctl deploy` by hand.
+[deploy]
+  release_command = "node scripts/smoke-prisma.mjs"
+  strategy = "rolling"
+
 # Staging stays always-on (min_machines_running = 1, auto_stop = false).
 # MercadoPago webhooks time out at ~15s but a cold Fly machine takes
 # ~30s to wake — a sleeping staging would silently hide MP integration
@@ -16,13 +25,16 @@ primary_region = "dfw"  # qro (Querétaro) deprecated; dfw is next-closest to Sa
   auto_start_machines = true
   min_machines_running = 1
 
+  # Tight grace_period + short interval so a boot failure surfaces during
+  # the deploy rollout instead of showing up minutes later as random 502s.
+  # The health route doesn't touch the DB, so 3s timeout is generous.
   [[http_service.checks]]
-    grace_period = "10s"
-    interval = "30s"
+    grace_period = "5s"
+    interval = "10s"
     method = "GET"
     path = "/api/health"
     protocol = "http"
-    timeout = "5s"
+    timeout = "3s"
 
 [[vm]]
   cpu_kind = "shared"

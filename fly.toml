@@ -5,6 +5,14 @@ primary_region = "dfw"  # Dallas — closest still-active Fly region to Saltillo
   dockerfile = "server/Dockerfile"
   build-target = "runtime"
 
+# Runs in an ephemeral machine before any serving machine is updated. A
+# non-zero exit aborts the deploy — no prod traffic is ever routed to a
+# broken image. Mirrors the CI docker smoke; this is the last-line gate if
+# CI is bypassed.
+[deploy]
+  release_command = "node scripts/smoke-prisma.mjs"
+  strategy = "rolling"
+
 [http_service]
   internal_port = 3000
   force_https = true
@@ -12,13 +20,14 @@ primary_region = "dfw"  # Dallas — closest still-active Fly region to Saltillo
   auto_start_machines = true
   min_machines_running = 1
 
+  # See fly.staging.toml for rationale on the tight windows.
   [[http_service.checks]]
-    grace_period = "10s"
-    interval = "30s"
+    grace_period = "5s"
+    interval = "10s"
     method = "GET"
     path = "/api/health"
     protocol = "http"
-    timeout = "5s"
+    timeout = "3s"
 
 # Pre-launch sizing. Prod is currently a demo URL for the client, not a
 # serving workload — 256 MB keeps the app inside Fly's Hobby free

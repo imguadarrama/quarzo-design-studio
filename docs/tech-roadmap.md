@@ -195,7 +195,7 @@ Auth mechanics (JWT-in-HTTP-only-cookie, bcrypt cost, endpoint paths, `requireAd
 ### Phase 1.5 — Deploy the skeleton ✅
 Ship the scaffold to staging + prod before building features. Discover deploy friction on the smallest possible app; give the client a live URL from week 1; unlock per-PR preview environments for every subsequent phase. Full runbook: [`CI-CD/deploy-setup.md`](CI-CD/deploy-setup.md).
 - [x] Provider signups + GitHub Environments + secrets (`deploy-setup.md` Sessions 1 & 2)
-- [x] `/api/health` confirmed from staging (prod deploy not yet triggered)
+- [x] `/api/health` confirmed from staging and prod
 - [x] Per-PR preview URLs posted as PR comments (Cloudflare Pages branch deploy + Neon DB branch)
 - [x] Throwaway PR smoke test; Neon `pr-<n>` branch cleans up on PR close
 
@@ -219,7 +219,7 @@ Monitoring (Fly alerts + UptimeRobot) is deferred to Phase 7 — with zero traff
 - [ ] MercadoPago integration: preference, redirect/SDK, webhook
 - [ ] Bank transfer flow: show bank details, order stays `PENDIENTE`, admin confirms manually
 - [ ] Order confirmation page with `publicToken` URL
-- [ ] Resend wired up
+- [ ] Resend wired up (add the `resend` SDK to `server/package.json`; drop the currently-unused `nodemailer` dep in the same PR)
 - [ ] Order confirmation email + admin new-order alert
 
 ### Phase 5 — Accounts + order history

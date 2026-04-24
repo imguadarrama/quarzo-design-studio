@@ -1,0 +1,51 @@
+name: "Build and check"
+description: >
+  Shared pre-deploy gate used by deploy-staging and deploy-production.
+  Installs deps, typechecks both packages, builds both packages, and smoke-tests
+  the production Docker image. If any step fails the calling workflow stops
+  before any environment is mutated (DB migrate, flyctl deploy, Cloudflare upload).
+
+inputs:
+  vite-api-base-url:
+    description: "Value baked into the client bundle via VITE_API_BASE_URL."
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 9.12.0
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: .node-version
+        cache: pnpm
+
+    # `pnpm install` runs server's `postinstall: prisma generate` automatically,
+    # so a separate generate step would be duplicate work. The server/client
+    # build commands (`tsc` and `tsc -b && vite build`) run the TypeScript
+    # compiler themselves, so a prior `tsc --noEmit` pass would also duplicate
+    # work — if types break, the build fails with the same error.
+    - name: Install deps
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Build server
+      shell: bash
+      run: pnpm --filter server build
+
+    - name: Build client
+      shell: bash
+      env:
+        VITE_API_BASE_URL: ${{ inputs.vite-api-base-url }}
+      run: pnpm --filter client build
+
+    # Catches runtime-only Dockerfile bugs (e.g. missing Prisma client in the
+    # final image) that no amount of typechecking can surface. If this fails,
+    # flyctl deploy is never invoked.
+    - name: Smoke-test production Docker image
+      shell: bash
+      run: |
+        docker build -f server/Dockerfile --target runtime -t quarzo-smoke .
+        docker run --rm --entrypoint node quarzo-smoke scripts/smoke-prisma.mjs
