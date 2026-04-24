@@ -128,3 +128,15 @@ All customer-facing copy is Spanish (Mexico). No i18n layer for v1.
 - Validate every request body with Zod. Validate env with Zod at boot.
 - Never store JWTs in `localStorage`. Never force registration before checkout. Never bypass the `requireAdmin` middleware for `/api/admin/*`.
 - Don't run `prisma migrate` or `prisma generate` on the host — use `pnpm migrate` (which shells into the `api` container) so the generated client matches the container's Node/OpenSSL.
+
+## Model / agent ladder (Claude Max cost discipline)
+
+Project-level `.claude/settings.json` pins the main loop to **Sonnet** so routine work doesn't burn the weekly Opus cap. Use `/model opus` explicitly for hard sessions (architecture, security review, tricky multi-file refactors), then `/model default` to drop back.
+
+Subagent defaults (see `.claude/agents/`):
+
+- **Explore → Haiku** — open-ended codebase lookups. Spawn freely.
+- **general-purpose → Sonnet** — multi-step research and coding across files.
+- **Plan → Opus** — only when architectural trade-offs are actually in play.
+
+Prefer `Grep` / `Glob` / `Read` directly when the target file is known — don't spawn `Explore` for a file you can name. Skills under `.agents/skills/*` inherit the main model, so don't invoke `audit-docs` while the main model is on Opus unless you need Opus-level reasoning.
