@@ -10,6 +10,14 @@ on:
 permissions:
   contents: write
 
+# A double-click or a quick re-trigger shouldn't start two parallel prod
+# deploys. `cancel-in-progress: false` queues the second run instead of
+# killing the first mid-rollout — aborting a flyctl deploy halfway through
+# is exactly how you leave prod in a split state.
+concurrency:
+  group: prod-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: inputs.confirm == 'ship'

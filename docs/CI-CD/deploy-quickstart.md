@@ -27,7 +27,7 @@ Every push to the PR repeats this. The `concurrency` block cancels in-flight run
 Deletes the `pr-<number>` Neon branch. Keeps your Neon project tidy.
 
 ### When you merge to `main` → only `ci.yml` runs (post-merge tripwire)
-Typecheck + build. **No deploy.** This runs on `main` pushes only — **not on PRs**. Why? `deploy-staging.yml`'s Docker build and client `vite build` already typecheck everything, so running ci on PRs was duplicate work. On main it's a cheap sanity check that catches any merge-conflict weirdness that slipped past staging.
+Install + build server + build client + docker smoke (via the shared `build-and-check` composite action). **No deploy.** This runs on `main` pushes only — **not on PRs**. Why? `deploy-staging.yml` already invokes the same composite on every PR, so running ci on PRs was duplicate work. On main it's a cheap sanity check that catches any merge-conflict weirdness that slipped past staging.
 
 ### When you want to ship prod → you click a button
 GitHub → Actions tab → **Deploy Production** → **Run workflow** → type the word **`ship`** → Run. This runs `deploy-production.yml`:
@@ -148,10 +148,10 @@ Always start in the **Actions tab** of your GitHub repo. Click the failed run. E
 - Wrong `NEON_API_KEY` or `NEON_PROJECT_ID_STAGING` secret. Regenerate the API key in Neon → Account Settings → API Keys, paste the new value into GitHub → repo Settings → Secrets.
 - Rate-limit error ("too many branches") → free tier caps at 10 simultaneous branches. Close stale PRs to clean them up, or run `cleanup-staging.yml` by hand on one.
 
-### If "Run migrations on PR branch" or "Generate Prisma client" fails
+### If "Run migrations on PR branch" or the install step fails
 - "DATABASE_URL resolved to an empty string" → the Neon step didn't produce an output. Check the previous step's logs; usually a secret mismatch.
 - "Cannot find module '@prisma/client'" → `pnpm install` didn't run. Check that step's logs.
-- "does not provide an export named 'Prisma'" → `prisma generate` didn't run. Make sure the `Generate Prisma client` step exists in the workflow (it does now — this was fixed).
+- "does not provide an export named 'Prisma'" → `prisma generate` didn't run. It runs automatically as the server's `postinstall` hook (see `server/package.json`). If it's silently skipped, check the install step's log for errors from that hook.
 
 ### If "Deploy API to Fly" fails
 - "App not found" → you haven't run `flyctl apps create quarzo-api-staging` yet. Go back to Step 2 above.

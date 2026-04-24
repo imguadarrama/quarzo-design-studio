@@ -22,21 +22,14 @@ runs:
         node-version-file: .node-version
         cache: pnpm
 
+    # `pnpm install` runs server's `postinstall: prisma generate` automatically,
+    # so a separate generate step would be duplicate work. The server/client
+    # build commands (`tsc` and `tsc -b && vite build`) run the TypeScript
+    # compiler themselves, so a prior `tsc --noEmit` pass would also duplicate
+    # work — if types break, the build fails with the same error.
     - name: Install deps
       shell: bash
       run: pnpm install --frozen-lockfile
-
-    - name: Generate Prisma client
-      shell: bash
-      run: pnpm --filter server exec prisma generate
-
-    - name: Typecheck server
-      shell: bash
-      run: pnpm --filter server exec tsc --noEmit
-
-    - name: Typecheck client
-      shell: bash
-      run: pnpm --filter client exec tsc -b --noEmit
 
     - name: Build server
       shell: bash
