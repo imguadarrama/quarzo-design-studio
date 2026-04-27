@@ -1,314 +1,422 @@
-# Phase 2.5 Execution Plan — Frontend Refactor (DRY/SOLID/KISS)
+# Phase 2.5 Execution Plan — Client Foundation Rebuild (SCSS modules)
 
-> **Purpose:** step-by-step playbook for the frontend refactor that sits between Phase 2 (functional skeleton) and Phase 3 (cart + checkout). Every task is a checkbox you tick as you go. A specialist agent is executing this; humans review per-step commits.
+> **Purpose:** the playbook for finishing Phase 2.5. Replaces the original Tailwind-shaped plan, which was abandoned when PR #15 pivoted the client to SCSS modules + design tokens + 3-layout routing.
 >
-> **Mindset:** the frontend works but quality is uneven (1,082 lines across 8 .tsx files, one god component at 571 lines, no primitives, scattered palette). The fix is a disciplined cleanup, not a rewrite. Resist the urge to scope-creep into Phase 3.
+> **Mindset:** small PR slices, each one a complete unit you can review and merge. Every slice spells out architecture and style decisions *before* code lands so you can push back early. Resist scope creep — if a slice grows past one screen of decisions, split it.
 
 ---
 
 ## 0. How to use this doc
 
-- Work top to bottom. Each of the six steps produces one commit; don't squash them.
-- File paths are from repo root. `client/src/pages/AdminProductsPage.tsx:180` means "file, line 180".
-- Every task here is `- [ ]`. Tick them.
-- Agent vs. human touchpoints: the agent writes code and commits. A human reviews each commit before the agent starts the next step.
-- `pnpm preflight` runs fast (~30 s) and must stay green throughout.
+- Each numbered slice = one PR. Don't bundle two slices into one PR even if they look small.
+- Every slice has the same five sections: **Goal**, **Decisions**, **Files**, **Out of scope**, **Acceptance** + a PR body skeleton.
+- Before coding any slice, fill in the **Decisions** with concrete answers (a bullet, a sentence, a one-liner — whatever's clearest). Save them to the PR body as the "Why" trail. PR #15's body is the reference for tone and depth.
+- Order is the suggested execution order, but slices are largely independent — feel free to reorder if Phase 3 priorities shift.
+- `pnpm preflight` (root) must stay green at the end of every slice. No commit lands the client in a non-buildable state.
 
 ---
 
-## 1. Audit — what's actually wrong today
+## 1. Where we are
 
-| Symptom | Where | Impact |
+### 1.1 Foundation already shipped (locked unless a slice explicitly amends it)
+
+| Layer | Where | Notes |
 |---|---|---|
-| God component | `client/src/pages/AdminProductsPage.tsx` (571 lines) | Session check, list, form, image editor, variant editor, CRUD orchestration — all in one file. Biggest maintainability risk in the repo. |
-| No primitives | all 8 .tsx files | Every page re-implements buttons, inputs, cards, and loading states with raw Tailwind. Focus rings, disabled states, and spinners already drift between pages. |
-| Unused form libs | `client/package.json` | `react-hook-form` + `zod` are installed but no page uses them. Admin and login forms submit without validation; empty product names and malformed image URLs reach the API. |
-| Scattered palette | ~300 occurrences of `stone-*` / `amber-*` across `client/src/**` | A palette change means a find-and-replace safari. No theme tokens, no semantic naming. |
-| Inconsistent loading/error UX | `CatalogPage`, `ProductDetailPage`, `AdminProductsPage` | Each page rolls its own "Cargando…" div. No shared empty or error state. |
+| Design tokens | `client/src/styles/_tokens.scss` | Brand palette + semantic aliases (`$color-bg`, `$color-accent`, `$space-*`, `$radius-*`, `$bp-*`). Re-emitted as CSS custom properties on `:root` so JS / media queries can read them. |
+| Mixins | `client/src/styles/_mixins.scss` | `focus-ring`, `screen-md`, `screen-lg`. |
+| Global stylesheet | `client/src/index.scss` | Reset + body defaults reading from CSS custom properties. |
+| Fonts | `client/index.html` | Lora (primary, serif) + Quicksand (secondary, sans) via Google Fonts. |
+| Routing | `client/src/App.tsx` | `BrowserRouter`. Three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout`), `*` → `NotFoundPage`, `/admin` → `Navigate` to `/admin/productos`. |
+| Layouts | `client/src/layouts/{PublicLayout,AuthLayout,AdminLayout}.tsx` | Each with its own `.module.scss`. `AdminLayout` internally wraps its `Outlet` in `<RequireAdmin>`. |
+| Admin auth state | `client/src/store/adminAuth.ts` (zustand) | `admin`, `status: "idle" \| "loading" \| "auth" \| "guest"`, `hydrate / login / logout`. |
+| Admin route guard | `client/src/components/RequireAdmin.tsx` | Hydrates store on first mount, shows `FullPageSpinner` while loading, redirects guests to `/admin/login` (preserves `from` location). |
+| Admin login page | `client/src/pages/admin/AdminLoginPage/` | `react-hook-form` + `@hookform/resolvers/zod`, inline field errors, top-level submit error, loading state on button. Redirects to `/admin/productos`. |
+| Components shipped | `Button`, `Card`, `FullPageSpinner`, `NavBarAdmin`, `NavBarPublic`, `RequireAdmin`, `Typography` | Each is a folder with `<Name>.tsx` + `<Name>.module.scss`. |
+| Stubs intentionally left | `AdminProductsPage` (13-line placeholder), `/catalogo` (`<h1>hello</h1>` placeholder), `NotFoundPage` | Real implementations are slices below. |
+
+### 1.2 Slices already merged
+
+- **Slice 0 — Foundation** (PR #15, commit `9c12bc5`) — everything in §1.1 except `Typography`.
+- **Slice 1 — Typography component** (commit `70b23af`) — `Typography` exposes `as` (`h1..h6`, `p`), `size` (`xs..xxl`), `weight`, and `margin` overrides. Used by `AdminLoginPage`.
+
+### 1.3 What remains
+
+The slices in §3 below. None of them are gated on each other except where called out — slice priority is yours to set per Phase 3 needs.
 
 ---
 
-## 2. Scope & non-goals
+## 2. Slice template (use this as the PR body skeleton)
 
-### In scope
-- Theme tokens + Tailwind extension (Step 1)
-- Five UI primitives (Step 2)
-- Three feedback helpers (Step 3)
-- Page migration to the primitives (Step 4)
-- Split the 571-line `AdminProductsPage` into orchestrator + 4 sub-components + shared schema (Step 5)
-- `.gitkeep` cleanup, dead-code removal, preflight + browser smoke (Step 6)
+Every Phase 2.5 PR follows this shape. Copy it into the PR description before opening review.
 
-### Non-goals — do not touch, do not scope-creep
-- **No backend changes.** Image upload stays base64 JSON (server-side payload caps live in `phase-2-execution-plan.md §4.4`, separate branch).
-- **No new pages.** Cart, checkout, customer auth, customer account are Phase 3+.
-- **No test runner / Vitest / Playwright.** Stays deferred.
-- **No Storybook, no component playground.**
-- **No animation library.** Tailwind transition utilities only.
-- **No `zustand` auth store yet.** Keep admin session state where it lives until Phase 3 forces a shared store.
-- **No MercadoPago SDK work.** Phase 4.
-- **No shadcn primitives + `cn()` helper.** Revisit in Phase 3/4 once form density actually repeats.
+```markdown
+## Summary
 
----
+<one paragraph: what this slice ships and why it matters now>
 
-## 3. Step 1 — Theme tokens
+## What's in here
 
-**Goal:** stop hardcoding `stone-*` / `amber-*` hex values. Semantic tokens today → one-line palette swap tomorrow when the client delivers brand assets.
+### <subsystem 1>
+- <file/component> — <what it does, what changed>
 
-### 3.1 Extend Tailwind config
+### <subsystem 2>
+- ...
 
-- [ ] Edit `client/tailwind.config.ts`. Extend `theme.colors` with semantic tokens mapped to the current palette:
-  - `brand.ink` → current `stone.900` equivalent (primary text on paper backgrounds).
-  - `brand.paper` → current `stone.50` / white equivalent (page background).
-  - `brand.accent` → current `amber.700` equivalent (CTA, active states).
-  - `brand.muted` → current `stone.500` equivalent (secondary text, disabled copy).
-- [ ] Extend `theme.fontFamily.serif` so `font-serif` resolves consistently. (The final family arrives with brand assets; for now, pick one concrete serif and stop there.)
-- [ ] Keep the existing Tailwind palette working — do not remove `stone`/`amber`. Only **add** the `brand.*` namespace.
+## Decisions
 
-### 3.2 Replace hardcoded hex in global CSS
+- **<decision name>** → <choice>. Why: <one sentence>.
+- **<decision name>** → <choice>. Why: <one sentence>.
 
-- [ ] Edit `client/src/index.css`. Inside `@layer base`, replace any hardcoded hex values with `theme()` references (e.g., `color: theme('colors.brand.ink')`).
-- [ ] **Fix** the `:root` vs `body` font-family conflict already flagged in `docs/phase-2-execution-plan.md §5.6`. Pick one. Keep serif on `body` for the editorial look; delete the `:root` rule.
+## Why <X> and not <Y>
 
-### 3.3 Acceptance
+<short answer to the obvious counter-question>
 
-- [ ] `pnpm preflight` green.
-- [ ] After later steps migrate the pages, `grep -r "text-amber-700\|bg-stone-900" client/src/` returns **zero** occurrences. (Expected to still have hits after Step 1 in isolation — this check is the Step 4/5 definition of done.)
+## Out of scope (intentional)
 
-### 3.4 Commit
+- <thing that looks like it belongs but is deferred to a later slice>
 
-- [ ] `refactor(ui): add brand theme tokens and fix font-family conflict`
+## Test plan
+
+- [ ] <browser smoke step>
+- [ ] <pnpm preflight or build check>
+- [ ] <Postman or curl check, if API touched>
+```
 
 ---
 
-## 4. Step 2 — Primitive components
+## 3. Slice 2 — Form primitives (Input, FormField)
 
-**Goal:** one source of truth for buttons, inputs, cards, and the spinner. Only build primitives that are reused **≥ 2× today**. No speculative components.
+### Goal
+Extract reusable form pieces from the raw `<input>` / `<label>` / `<p class={fieldError}>` markup currently inlined in `AdminLoginPage.tsx`. Lock the field-level UX shape (label position, error placement, ARIA wiring) before any other form is written.
 
-New directory: `client/src/components/ui/`. Each file ≤ 80 lines, each with a named-export props interface.
+### Decisions to make
+- **Component split** — one `<Input>` (raw input + styling) plus a `<FormField>` wrapper (label + input slot + error + hint), or a single `<TextField>` that bundles all four? *Recommendation: split. `<FormField>` works with future `<Textarea>` / `<Select>` / file pickers without inheritance.*
+- **Error model** — does `<FormField>` accept a string `error` prop directly, or does it accept the `react-hook-form` `FieldError` object? *Recommendation: string. RHF integration stays in the page, primitive stays library-agnostic.*
+- **Label placement** — above the input only, or float-on-focus? *Recommendation: above. Consistent with admin tone, simpler ARIA.*
+- **Disabled / loading state visuals** — same color shift or distinct? *Style decision; pick one and document.*
+- **`focus-ring` mixin** — apply on the `<input>` itself or on the `<FormField>` wrapper? *Recommendation: input — keeps focus tied to the actual interactive element.*
 
-### 4.1 `Button.tsx`
+### Files
+- **Created:** `client/src/components/Input/Input.tsx`, `client/src/components/Input/Input.module.scss`, `client/src/components/FormField/FormField.tsx`, `client/src/components/FormField/FormField.module.scss`.
+- **Modified:** `client/src/pages/admin/AdminLoginPage/AdminLoginPage.tsx` — replace the two inline `<div className={styles.field}>` blocks with `<FormField label="…" error={errors.email?.message}><Input {...register("email")} /></FormField>`.
+- **Modified:** `client/src/pages/admin/AdminLoginPage/AdminLoginPage.module.scss` — delete the now-unused `.field`, `.label`, `.input`, `.fieldError` rules.
 
-- [ ] Variants: `primary | secondary | ghost | destructive`.
-- [ ] Sizes: `sm | md | lg`.
-- [ ] Props: `loading`, `disabled`, `as` (optional — lets it render as a `<Link>` while keeping button styling), `leftIcon`, `rightIcon`, `pressed` (for aria-pressed toggle states; used by `VariantSelector`).
-- [ ] Variant/size resolution uses an inline map or hand-rolled helper. **Do not add `cva` or a new dep.** `clsx` is fine if already present; otherwise keep the helper local.
-- [ ] When `loading` is true: shows the `<Spinner size="sm" />`, disables the button, keeps the click area intact.
+### Out of scope
+- `Textarea`, `Select`, file inputs — built when their consuming slice arrives.
+- Form-wide error toast / banner — keep the inline `submitError` block in `AdminLoginPage` as-is.
+- A generic `<Form>` wrapper — RHF + native `<form>` is enough.
 
-### 4.2 `Input.tsx` and `Textarea.tsx`
-
-- [ ] Both controlled, both accept `label`, `error`, `hint`, and forward `ref`.
-- [ ] Share a field-wrapper styling helper (small, local, in the same folder).
-- [ ] When `error` is set: show the message beneath the field in `brand.accent` or a dedicated danger token, set `aria-invalid`.
-
-### 4.3 `Card.tsx`
-
-- [ ] Wrapper with padding and a `hover` variant.
-- [ ] Used by `ProductCard` (hover) and admin product rows (no hover).
-
-### 4.4 `Spinner.tsx`
-
-- [ ] Single SVG, sizes `sm | md | lg`.
-- [ ] Consumed by `Button loading`, page-level loaders, and form-save indicators.
-
-### 4.5 What NOT to build now
-
-- No `Modal`, `Toast`, `Select`, `Badge`, `IconButton`, `EmptyState`, `ErrorState` as first-class primitives. (EmptyState/ErrorState are covered by the lightweight Step 3 helpers instead.)
-- Build them in Phase 3 when cart + checkout introduce the first legitimate need.
-
-### 4.6 Acceptance
-
-- [ ] Every file under `client/src/components/ui/` is ≤ 80 lines.
-- [ ] `pnpm preflight` green.
-
-### 4.7 Commit
-
-- [ ] `feat(ui): add Button, Input, Textarea, Card, Spinner primitives`
+### Acceptance
+- AdminLoginPage renders identically to before (visual diff is zero or near-zero).
+- `pnpm preflight` green.
+- Browser smoke: empty submit shows zod errors below each field; valid creds redirect to `/admin/productos`.
+- `Input` and `FormField` each ≤ 60 lines.
 
 ---
 
-## 5. Step 3 — Shared feedback helpers
+## 4. Slice 3 — Page-state feedback helpers
 
-**Goal:** one place for loading / error / empty states so pages stop rolling their own `<div>Cargando…</div>`.
+### Goal
+One file that exports `<PageLoading>`, `<PageError>`, `<PageEmpty>` so future pages stop hand-rolling a "Cargando…" div. Land this *before* the admin product list (Slice 4) so the list can adopt all three from day one.
 
-### 5.1 Create the file
+### Decisions to make
+- **Co-located file vs. folder per component** — the rest of `client/src/components/` uses `<Name>/<Name>.tsx + .module.scss` per component. Three nearly-identical files, or one `PageState/` folder with three named exports? *Recommendation: one folder, one `.tsx`, one `.module.scss`. They're tiny and always imported as a set.*
+- **Spinner reuse** — should `<PageLoading>` reuse `FullPageSpinner` or use a smaller in-flow spinner? *`FullPageSpinner` is full-viewport; `<PageLoading>` is in-content. Build a shared `<Spinner>` primitive now (size prop) or duplicate the SVG?*
+- **`<PageEmpty>` action slot** — does it accept `children` for a CTA button, or a `cta` prop? *Recommendation: `children`. Lets pages drop in any element.*
+- **Error retry** — does `<PageError>` accept an `onRetry` callback? *Recommendation: optional `onRetry` — when set, shows a "Reintentar" button.*
 
-- [ ] `client/src/components/feedback/PageState.tsx` — three named exports, each < 20 lines:
-  - `<PageLoading />` — centered spinner + optional subtitle.
-  - `<PageError message />` — danger token + message + (later) retry affordance.
-  - `<PageEmpty message />` — muted copy + optional CTA via `children`.
-- [ ] One file (not a folder) because each is tiny and they're always imported together.
+### Files
+- **Created:** `client/src/components/PageState/PageState.tsx`, `client/src/components/PageState/PageState.module.scss`. Optionally `client/src/components/Spinner/Spinner.tsx` if the Spinner-reuse decision goes that way.
 
-### 5.2 Acceptance
+### Out of scope
+- Toast notifications — wait until checkout (Phase 3) or admin success feedback needs them.
+- Skeleton loaders — only worthwhile once a page has a deterministic layout.
 
-- [ ] `pnpm preflight` green.
-
-### 5.3 Commit
-
-- [ ] `feat(ui): add PageLoading/PageError/PageEmpty feedback helpers`
-
----
-
-## 6. Step 4 — Migrate existing pages to primitives
-
-**Goal:** sweep the 8 existing `.tsx` files and replace bespoke buttons/inputs/loaders with the Step 2 + Step 3 primitives. Behavior unchanged; visuals consolidate.
-
-Per-file checklist:
-
-- [ ] **`client/src/App.tsx`** — header/nav links become `<Button variant="ghost" as={NavLink}>`. Preserve `react-router-dom` semantics via `as={NavLink}` so active-link highlighting still works.
-- [ ] **`client/src/pages/CatalogPage.tsx`** — loading/error/empty divs → `<PageLoading />`, `<PageError />`, `<PageEmpty />`. Category filter chips → `<Button variant="secondary" size="sm" pressed={...}>`.
-- [ ] **`client/src/pages/ProductDetailPage.tsx`** — same loading/error migration. "Agregar al carrito" button → `<Button variant="primary">`, **disabled** when personalization text is empty. No cart wiring (Phase 3) — just the correct styled disabled state.
-- [ ] **`client/src/pages/AdminLoginPage.tsx`** — migrate to `react-hook-form` + `zod`. Inputs → `<Input>`, submit → `<Button loading>`. Expected final size ~50 lines.
-- [ ] **`client/src/components/ProductCard.tsx`** — wrap in `<Card hover>`.
-- [ ] **`client/src/components/VariantSelector.tsx`** — variant buttons → `<Button variant="secondary" size="sm" pressed={isSelected}>`. Rely on `aria-pressed` + Tailwind `data-[pressed=true]` for the selected visual state.
-- [ ] **`client/src/components/PersonalizationInput.tsx`** — migrate to `<Textarea>` with `hint` showing the char counter.
-
-### 6.1 Acceptance
-
-- [ ] `pnpm preflight` green.
-- [ ] `grep -r "Cargando\.\.\." client/src/` returns hits **only** inside `PageState.tsx`.
-- [ ] Browser smoke: `/`, `/productos/<slug>`, `/admin/login` — all render and behave identically to before.
-
-### 6.2 Commit
-
-- [ ] `refactor(client): migrate pages and shared components to UI primitives`
+### Acceptance
+- `grep -rn "Cargando" client/src/` returns hits only inside `PageState.tsx`.
+- `pnpm preflight` green.
+- Demoable via temporary inclusion in any page during review (delete the demo before merge).
 
 ---
 
-## 7. Step 5 — Split `AdminProductsPage` (the big one)
+## 5. Slice 4 — Admin product list (read-only)
 
-**Goal:** 571-line god component → thin orchestrator + four focused sub-components + one shared schema. Every file ≤ 150 lines.
+### Goal
+Replace the 13-line `AdminProductsPage` stub with a real list view: fetch products via `services/api/admin.ts`, render rows, surface loading / error / empty states. Read-only — no create / edit / delete yet.
 
-### 7.1 New layout
+### Decisions to make
+- **List shape: table, card grid, or stacked rows?** Mobile-first matters — admin uses this on phone occasionally. *Recommendation: card list on mobile, table on `screen-md+`. CSS-only switch via the existing breakpoint mixins.*
+- **Per-row info** — name, slug, category, base price, variant count, stock total, active flag, primary image thumbnail? Pick the minimum that lets the operator confirm "this is the right product."
+- **Image rendering** — show the primary image (first by `sortOrder`) as a thumbnail, or hide images in the list and only show them in the form? *Recommendation: thumb in the list. The wife identifies products by sight.*
+- **Sorting / filtering** — do you want a category filter or a name search now, or punt to a later slice? *Recommendation: punt. Catalog is < 20 SKUs. YAGNI until there are 50.*
+- **Inactive product visibility** — show all, or hide inactive behind a toggle? *Decide based on operator workflow.*
+- **Action buttons** — even though create/edit/delete are next slices, do you want disabled placeholder buttons in this slice or no buttons at all? *Recommendation: no buttons. Don't ship dead UI.*
+
+### Files
+- **Modified:** `client/src/pages/admin/AdminProductsPage/AdminProductsPage.tsx`, `…/AdminProductsPage.module.scss`.
+- **Possibly created:** `client/src/pages/admin/AdminProductsPage/components/ProductListRow.tsx` (+ scss) if the row markup grows past ~30 lines.
+- **Touch (verify only):** `client/src/services/api/admin.ts` should already expose `fetchAdminProducts`. Confirm the response shape matches `lib/types.ts`.
+
+### Out of scope
+- Create / edit / delete — Slices 5–7.
+- Bulk actions, multi-select.
+- Product preview pane.
+
+### Acceptance
+- Logged-in operator sees the seeded products with their core info.
+- Loading flash shows `<PageLoading>`; network failure shows `<PageError onRetry={…}>`; empty database shows `<PageEmpty>`.
+- Mobile (375 px): no horizontal scroll, every row's primary action is tappable.
+- `pnpm preflight` green.
+
+---
+
+## 6. Slice 5 — Admin product create form
+
+### Goal
+"Nuevo producto" CTA opens a form that creates a product (no images, no variants yet — those are Slice 7). Handles client-side validation, server errors (409 duplicate slug), and redirects back to the list on success.
+
+### Decisions to make
+- **Form location** — modal, drawer, dedicated route (`/admin/productos/nuevo`)? *Recommendation: dedicated route. Modals don't survive refresh and complicate URL-based bookmarking; a route also lets the form scroll naturally on mobile.*
+- **Slug input** — auto-derive from name with a manual override, or always manual? *Recommendation: auto-derive with override. Saves typing and ensures URL-safety on first try.*
+- **Active flag default** — new products start `active=true` or `active=false` (draft)? *Recommendation: `active=false`. Lets operator review the listing before it goes public; one click to publish.*
+- **Price input** — single text field with manual decimals, or a separated peso/centavos input? *Recommendation: single field, validated as `Decimal(10,2)`.*
+- **Cancel behavior** — `navigate(-1)` or hard route to `/admin/productos`? *Recommendation: hard route. `navigate(-1)` from a deep link sends the user out of the app.*
+- **Server error mapping** — show 409 inline on the slug field, vs. as a top-level banner? *Recommendation: inline on slug — that's where the operator can fix it.*
+
+### Files
+- **Created:** `client/src/pages/admin/AdminProductForm/AdminProductForm.tsx` (+ scss), `…/schema.ts` (zod schema, exported so edit slice can reuse).
+- **Modified:** `client/src/App.tsx` — add `/admin/productos/nuevo` route under `AdminLayout`.
+- **Modified:** `client/src/pages/admin/AdminProductsPage/AdminProductsPage.tsx` — wire the "Nuevo producto" button.
+- **Touch:** `services/api/admin.ts` — confirm `createAdminProduct` exists with the right shape.
+
+### Out of scope
+- Image upload — Slice 7.
+- Variants — Slice 7.
+- Edit / delete — Slice 6.
+
+### Acceptance
+- `/admin/productos/nuevo` renders the form behind `RequireAdmin`.
+- Empty submit → zod errors per field via `<FormField error>`.
+- Duplicate slug → 409 surfaces inline on the slug field.
+- Successful submit → redirect to `/admin/productos`, new product visible in the list.
+- `pnpm preflight` green.
+
+---
+
+## 7. Slice 6 — Admin product edit + delete
+
+### Goal
+Round out admin CRUD for product *metadata* (still no images / variants). Editing a row from the list opens the same form pre-filled; delete asks for confirmation and removes the product.
+
+### Decisions to make
+- **Edit route** — `/admin/productos/:id/editar`, or `/admin/productos/:slug`? *Recommendation: `:id`. Slugs change; ids don't.*
+- **Delete confirmation UX** — native `confirm()`, an inline "click again to confirm" pattern, or a real modal? *Recommendation: inline two-click. Native `confirm` is jarring on mobile, and a modal is overkill for a single CTA.*
+- **Soft-delete or hard-delete** — currently the API hard-deletes. Keep that, or flip to setting `active=false`? *Recommendation: keep hard-delete; the catalog is small and there's no order-history coupling yet.*
+- **Optimistic UI** — remove the row immediately on delete and roll back on failure, or wait for the response? *Recommendation: wait. Failures are rare; the visual flicker isn't worth the complexity.*
+
+### Files
+- **Created:** `…/AdminProductForm` already exists from Slice 5; add a `mode: "create" | "edit"` prop or split the route components (whichever the form's size argues for at that point).
+- **Modified:** `AdminProductsPage` — wire edit/delete buttons per row.
+- **Modified:** `App.tsx` — add `/admin/productos/:id/editar`.
+- **Touch:** `services/api/admin.ts` — confirm `updateAdminProduct(id)`, `deleteAdminProduct(id)` exist.
+
+### Out of scope
+- Images / variants — Slice 7.
+- Audit log of changes.
+
+### Acceptance
+- Edit round-trips name/slug/category/description/basePrice/active.
+- Delete asks for confirmation, then removes the product server-side and from the list.
+- `pnpm preflight` green.
+
+---
+
+## 8. Slice 7 — Admin product images + variants editor
+
+### Goal
+The hardest slice. Add image upload (base64, ≤ 8 images, ≤ 500 KB each per `phase-2-execution-plan.md` §4.4) and variant editing (name, sku, priceDelta, stock) to the product form.
+
+### Decisions to make
+- **Sub-component split** — `ProductImageEditor` and `ProductVariantEditor` as siblings of `AdminProductForm`, or inline? *Recommendation: separate components. Each owns its own field-array slice and can be tested visually in isolation.*
+- **`useFieldArray` ownership** — `AdminProductForm` registers and passes `control` down, or each editor calls `useFormContext`? *Recommendation: pass `control` explicitly. `FormProvider` is needed only for deep trees; this is two levels.*
+- **Image reorder UX** — drag-and-drop, or up/down arrow buttons? *Recommendation: arrow buttons. dnd-kit is a dep + accessibility surface; arrows ship in an afternoon.*
+- **Image preview size** — thumb in editor list and full-size on hover, or just thumb? *Style decision; pick one for now.*
+- **Client-side image size guard** — match the server's 500 KB cap exactly, or warn at 400 KB? *Recommendation: hard reject at 500 KB to mirror server. Show a clear error, not an alert.*
+- **Variant uniqueness** — block duplicate `sku` client-side, or rely on server P2002 → 409? *Recommendation: both. Client warn for fast feedback, server is the truth.*
+- **Empty variant** — does a product require ≥ 1 variant before submit? *Server requires ≥ 1; mirror in zod.*
+
+### Files
+- **Created:** `client/src/pages/admin/AdminProductForm/components/ProductImageEditor.tsx`, `…/ProductVariantEditor.tsx` (each + scss).
+- **Modified:** `…/AdminProductForm/schema.ts` — extend with images + variants arrays + size refinement.
+- **Modified:** `AdminProductForm.tsx` — wire the new editors.
+
+### Out of scope
+- Cloud-storage migration (S3 / R2) — Phase 4+.
+- Cropping / resizing in the browser.
+- Per-variant images.
+
+### Acceptance
+- Create + edit both round-trip with multiple images and multiple variants.
+- 9th image rejected client-side; > 500 KB image rejected client-side; both with visible inline error.
+- Server P2002 on duplicate variant SKU surfaces inline, not as a 500.
+- `pnpm preflight` green; browser smoke covers create/edit/delete with images + variants.
+
+---
+
+## 9. Slice 8 — Public catalog page (`/catalogo`)
+
+### Goal
+Replace `<h1>hello</h1>` with a real catalog under `PublicLayout`. Reads `/api/products`, lists active products, optional category filter. UX is your call — the wife wasn't satisfied with the previous version.
+
+### Decisions to make
+- **Hero / header** — full-bleed hero photo, simple title + subtitle, or category tiles up top? *Open. Mood-board it before opening the PR.*
+- **Grid** — 2-up on mobile / 3-up on tablet / 4-up on desktop, or 1-up / 2-up / 3-up? *Recommendation: 1 / 2 / 3 — IG traffic prefers larger cards.*
+- **Card hierarchy** — image-first card with name + starting price, or info-leading? *Recommendation: image-first. Stationery is a visual purchase.*
+- **Category filter** — chips at top, sidebar, or `/catalogo?categoria=…` URL only? *Recommendation: chips — trivial to thumb on mobile.*
+- **Empty state copy** — what reads well in Spanish for "we sold out / no products in this category yet"? *Pick the line; it's the brand voice.*
+- **Out-of-stock display** — show all products and grey-out sold-out, or hide them? *Recommendation: show + grey. Catalog feels fuller, sets expectation that they restock.*
+
+### Files
+- **Created:** `client/src/pages/CatalogPage/CatalogPage.tsx` (+ scss), `client/src/components/ProductCard/ProductCard.tsx` (+ scss).
+- **Modified:** `App.tsx` — replace the `/catalogo` placeholder route.
+- **Touch:** `services/api/products.ts` — confirm `fetchProducts` exists.
+
+### Out of scope
+- Search.
+- Saved favorites.
+- Adding to cart from the card (Phase 3).
+
+### Acceptance
+- `/catalogo` lists active products with image, name, starting price, category badge.
+- Category filter narrows the grid; clearing filter restores it.
+- Loading / error / empty go through `<PageState>`.
+- Mobile (375 px): grid renders cleanly, no horizontal scroll, taps are ≥ 44 px.
+- `pnpm preflight` green.
+
+---
+
+## 10. Slice 9 — Public product detail page (`/producto/:slug`)
+
+### Goal
+A detail page that is the customer's last stop before adding to cart (Phase 3). Variant selection, personalization text input, quantity, and a CTA-ready "Agregar al carrito" button (disabled until Phase 3 wires the cart store).
+
+### Decisions to make
+- **Image gallery** — single hero image with thumbnails below, swipeable carousel, or stacked column? *Mobile-first; pick one.*
+- **Variant selector UX** — pills/chips, segmented control, or radio group? *Recommendation: chips with `aria-pressed`. Reads as visual choice.*
+- **Personalization input** — single-line input or textarea? Char limit (server says 80) — show counter as "23/80" or "57 left"? *Recommendation: textarea; "23/80" reads cleaner.*
+- **Quantity input** — `<input type="number">` with `+`/`-` buttons, or `+`/`-` only? *Recommendation: input + buttons. Power users type, casual users tap.*
+- **CTA disabled rules** — disabled until variant chosen AND personalization filled, or only one of those? *Server requires both at order-creation; mirror in client.*
+- **Out-of-stock variant** — disable the chip, or hide it? *Recommendation: disable + tooltip. Hiding looks like the catalog is wrong.*
+
+### Files
+- **Created:** `client/src/pages/ProductDetailPage/ProductDetailPage.tsx` (+ scss), `client/src/components/VariantSelector/VariantSelector.tsx` (+ scss), `client/src/components/PersonalizationInput/PersonalizationInput.tsx` (+ scss).
+- **Modified:** `App.tsx` — add `/producto/:slug` under `PublicLayout`. (Final route name is your call — `/producto/:slug` vs `/productos/:slug`.)
+- **Touch:** `services/api/products.ts` — confirm `fetchProductBySlug` exists.
+
+### Out of scope
+- Add-to-cart wiring — Phase 3.
+- Reviews / ratings.
+- Related products.
+
+### Acceptance
+- Detail page reads from API by slug, renders gallery, variants, personalization, quantity.
+- "Agregar al carrito" stays disabled until both variant and personalization are valid; clicking does nothing yet (or shows a "próximamente" placeholder — your call).
+- 404 path: invalid slug renders `<PageError>` with a "back to catalog" CTA.
+- `pnpm preflight` green.
+
+---
+
+## 11. Slice 10 — Cleanup + accessibility pass
+
+### Goal
+Last slice before declaring Phase 2.5 done. No new features.
+
+### Decisions to make
+- **Lighthouse target** — what mobile a11y / perf score do you want before merging? *Recommendation: a11y ≥ 95, perf ≥ 80 on staging.*
+- **Keyboard tab order** — manually verify across catalog, detail, login, admin list, admin form? *Recommendation: yes, in 5 min on each page.*
+- **Screen reader spot-check** — VoiceOver / NVDA / Narrator on at least the login + product detail.
+
+### Files
+- **Touch:** any file flagged during the audit.
+- **Modified:** `docs/tech-roadmap.md` §10 Phase 2.5 — tick the slice boxes (this doc + the roadmap are the source of truth for "we're done").
+
+### Out of scope
+- New components.
+- New routes.
+
+### Acceptance
+- `pnpm preflight:full` green.
+- Lighthouse mobile a11y ≥ 95 on `/catalogo` and `/producto/:slug` on staging.
+- Manual checklist below all green:
+  - Tab navigation reaches every interactive element on every page.
+  - Every form field has a programmatically associated label.
+  - Every image has alt text (decorative gets `alt=""`).
+  - Color contrast: brand-ink on brand-bg ≥ 4.5:1; brand-accent on brand-bg ≥ 3:1.
+  - Focus rings visible on every interactive element.
+
+---
+
+## 12. Phase exit criteria
+
+Phase 2.5 is done when:
+
+1. Every slice in §§3–11 is merged.
+2. `pnpm preflight:full` passes.
+3. Browser smoke from a fresh container:
+   - `/catalogo` lists products, filter works, mobile renders cleanly.
+   - `/producto/<slug>` shows variant selection + personalization counter; CTA disabled state is correct.
+   - `/admin/login` validates, redirects.
+   - `/admin/productos` lists products, create/edit/delete round-trip with images + variants.
+   - `/admin` redirects to `/admin/productos`.
+   - Unknown route → `NotFoundPage`.
+4. `docs/tech-roadmap.md` §10 Phase 2.5 has the slice boxes ticked and §10 Phase 3 is unblocked.
+5. `CLAUDE.md` client section accurately lists the components and pages that now exist.
+
+Once all five are green, Phase 3 (cart + guest checkout) starts on a clean foundation.
+
+---
+
+## 13. Files at the end of Phase 2.5 (target shape)
 
 ```
-client/src/pages/admin/
-  AdminProductsPage.tsx              ~120 lines — orchestration, session check, list view, top-level state
+client/src/
+  App.tsx                                    # 3 layouts, 6 real routes + redirects + 404
+  index.scss                                 # global reset
+  index.html                                 # font preconnects + Lora/Quicksand
+  styles/
+    _tokens.scss
+    _mixins.scss
+  layouts/
+    PublicLayout.tsx       (+ .module.scss)
+    AuthLayout.tsx         (+ .module.scss)
+    AdminLayout.tsx        (+ .module.scss)
   components/
-    ProductListTable.tsx             ~80  lines — table of products with edit/delete actions
-    ProductForm.tsx                  ~120 lines — useForm + zodResolver, renders name/slug/category/description/basePrice fields
-    ProductImageEditor.tsx           ~100 lines — image list, add via FileReader→base64, remove, reorder
-    ProductVariantEditor.tsx         ~90  lines — variant list, add/remove/edit variant rows
-  schema.ts                          ~40  lines — shared zod schema for the product form
+    Button/                Card/                FormField/         (Slice 2)
+    FullPageSpinner/       Input/      (Slice 2)  PageState/        (Slice 3)
+    NavBarAdmin/           NavBarPublic/        PersonalizationInput/  (Slice 9)
+    ProductCard/           (Slice 8)
+    RequireAdmin.tsx       Spinner/    (Slice 3, optional)
+    Typography/            VariantSelector/     (Slice 9)
+  pages/
+    NotFoundPage/
+    CatalogPage/                              (Slice 8)
+    ProductDetailPage/                        (Slice 9)
+    admin/
+      AdminLoginPage/
+      AdminProductsPage/                      (Slice 4)
+      AdminProductForm/                       (Slice 5–7)
+        components/
+          ProductImageEditor.tsx              (Slice 7)
+          ProductVariantEditor.tsx            (Slice 7)
+        schema.ts
+  store/
+    adminAuth.ts
+  services/
+    api/{admin.ts, client.ts, products.ts}
+  lib/
+    types.ts
 ```
 
-### 7.2 Rules
-
-- [ ] `ProductForm` owns the form state via `useForm` + `zodResolver`. `ProductImageEditor` and `ProductVariantEditor` receive `control` and use `useFieldArray` for their slices — no prop drilling of raw arrays + setters.
-- [ ] `AdminProductsPage` stays thin: orchestrates `fetchAdminProducts`, holds `editingProductId`, and decides which of list / form to render.
-- [ ] Keep base64 image upload (per §2 Scope). But validate in the zod schema:
-  - Reject images > 2 MB with a user-facing error.
-  - Reject empty `name`, `slug`, `description`.
-  - Enforce 1–8 images per product (match the server-side shape).
-- [ ] All buttons → `<Button>`. All inputs → `<Input>` / `<Textarea>`.
-- [ ] Delete the old `client/src/pages/AdminProductsPage.tsx` after the new location is working.
-
-### 7.3 Acceptance
-
-- [ ] No file in `pages/admin/` exceeds 150 lines (`wc -l client/src/pages/admin/*.tsx client/src/pages/admin/components/*.tsx`).
-- [ ] `pnpm preflight` green.
-- [ ] Browser smoke on `/admin/productos`:
-  - Login → list renders.
-  - "Nuevo producto" → form opens.
-  - Create round-trips.
-  - Edit round-trips.
-  - Delete round-trips.
-  - Image upload still works.
-  - Zod rejects empty name and oversized (>2 MB) image with visible error copy.
-
-### 7.4 Commit
-
-- [ ] `refactor(admin): split AdminProductsPage into focused modules`
-
 ---
 
-## 8. Step 6 — Cleanup pass
-
-**Goal:** leave the tree honest.
-
-- [ ] Delete `.gitkeep` files in directories that now have real files.
-- [ ] Remove unused imports, unused helper functions, stale `client/src/` files the refactor orphaned.
-- [ ] `pnpm preflight` green (tsc + vite build both packages, no type errors).
-- [ ] Browser smoke — all four routes work:
-  - `http://localhost:5173/` — catalog loads, cards render, category filter works.
-  - `http://localhost:5173/productos/<slug>` — detail loads, variant toggles, personalization counter increments up to 80.
-  - `http://localhost:5173/admin/login` — zod validation (empty email → error), successful login redirects.
-  - `http://localhost:5173/admin/productos` — list renders, CRUD round-trips, image upload works, zod rejects empty name / oversized image.
-- [ ] Diff review: every deleted line either moved to a primitive or was truly dead.
-
-### 8.1 Commit
-
-- [ ] `chore(client): remove dead code and .gitkeep files after refactor`
-
----
-
-## 9. Files touched (summary)
-
-### Modified
-- `client/tailwind.config.ts`
-- `client/src/index.css`
-- `client/src/App.tsx`
-- `client/src/pages/CatalogPage.tsx`
-- `client/src/pages/ProductDetailPage.tsx`
-- `client/src/pages/AdminLoginPage.tsx`
-- `client/src/components/ProductCard.tsx`
-- `client/src/components/VariantSelector.tsx`
-- `client/src/components/PersonalizationInput.tsx`
-
-### Created
-- `client/src/components/ui/Button.tsx`
-- `client/src/components/ui/Input.tsx`
-- `client/src/components/ui/Textarea.tsx`
-- `client/src/components/ui/Card.tsx`
-- `client/src/components/ui/Spinner.tsx`
-- `client/src/components/feedback/PageState.tsx`
-- `client/src/pages/admin/AdminProductsPage.tsx` (replaces old location)
-- `client/src/pages/admin/components/ProductListTable.tsx`
-- `client/src/pages/admin/components/ProductForm.tsx`
-- `client/src/pages/admin/components/ProductImageEditor.tsx`
-- `client/src/pages/admin/components/ProductVariantEditor.tsx`
-- `client/src/pages/admin/schema.ts`
-
-### Deleted
-- `client/src/pages/AdminProductsPage.tsx` (moved into `pages/admin/`)
-- `.gitkeep` files where directories now have real content
-- Any dead imports / helpers found during Step 6
-
-### Not touched (out of scope)
-- `client/src/services/api/*` — API wrappers are fine as-is.
-- `client/src/lib/types.ts`, `client/src/lib/format.ts` — small and correct.
-- Backend — anything.
-- `zustand` — no cart until Phase 3.
-- `@mercadopago/sdk-react` — Phase 4.
-
----
-
-## 10. Verification (phase-completion gate)
-
-Run all of these before declaring Phase 2.5 done. A human ticks them after reviewing the final commit.
-
-1. `pnpm preflight` passes (tsc + vite build both packages, no type errors).
-2. `pnpm dev` boots; visit:
-   - `http://localhost:5173/` — catalog loads, cards render, category filter works.
-   - `http://localhost:5173/productos/<slug>` — detail page loads, variant selector toggles, personalization textarea shows char count.
-   - `http://localhost:5173/admin/login` — form validates (empty email → zod error), successful login redirects.
-   - `http://localhost:5173/admin/productos` — list renders, "Nuevo producto" opens form, create + edit + delete round-trip, image upload (base64) still works, zod rejects empty name / oversized image.
-3. Grep check: `grep -r "Cargando\.\.\." client/src/` returns hits **only** inside `PageState.tsx`.
-4. Line-count check: `wc -l client/src/pages/admin/*.tsx client/src/pages/admin/components/*.tsx` — no file over 150 lines.
-5. Git diff review: every deleted line either moved to a primitive or was truly dead.
-6. Update `docs/tech-roadmap.md §10 Phase 2.5` — tick the six step boxes.
-
-Once all six are green, Phase 2.5 is complete. Move to Phase 3 per `docs/tech-roadmap.md §10 Phase 3` — cart + guest-checkout foundation builds on the now-clean primitives.
-
----
-
-## 11. Agent execution note
-
-- Senior-frontend-specialist framing: React 18, TypeScript strict, Tailwind, **KISS > cleverness**. Prefer the boring, copy-paste-able solution. No premature abstraction.
-- Commit after each of Steps 1–6 with descriptive messages (templates in each §). Do not squash.
-- Run `pnpm preflight` before declaring any step done.
-- Re-read §2 (non-goals) before every step. Scope-creep into Phase 3 is the failure mode.
-- If the scope feels wrong mid-step, stop and flag to the user. Do not silently redesign.
-
----
-
-*This plan replaces ad-hoc Phase 2.5 tracking. When every box in §§3–8 is ticked and §10 passes, Phase 2.5 is complete.*
+*This plan replaces the original Tailwind-shaped Phase 2.5 plan after the SCSS pivot in PR #15. When every slice in §§3–11 is merged and §12 passes, Phase 2.5 is complete.*

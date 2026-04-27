@@ -46,8 +46,10 @@ export function AdminLoginPage() {
   return (
     <Card>
       <img src={CircularLogo} alt="Quarzo" className={styles.logo} />
+      <div style={{display: 'flex', flexDirection:'column', alignItems:'center'}}>
       <Typography as="h1" size="xl">Inicio de sesión admin</Typography>
       <Typography as="p">Ingresa con tus credenciales</Typography>
+      </div>
 
       <form onSubmit={onSubmit} noValidate>
         <div className={styles.field}>

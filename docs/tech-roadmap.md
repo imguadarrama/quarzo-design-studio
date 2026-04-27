@@ -188,7 +188,7 @@ Auth mechanics (JWT-in-HTTP-only-cookie, bcrypt cost, endpoint paths, `requireAd
 - [x] `docker-compose.yml` with `db` + `api` + `web`
 - [x] `prisma init`, initial schema, first migration
 - [x] Express scaffolded with target folder structure
-- [x] Vite + React + Tailwind scaffolded
+- [x] Vite + React scaffolded (styling system replaced with SCSS modules in Phase 2.5 — see PR #15)
 - [x] `docker-compose up` runs the full stack locally
 - [x] Seed script: admin user + 4 sample products with variants
 
@@ -208,21 +208,26 @@ Monitoring (Fly alerts + UptimeRobot) is deferred to Phase 7 — with zero traff
 - [x] Variant selector + personalization text input on the detail page
 - [x] Mobile-responsive catalog layout
 
-### Phase 2.5 — Frontend refactor (DRY/SOLID/KISS pass) — in progress
-Phase 2 shipped the functional frontend (~1,082 lines across 8 `.tsx` files), but quality is uneven: `AdminProductsPage.tsx` is 571 lines of mixed concerns, every page re-rolls its own buttons/inputs/loading states, `react-hook-form` + `zod` are installed but unused, brand colors are scattered across ~300 raw Tailwind classes, and loading/error UX is inconsistent page to page. Before Phase 3 adds cart, checkout, and customer auth to this surface, the foundations get cleaned up so Phase 3 builds on solid ground instead of widening the mess.
+### Phase 2.5 — Client foundation rebuild (SCSS modules) — in progress
+Phase 2 shipped a functional but uneven frontend on Tailwind, with a 571-line `AdminProductsPage`, no shared primitives, and brand colors scattered across raw utility classes. PR #15 abandoned that surface in favor of a clean SCSS-modules + design-token foundation (3-layout routing, zustand admin auth, `RequireAdmin` route guard, `react-hook-form` + `zod` admin login) and intentionally left the rest of the client as stubs to rebuild slice by slice. The remaining work is delivered as one PR per slice — each one specs its architecture and style decisions before code lands. Public catalog and product detail will be designed UX-first; they are not restorations of what existed before.
 
-No backend changes, no new pages, no test runner. Image upload stays base64 for this phase; server-side payload caps are handled separately in [`phase-2-execution-plan.md`](phase-2-execution-plan.md) §4.4.
+No backend changes in this phase. Image upload stays base64; server-side payload caps are handled separately in [`phase-2-execution-plan.md`](phase-2-execution-plan.md) §4.4.
 
-- [ ] **Step 1 — Theme tokens.** Extend `tailwind.config.ts` with semantic `brand.*` colors (ink / paper / accent / muted) mapped to the current stone/amber scale. Extend `theme.fontFamily.serif`. Replace hardcoded hex in `client/src/index.css @layer base` with `theme()` references.
-- [ ] **Step 2 — Primitive components** under `client/src/components/ui/` — `Button`, `Input`, `Textarea`, `Card`, `Spinner`. ≤80 lines each, named-export props interface. No Modal / Toast / Select / Badge / EmptyState yet (build when a page actually needs them).
-- [ ] **Step 3 — Shared feedback helpers** — one file `client/src/components/feedback/PageState.tsx` exporting `<PageLoading />`, `<PageError message />`, `<PageEmpty message />`.
-- [ ] **Step 4 — Migrate existing pages** to the primitives: `App.tsx`, `CatalogPage`, `ProductDetailPage`, `AdminLoginPage` (gains `react-hook-form` + `zod`), `ProductCard`, `VariantSelector`, `PersonalizationInput`.
-- [ ] **Step 5 — Split `AdminProductsPage`** (571 → ≤150 lines each) into `pages/admin/AdminProductsPage.tsx` (orchestration), `components/ProductListTable.tsx`, `components/ProductForm.tsx` (`useForm` + `zodResolver`), `components/ProductImageEditor.tsx` (`useFieldArray` for images, 2 MB zod cap), `components/ProductVariantEditor.tsx` (`useFieldArray` for variants), `schema.ts` (shared zod schema).
-- [ ] **Step 6 — Cleanup pass.** Remove `.gitkeep` where real files now exist, strip unused imports and dead helpers, `pnpm preflight` clean, browser smoke on `/`, `/productos/:slug`, `/admin/login`, `/admin/productos`.
+- [x] **Slice 0 — Foundation** (PR #15). SCSS tokens (`styles/_tokens.scss`, `_mixins.scss`), Lora + Quicksand via Google Fonts, three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout`), `RequireAdmin` route guard, zustand admin auth store (`store/adminAuth.ts`), `AdminLoginPage` on `react-hook-form` + `zod`, stubs for `AdminProductsPage` / `NotFoundPage` / `/catalogo`, `lib/types.ts` restored.
+- [x] **Slice 1 — Typography component** (commit `70b23af`). `<Typography as size weight margin>` covering `h1..h6` + `p` and `xs..xxl` sizes.
+- [ ] **Slice 2 — Form primitives.** Extract `<Input>` + `<FormField>` (label + slot + error + hint) from the inlined markup in `AdminLoginPage` so the upcoming admin form slices have a real field shape to consume.
+- [ ] **Slice 3 — Page-state feedback helpers.** `<PageLoading>`, `<PageError onRetry?>`, `<PageEmpty>` as a single co-located component file. Optional shared `<Spinner>` if the duplication argues for it.
+- [ ] **Slice 4 — Admin product list (read-only).** Replace the `AdminProductsPage` stub with a fetch + render of `/api/admin/products`. Mobile cards / desktop table via SCSS breakpoints. No CRUD yet.
+- [ ] **Slice 5 — Admin product create form.** Dedicated `/admin/productos/nuevo` route. Auto-derived slug, `active=false` default, inline 409 on duplicate slug.
+- [ ] **Slice 6 — Admin product edit + delete.** `/admin/productos/:id/editar` reusing the form, two-click inline delete, hard-delete preserved.
+- [ ] **Slice 7 — Admin product images + variants editor.** `useFieldArray` for both, ≤ 8 images at ≤ 500 KB each, ≥ 1 variant required, sub-components for image and variant editors.
+- [ ] **Slice 8 — Public catalog page (`/catalogo`).** Real catalog under `PublicLayout` with `<ProductCard>` and category filter; UX is your call (the previous version did not satisfy the client).
+- [ ] **Slice 9 — Public product detail page (`/producto/:slug`).** Variant selector, personalization textarea with character counter, quantity input, "Agregar al carrito" CTA in disabled state until Phase 3 wires the cart.
+- [ ] **Slice 10 — Cleanup + accessibility pass.** Lighthouse a11y target, keyboard tab order, screen-reader spot-check on login + detail.
 
-Full execution-level detail (acceptance criteria per step, files touched, verification commands): [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md).
+Full execution-level detail (per-slice decisions, files touched, acceptance criteria, PR body skeleton): [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md).
 
-Exit criteria: no file in `pages/admin/` exceeds 150 lines; `grep -r "Cargando\.\.\." client/src/` returns hits only inside `PageState.tsx`; `pnpm preflight` green; all four pages smoke-test in a browser.
+Exit criteria: every slice merged; `pnpm preflight:full` green; browser smoke covers `/catalogo`, `/producto/:slug`, `/admin/login`, `/admin/productos` (full CRUD); Lighthouse mobile a11y ≥ 95 on the public pages; `CLAUDE.md` client section accurately lists the components and pages now in the tree.
 
 ### Phase 3 — Cart + guest checkout foundation (next)
 - [ ] Cart in zustand + `localStorage`

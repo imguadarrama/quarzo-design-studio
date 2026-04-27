@@ -8,7 +8,7 @@ Quarzo Design Studio is a custom-stationery e-commerce store (Saltillo, Coahuila
 
 The full scope, customer flows, phased plan, and locked product decisions live in `docs/tech-roadmap.md` (the PRD). Read it before making non-trivial changes — it's the source of truth for "what are we building and why." Data-model invariants, architecture, and code conventions live in this file. `docs/client/discovery-with-client.md` has the raw client discovery notes.
 
-As of the current commit: **Phase 2 functional foundation is merged on `main`** — public `/api/products` + catalog and detail pages, admin auth (JWT-in-HTTP-only-cookie), `authenticateAdmin` + `requireAdmin` middleware, admin product CRUD with nested variants + base64 images. **Phase 2.5 (frontend refactor — theme tokens, UI primitives, split the 571-line `AdminProductsPage`, migrate pages to `react-hook-form` + `zod`) is the active phase**, in flight by a specialist agent per `docs/phase-2.5-execution-plan.md`. Phase 2 server cleanup (shared serializer, global error handler, image payload caps, 409 on duplicate slug, `passwordHash` response audit) runs in parallel per `docs/phase-2-execution-plan.md`. Phase 3 (cart + guest checkout) is blocked on both and has not started.
+As of the current commit: **Phase 2 functional foundation is merged on `main`** — public `/api/products` + catalog and detail pages, admin auth (JWT-in-HTTP-only-cookie), `authenticateAdmin` + `requireAdmin` middleware, admin product CRUD with nested variants + base64 images. **Phase 2.5 is the active phase and pivoted in PR #15**: the original Tailwind frontend was demolished and a new SCSS-modules + design-token foundation was built in its place — three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout`), zustand admin auth store, `<RequireAdmin>` route guard, `AdminLoginPage` on `react-hook-form` + `zod`. Public catalog, public product detail, and the admin product CRUD UI are intentionally stubs and will be rebuilt UX-first as one PR per slice per `docs/phase-2.5-execution-plan.md`. Phase 2 server cleanup (shared serializer, global error handler, image payload caps, 409 on duplicate slug, `passwordHash` response audit) runs in parallel per `docs/phase-2-execution-plan.md`. Phase 3 (cart + guest checkout) is blocked on both and has not started.
 
 ## Common commands
 
@@ -70,7 +70,7 @@ Operator runbooks: `docs/CI-CD/deploy-setup.md` (full reference) and `docs/CI-CD
 
 ### Monorepo layout
 
-pnpm workspaces with two packages: `server/` (Express + Prisma) and `client/` (Vite + React + Tailwind). `tsconfig.base.json` holds shared strictness settings (`strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`). Node 22, TypeScript 5.6, ESM throughout (`"type": "module"`).
+pnpm workspaces with two packages: `server/` (Express + Prisma) and `client/` (Vite + React + SCSS modules via `sass-embedded`). `tsconfig.base.json` holds shared strictness settings (`strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`). Node 22, TypeScript 5.6, ESM throughout (`"type": "module"`).
 
 ### Server
 
@@ -123,20 +123,45 @@ Two paths, both produce an `Order` row:
 
 ### Client
 
+Current layout (folders / files land when their first occupant does — many are stubs awaiting their Phase 2.5 slice):
+
 ```
 client/src/
-  pages/        Home, Catalog, ProductDetail, Cart, Checkout,
-                OrderConfirmation, OrderTracking, MiCuenta, Login, Admin/*
-  components/   ProductCard, VariantSelector, PersonalizationInput, CartDrawer, …
-  hooks/        useCart, useAuth, useProducts
-  store/        zustand stores (cart, auth)
-  services/     api/products.ts, api/orders.ts, api/auth.ts — fetch wrappers
-  lib/          MXN/date formatters, zod schemas (ideally shared with server)
+  App.tsx                    BrowserRouter + 3 layouts + 404
+  index.scss                 global reset; reads CSS custom properties
+  styles/
+    _tokens.scss             SCSS vars + semantic aliases + :root custom properties
+    _mixins.scss             focus-ring, screen-md, screen-lg
+  layouts/
+    PublicLayout.tsx         public navbar + Outlet (Slice 8/9 will land routes here)
+    AuthLayout.tsx           bare centered shell (login)
+    AdminLayout.tsx          admin navbar + Outlet, internally wraps in RequireAdmin
+  components/
+    Button/  Card/  FullPageSpinner/  NavBarPublic/  NavBarAdmin/  Typography/
+    RequireAdmin.tsx
+    (Slice 2 → Input/, FormField/; Slice 3 → PageState/; Slice 8 → ProductCard/;
+     Slice 9 → VariantSelector/, PersonalizationInput/)
+  pages/
+    NotFoundPage/
+    admin/AdminLoginPage/    react-hook-form + zod
+    admin/AdminProductsPage/ stub — Slice 4 rebuilds it
+    (Slice 5–7 → admin/AdminProductForm/; Slice 8 → CatalogPage/;
+     Slice 9 → ProductDetailPage/)
+  store/
+    adminAuth.ts             zustand: admin / status / hydrate / login / logout
+  services/
+    api/{client.ts, admin.ts, products.ts}
+  lib/
+    types.ts                 mirrors server response shapes
 ```
 
-Stack: `react-router-dom`, `zustand`, `react-hook-form`, `zod`, Tailwind, native `fetch`. The cart lives in `localStorage` for guests and syncs to the DB when a customer logs in. Mobile-first — the primary traffic source is Instagram on phones.
+**Component file convention.** One folder per component, `<Name>.tsx` + `<Name>.module.scss` co-located (e.g. `Button/Button.tsx` + `Button/Button.module.scss`). The named export matches the folder. Plain `.tsx` files at the top of `components/` (e.g. `RequireAdmin.tsx`) are reserved for components with no styles of their own.
 
-Visual direction is clean/editorial (refs: sugarpaper.com, theatelier.com.mx). The client will deliver logo/palette/typography before Phase 2 visual polish — do not invent the brand identity.
+**Styling.** SCSS modules only — no global utility classes, no Tailwind, no `clsx`. Tokens live in `styles/_tokens.scss`. Components import `_tokens.scss` via `@use "../../styles/tokens" as t;` (or `mixins`) and reference values as `t.$color-accent`. The same semantic tokens are re-emitted as CSS custom properties on `:root` so runtime consumers (media queries, future theme switching, JS-set overrides) can read them as `var(--color-accent)`.
+
+**Stack.** `react-router-dom`, `zustand`, `react-hook-form`, `@hookform/resolvers/zod`, `zod`, native `fetch`. The cart will live in `localStorage` for guests and sync to the DB when a customer logs in (Phase 3+). Mobile-first — primary traffic is Instagram on phones.
+
+**Brand assets.** Brand palette (cream-light bg, cream surface, pink accent, mint/sage/lavender, grey muted) is in `_tokens.scss`. Typography is Lora (primary, serif) + Quicksand (secondary, sans), loaded via Google Fonts in `index.html`. References: sugarpaper.com, theatelier.com.mx.
 
 All customer-facing copy is Spanish (Mexico). No i18n layer for v1.
 
