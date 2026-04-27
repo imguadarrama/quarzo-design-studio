@@ -3,12 +3,20 @@ name: Cleanup Staging
 on:
   pull_request:
     types: [closed]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.editorconfig'
+      - '.gitattributes'
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
       - uses: neondatabase/delete-branch-action@v3
+        continue-on-error: true
         with:
           project_id: ${{ secrets.NEON_PROJECT_ID_STAGING }}
           branch: pr-${{ github.event.number }}

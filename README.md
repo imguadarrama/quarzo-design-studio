@@ -2,7 +2,7 @@
 
 Custom-stationery e-commerce store (Saltillo, Coahuila — Spanish copy, MXN payments) built on a deliberately pedagogical stack: TypeScript monorepo, Express + Prisma, Vite + React, Postgres, all wrapped in Docker Compose.
 
-> **Status:** end of Phase 1.5 (skeleton deployed). Docker stack, Prisma schema, seed script, health endpoint, placeholder Vite page, and the staging + prod CI-CD pipelines (Fly.io + Cloudflare Pages + Neon) are in place. Routes, controllers, and pages are not implemented yet — Phase 2 (catalog + admin) is next.
+> **Status:** **Phase 2.5 — Frontend refactor, in progress.** Phase 2 shipped the functional skeleton (public catalog + product detail, admin auth, admin product CRUD — live on staging + prod). Phase 2.5 is a DRY/SOLID/KISS refactor of the 8 client `.tsx` files before Phase 3 adds cart and checkout. Cleanup is split across two tracks: [`docs/phase-2-execution-plan.md`](docs/phase-2-execution-plan.md) (server cleanup) and [`docs/phase-2.5-execution-plan.md`](docs/phase-2.5-execution-plan.md) (frontend refactor).
 >
 > See [`docs/tech-roadmap.md`](docs/tech-roadmap.md) for the phased plan and [`CLAUDE.md`](CLAUDE.md) for architecture conventions and invariants.
 
@@ -77,7 +77,7 @@ Hot reload is already wired: the `api` service runs `tsx watch` and the `web` se
 | Port | Service | Notes |
 |---|---|---|
 | `5173` | Vite dev server (`web`) | Frontend. Proxies `/api/*` → `api:3000` (see `client/vite.config.ts`), so the browser calls same-origin `/api/...` |
-| `3000` | Express API (`api`) | `GET /api/health` available; other routes land in Phase 2 |
+| `3000` | Express API (`api`) | `/api/health`, `/api/products`, `/api/admin/auth/*`, `/api/admin/products/*` are live. Cart/checkout routes land in Phase 3. |
 | `5432` | Postgres 16 (`db`) | Exposed on localhost so you can connect with TablePlus / DBeaver / `psql` |
 
 ---
@@ -108,7 +108,11 @@ All variables live in `.env` at the repo root. `docker-compose.yml` reads it and
 | `PORT` | Port the Express API listens on (default `3000`) |
 | `CLIENT_ORIGIN` | Origin allowed by CORS, used for cookie `SameSite` handling (default `http://localhost:5173`) |
 | `COOKIE_DOMAIN` | Domain scope for the auth cookie (default `localhost`) |
-| `JWT_SECRET` | Signing secret for auth JWTs — must be long and random |
+| `JWT_SECRET` | Signing secret for auth JWTs — must be long and random (≥ 16 chars, enforced by the Zod schema) |
+| `CLIENT_ORIGIN_PREVIEW_PATTERN` | Optional regex (staging only) allowing Cloudflare Pages preview URLs through CORS. Leave empty in dev and prod. See `server/src/index.ts` |
+| `ADMIN_AUTH_COOKIE_NAME` | Admin-session cookie name (default `quarzo_admin_session`) |
+| `CUSTOMER_AUTH_COOKIE_NAME` | Customer-session cookie name (default `quarzo_customer_session`; wired in Phase 5) |
+| `AUTH_TOKEN_TTL_HOURS` | Lifetime of admin/customer JWTs in hours (default `12`) |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Seeded admin-user credentials (consumed by `server/src/seed.ts`). There is intentionally no public admin registration endpoint |
 
 Never read `process.env.*` directly from app code — import `env` from `server/src/config/env.ts`.
