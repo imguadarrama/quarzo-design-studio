@@ -1,0 +1,37 @@
+@use "../../styles/tokens" as t;
+
+.h1,
+.h2,
+.h3,
+.h4,
+.h5,
+.h6 {
+  font-family: t.$font-primary;
+  font-weight: t.$weight-regular;
+  color: t.$color-ink;
+  margin: 0 0 t.$space-1;
+}
+
+.h1 { font-size: t.$font-size-xxl; }
+.h2 { font-size: t.$font-size-xl; }
+.h3 { font-size: t.$font-size-lg; }
+.h4 { font-size: t.$font-size-md; }
+.h5 { font-size: t.$font-size-sm; }
+.h6 { font-size: t.$font-size-xs; }
+
+.p {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  font-weight: t.$weight-regular;
+  color: t.$color-muted;
+  margin: 0 0 t.$space-6;
+}
+
+// Size overrides — declared after the defaults so they win the cascade
+// at equal specificity regardless of class order in the className string.
+.size-xs  { font-size: t.$font-size-xs; }
+.size-sm  { font-size: t.$font-size-sm; }
+.size-md  { font-size: t.$font-size-md; }
+.size-lg  { font-size: t.$font-size-lg; }
+.size-xl  { font-size: t.$font-size-xl; }
+.size-xxl { font-size: t.$font-size-xxl; }

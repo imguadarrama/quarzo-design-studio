@@ -1,5 +1,6 @@
 // Brand palette (delivered by client) — do not consume directly in components.
 $color-pink-soft:   #f7c9cb;
+$color-pink-soft-90: #F9D4D5;
 $color-pink:        #f486aa;
 $color-mint:        #9fe0da;
 $color-sage:        #d2e8ca;
@@ -14,8 +15,9 @@ $color-surface:     $color-cream;
 $color-ink:         #1c1917;
 $color-muted:       $color-grey;
 $color-border:      $color-cream;
-$color-accent:      $color-pink;
-$color-accent-soft: $color-pink-soft;
+$color-accent:         $color-pink;
+$color-accent-soft:    $color-pink-soft;
+$color-accent-soft-90: $color-pink-soft-90;
 $color-error:       #b91c1c;
 $color-success:     #15803d;
 
@@ -26,6 +28,14 @@ $font-secondary: "Quicksand", "Segoe UI", system-ui, sans-serif;
 $weight-regular: 400;
 $weight-medium:  500;
 $weight-bold:    700;
+
+// Font sizes
+$font-size-xs:  14px;
+$font-size-sm:  16px;
+$font-size-md:  18px;
+$font-size-lg:  clamp(18px, 1.6vw + 12px, 20px);
+$font-size-xl:  clamp(20px, 2vw + 12px, 24px);
+$font-size-xxl: clamp(22px, 2.5vw + 14px, 28px);
 
 // Spacing scale
 $space-1: 4px;

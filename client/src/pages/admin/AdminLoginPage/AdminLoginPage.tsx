@@ -1,14 +1,18 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import CircularLogo from "../../../../assets/circular-logo.png"
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useAdminAuthStore } from "../../../store/adminAuth.js";
+import { Typography } from "../../../components/Typography/Typography.js";
+import { Card } from "../../../components/Card/Card.js";
+import { Button } from "../../../components/Button/Button.js";
 import styles from "./AdminLoginPage.module.scss";
 
 const schema = z.object({
   email: z.string().email("Email invalido"),
-  password: z.string().min(1, "Ingresa tu contrasena"),
+  password: z.string().min(1, "Ingresa tu contraseña"),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -40,9 +44,10 @@ export function AdminLoginPage() {
   });
 
   return (
-    <div className={styles.card}>
-      <h1 className={styles.title}>Quarzo · Admin</h1>
-      <p className={styles.subtitle}>Ingresa con tus credenciales</p>
+    <Card>
+      <img src={CircularLogo} alt="Quarzo" className={styles.logo} />
+      <Typography as="h1" size="xl">Inicio de sesión admin</Typography>
+      <Typography as="p">Ingresa con tus credenciales</Typography>
 
       <form onSubmit={onSubmit} noValidate>
         <div className={styles.field}>
@@ -57,14 +62,14 @@ export function AdminLoginPage() {
             aria-invalid={Boolean(errors.email)}
             {...register("email")}
           />
-          {errors.email ? (
-            <p className={styles.fieldError}>{errors.email.message}</p>
-          ) : null}
+          <p className={styles.fieldError} aria-live="polite">
+            {errors.email?.message}
+          </p>
         </div>
 
         <div className={styles.field}>
           <label htmlFor="password" className={styles.label}>
-            Contrasena
+            Contraseña
           </label>
           <input
             id="password"
@@ -74,9 +79,9 @@ export function AdminLoginPage() {
             aria-invalid={Boolean(errors.password)}
             {...register("password")}
           />
-          {errors.password ? (
-            <p className={styles.fieldError}>{errors.password.message}</p>
-          ) : null}
+          <p className={styles.fieldError} aria-live="polite">
+            {errors.password?.message}
+          </p>
         </div>
 
         {submitError ? (
@@ -85,14 +90,10 @@ export function AdminLoginPage() {
           </div>
         ) : null}
 
-        <button
-          type="submit"
-          className={styles.submit}
-          disabled={isSubmitting}
-        >
+        <Button type="submit" disabled={isSubmitting}>
           {isSubmitting ? "Entrando…" : "Entrar"}
-        </button>
+        </Button>
       </form>
-    </div>
+    </Card>
   );
 }

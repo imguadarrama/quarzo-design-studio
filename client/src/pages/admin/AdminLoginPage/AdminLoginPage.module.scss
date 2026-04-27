@@ -1,26 +1,15 @@
 @use "../../../styles/tokens" as t;
 @use "../../../styles/mixins" as m;
 
-.card {
-  background-color: t.$color-surface;
-  border-radius: t.$radius-lg;
-  padding: t.$space-8;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
-}
+.logo {
+  display: block;
+  width: 72px;
+  height: auto;
+  margin: 0 auto t.$space-4;
 
-.title {
-  font-family: t.$font-primary;
-  font-size: 28px;
-  font-weight: t.$weight-bold;
-  margin: 0 0 t.$space-1;
-  color: t.$color-ink;
-}
-
-.subtitle {
-  font-family: t.$font-secondary;
-  font-size: 14px;
-  color: t.$color-muted;
-  margin: 0 0 t.$space-6;
+  @include m.screen-md {
+    width: 96px;
+  }
 }
 
 .field {
@@ -33,15 +22,14 @@
   font-size: 13px;
   font-weight: t.$weight-medium;
   color: t.$color-ink;
-  margin-bottom: t.$space-1;
+  margin-bottom: t.$space-2;
 }
 
 .input {
   width: 100%;
   font-family: t.$font-secondary;
-  font-size: 15px;
+  font-size: t.$font-size-sm;
   color: t.$color-ink;
-  background-color: t.$color-bg;
   border: 1px solid t.$color-border;
   border-radius: t.$radius-sm;
   padding: t.$space-3 t.$space-4;
@@ -49,7 +37,7 @@
 
   &:focus-visible {
     @include m.focus-ring;
-    border-color: t.$color-accent;
+    border-color: t.$color-accent-soft-90;
   }
 
   &[aria-invalid="true"] {
@@ -58,10 +46,12 @@
 }
 
 .fieldError {
-  margin: t.$space-1 0 0;
+  margin: 2px 0 0;
   font-family: t.$font-secondary;
   font-size: 12px;
+  line-height: 1.3;
   color: t.$color-error;
+  min-height: calc(12px * 1.3);
 }
 
 .formError {
@@ -74,29 +64,3 @@
   font-size: 13px;
 }
 
-.submit {
-  width: 100%;
-  font-family: t.$font-secondary;
-  font-size: 15px;
-  font-weight: t.$weight-bold;
-  color: t.$color-ink;
-  background-color: t.$color-accent;
-  border: none;
-  border-radius: t.$radius-sm;
-  padding: t.$space-3 t.$space-4;
-  margin-top: t.$space-2;
-  transition: background-color 120ms ease, opacity 120ms ease;
-
-  &:hover:not(:disabled) {
-    background-color: t.$color-accent-soft;
-  }
-
-  &:focus-visible {
-    @include m.focus-ring;
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-}
