@@ -89,7 +89,7 @@ async function main() {
   console.log(`Seeded admin: ${adminEmail}`);
 
   for (const p of products) {
-    await prisma.product.upsert({
+    const product = await prisma.product.upsert({
       where: { slug: p.slug },
       update: {},
       create: {
@@ -98,19 +98,30 @@ async function main() {
         description: p.description,
         category: p.category,
         basePrice: new Decimal(p.basePrice),
-        images: {
-          create: [{ url: p.imageUrl, alt: p.name, position: 0 }],
-        },
-        variants: {
-          create: p.variants.map((v) => ({
-            name: v.name,
-            sku: v.sku,
-            priceDelta: new Decimal(v.priceDelta),
-            stock: v.stock,
-          })),
-        },
       },
     });
+
+    for (const v of p.variants) {
+      await prisma.productVariant.upsert({
+        where: { sku: v.sku },
+        update: {},
+        create: {
+          productId: product.id,
+          name: v.name,
+          sku: v.sku,
+          priceDelta: new Decimal(v.priceDelta),
+          stock: v.stock,
+        },
+      });
+    }
+
+    const imageCount = await prisma.productImage.count({ where: { productId: product.id } });
+    if (imageCount === 0) {
+      await prisma.productImage.create({
+        data: { productId: product.id, url: p.imageUrl, alt: p.name, position: 0 },
+      });
+    }
+
     console.log(`Seeded product: ${p.slug}`);
   }
 }
