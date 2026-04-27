@@ -1,0 +1,15 @@
+@use "../styles/tokens" as t;
+
+.shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100svh;
+  background-color: t.$color-bg;
+  padding: t.$space-6;
+}
+
+.content {
+  width: 100%;
+  max-width: 420px;
+}
