@@ -1,8 +1,8 @@
-# Phase 2 Execution Plan — Catalog + Admin CRUD
+# Phase 2 Execution Plan — Server Cleanup
 
-> **Purpose:** step-by-step playbook to finish Phase 2 cleanly. Built from an audit of the current branch against `docs/tech-roadmap.md` §10 Phase 2. Every task is a checkbox you tick as you go.
+> **Purpose:** step-by-step playbook for the remaining Phase 2 *server-side* cleanup. The Phase 2 functional foundation merged via PR #8 on 2026-04-24 (catalog routes, admin CRUD, admin auth, staging CORS + cross-site cookie fix). What's left here is server-only: shared serializer, global error handler, image payload caps, duplicate-slug 409, `passwordHash`-in-response audit. Client work is owned by [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md) — see §0.5.
 >
-> **Mindset:** the Phase 2 *foundation* merged via PR #8 on 2026-04-24 (catalog, admin CRUD, admin auth, staging CORS + cross-site cookie fix). What remains is **cleanup** — no rebuilds, no new features. Resist the urge to start over.
+> **Mindset:** cleanup, not rebuild. Resist the urge to start over.
 
 ---
 
@@ -19,19 +19,21 @@
 
 ---
 
-## 0.5. PR split (post-merge)
+## 0.5. Scope split — server here, client in Phase 2.5
 
-The Phase 2 foundation is on `main` via PR #8. The remaining cleanup is split across three branches so each review stays small and reviewable. Branches are already pushed and ready to work on:
+PR #15 (merged 2026-04-27) demolished the original Tailwind-shaped client surface (`CatalogPage`, `ProductDetailPage`, `AdminLoginPage`, `AdminProductsPage`, `VariantSelector`, `PersonalizationInput`) and rebuilt the foundation in SCSS modules + design tokens, with three sibling layouts, a zustand admin auth store (`store/adminAuth.ts`), and a `<RequireAdmin>` route guard. The earlier "Phase 2 client cleanup" track (zustand auth store, `useAuth` hook, `RequireAdmin`, `AdminLoginPage`/`AdminProductsPage` refactor, `index.css` font-family fix) and the abandoned shadcn/Tailwind UI track are both superseded — they shipped (in a different shape) or were dropped as part of PR #15.
+
+All remaining client work — admin product CRUD UI, public catalog, public product detail, accessibility — lives in [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md) and is delivered one PR per slice.
+
+This doc is now scoped to **server cleanup only**, on a single branch:
 
 | Branch | Owns | Plan sections |
 |--------|------|---------------|
 | `refactor/phase2-server-cleanup` | Shared product serializer, global error handler, image payload caps, duplicate-slug 409, `passwordHash`-in-response audit | §3.7, §4.1–4.5 |
-| `refactor/phase2-client-auth` | Zustand auth store, `useAuth` hook, `<RequireAdmin>` route guard, `AdminLoginPage`/`AdminProductsPage` refactor, font-family fix | §5.1–5.6 |
-| `feat/ui-foundation` | Shadcn primitives (Card / Input / Label), `cn()` helper, Tailwind tokens — evolving editorial/boutique look | *not in this plan — UI track runs in parallel* |
 
-**Suggested order.** Open `refactor/phase2-server-cleanup` and `feat/ui-foundation` PRs in parallel (disjoint files, zero conflict surface). Start `refactor/phase2-client-auth` *after* `feat/ui-foundation` merges so the auth refactor can consume the new UI primitives.
+`refactor/phase2-server-cleanup` runs in parallel with whichever Phase 2.5 slice is active — the file surfaces are disjoint, so there are no conflicts.
 
-§6 is the **phase-completion gate** — run it only after all three branches land on main. Until then, leave §6 boxes unticked even if individual parts pass.
+§5 is the **server-cleanup completion gate** — run it after every box in §3.7 and §4 is ticked.
 
 ---
 
@@ -46,31 +48,27 @@ The Phase 2 foundation is on `main` via PR #8. The remaining cleanup is split ac
 | Cookie helpers (httpOnly, SameSite, Secure in prod) | `server/src/auth/cookies.ts:15-25` |
 | `authenticateAdmin` + `requireAdmin` middleware | `server/src/middleware/` |
 | Admin product CRUD (nested variants + images) | `server/src/routes/admin-products.ts` |
-| Public catalog | `server/src/routes/products.ts` |
+| Public catalog + detail | `server/src/routes/products.ts` |
+| Health check | `server/src/routes/health.ts` |
 | Zod validation on every request body | every route file |
 | Env validation (JWT_SECRET ≥ 16, cookie names, TTL, admin creds) | `server/src/config/env.ts` |
 | Seed (admin user + 4 products × 2 variants) | `server/src/seed.ts` |
-| Client catalog + detail pages | `client/src/pages/CatalogPage.tsx`, `ProductDetailPage.tsx` |
-| Client admin login + CRUD UI | `client/src/pages/AdminLoginPage.tsx`, `AdminProductsPage.tsx` |
-| Variant selector + personalization input | `client/src/components/VariantSelector.tsx`, `PersonalizationInput.tsx` |
-| Shared fetch wrapper with `credentials: "include"` | `client/src/services/api/client.ts` |
 
-### 1.2 The "mess" (cleanup targets handled in §4 and §5)
+> Client UI is intentionally stubbed post-PR-#15. Phase 2.5 rebuilds it slice by slice — do not edit `client/**` from this branch.
+
+### 1.2 The "mess" (cleanup targets handled in §4)
 
 1. **Duplicate serializer** — `serializeProduct` is defined in both `server/src/routes/admin-products.ts` and `server/src/routes/products.ts`.
-2. **No zustand auth store** — admin session state lives in `AdminProductsPage` local state instead of a shared store. `client/src/store/` is empty.
-3. **No `<RequireAdmin>` route guard** — gating is an imperative `useEffect` redirect inside `AdminProductsPage`. Stale UI flashes before redirect.
-4. **Image payloads unbounded** — the admin CRUD accepts `data:image/...` URLs with no size or count cap. One big photo pasted in → a huge JSON row.
-5. **No global error handler** — each route has its own try/catch. Unique-constraint violations (duplicate slug) bubble up as generic 500s instead of 409.
-6. **Font-family inconsistency** — `client/src/index.css` sets Georgia on `:root` and Segoe UI on `body`. Pick one.
-7. **Unused client deps not yet used** — `react-hook-form`, `zod` on the client. Fine to leave for now; flag for Phase 3.
+2. **Image payloads unbounded** — the admin CRUD accepts `data:image/...` URLs with no size or count cap. One big photo pasted in → a huge JSON row.
+3. **No global error handler** — each route has its own try/catch. Unique-constraint violations (duplicate slug) bubble up as generic 500s instead of 409.
 
-### 1.3 Out of scope for Phase 2 (confirmed — do not build)
+### 1.3 Out of scope for this branch (confirmed — do not build)
 
 - Customer auth (Phase 5).
 - Cart + checkout (Phase 3).
 - MercadoPago / Resend (Phase 4).
 - Moving images off data URLs to cloud storage. Keep data URLs; add caps in §4.4.
+- Anything client-side. Phase 2.5 owns all client work — see [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md).
 
 ---
 
@@ -151,7 +149,7 @@ Set-Cookie: quarzo_admin_session=; Max-Age=0
 
 - [x] 200. Cookie gone from Postman's jar.
 
-**If everything above is green, continue. If any step fails, see §7 before touching code.**
+**If everything above is green, continue. If any step fails, see §6 before touching code.**
 
 ---
 
@@ -210,7 +208,7 @@ Open `server/src/index.ts`:
 
 **Extension note.** If prod ever needs a second canonical origin (e.g. `quarzo.mx` + `www.quarzo.mx`), extend `CLIENT_ORIGIN` to accept comma-separated values and adjust the predicate. Do **not** widen the preview regex to cover prod — preview is a staging-only relaxation by design.
 
-### 3.7 No passwords in responses *(belongs in `refactor/phase2-server-cleanup`)*
+### 3.7 No passwords in responses
 
 - [ ] Grep `server/src/routes/` for `passwordHash`. No route should include it in a response body. *Never publish hashes, even bcrypt ones.*
 
@@ -302,132 +300,26 @@ Log in first, then:
 
 ---
 
-## 5. Client cleanup (do in order) *(branch: `refactor/phase2-client-auth`)*
+## 5. End-to-end verification — server-cleanup completion gate
 
-### 5.1 Zustand auth store
-
-- [ ] Create `client/src/store/auth.ts`:
-  ```ts
-  import { create } from "zustand";
-  import { loginAdmin, logoutAdmin, fetchAdminSession } from "../services/api/admin";
-
-  type AdminSession = { id: string; email: string } | null;
-  type Status = "idle" | "loading" | "authenticated" | "unauthenticated";
-
-  type AuthState = {
-    admin: AdminSession;
-    status: Status;
-    error: string | null;
-    login: (email: string, password: string) => Promise<void>;
-    logout: () => Promise<void>;
-    refresh: () => Promise<void>;
-  };
-
-  export const useAuthStore = create<AuthState>((set) => ({
-    admin: null,
-    status: "idle",
-    error: null,
-    login: async (email, password) => {
-      set({ status: "loading", error: null });
-      try {
-        const { admin } = await loginAdmin(email, password);
-        set({ admin, status: "authenticated" });
-      } catch (e: any) {
-        set({ admin: null, status: "unauthenticated", error: e.message });
-        throw e;
-      }
-    },
-    logout: async () => {
-      await logoutAdmin();
-      set({ admin: null, status: "unauthenticated" });
-    },
-    refresh: async () => {
-      set({ status: "loading" });
-      try {
-        const { admin } = await fetchAdminSession();
-        set({ admin, status: "authenticated" });
-      } catch {
-        set({ admin: null, status: "unauthenticated" });
-      }
-    },
-  }));
-  ```
-
-### 5.2 `useAuth` hook
-
-- [ ] Create `client/src/hooks/useAuth.ts` as a thin selector wrapper:
-  ```ts
-  import { useAuthStore } from "../store/auth";
-  export const useAuth = () => useAuthStore();
-  ```
-
-### 5.3 Refactor `AdminLoginPage`
-
-- [ ] Remove local `loading`/`error` state. Read them from `useAuth()`.
-- [ ] On submit: `await login(email, password)`; on success, `navigate(state?.from ?? "/admin/productos")`.
-- [ ] Browser verify: wrong creds → error text shows. Right creds → lands on admin page.
-
-### 5.4 Refactor `AdminProductsPage`
-
-- [ ] Delete the `fetchAdminSession`/redirect `useEffect` and the local session state. `RequireAdmin` (next step) handles auth.
-- [ ] Read `admin` from `useAuth()` to show the logged-in email in the header.
-- [ ] Logout button calls `useAuth().logout()` and then `navigate("/admin/login")`.
-
-### 5.5 `<RequireAdmin>` route guard
-
-- [ ] Create `client/src/components/RequireAdmin.tsx`:
-  ```tsx
-  import { useEffect } from "react";
-  import { Navigate, useLocation } from "react-router-dom";
-  import { useAuth } from "../hooks/useAuth";
-
-  export function RequireAdmin({ children }: { children: React.ReactNode }) {
-    const { status, refresh } = useAuth();
-    const location = useLocation();
-
-    useEffect(() => { if (status === "idle") refresh(); }, [status, refresh]);
-
-    if (status === "idle" || status === "loading") return <div className="p-8 text-stone-500">Cargando…</div>;
-    if (status === "unauthenticated") return <Navigate to="/admin/login" state={{ from: location.pathname }} replace />;
-    return <>{children}</>;
-  }
-  ```
-- [ ] In `client/src/App.tsx`, wrap the admin route:
-  ```tsx
-  <Route path="/admin/productos" element={<RequireAdmin><AdminProductsPage /></RequireAdmin>} />
-  ```
-- [ ] Browser verify: visit `/admin/productos` logged out → brief loading → `/admin/login` with the "from" state preserved.
-
-### 5.6 Minor polish
-
-- [ ] Fix font-family conflict in `client/src/index.css`: remove whichever of `:root { font-family: ... }` vs `body { font-family: ... }` you don't want. Recommended: keep the serif on `body` for the editorial look; delete the `:root` rule.
-- [ ] In `AdminProductsPage`'s file picker handler, add a client-side size guard (~500 KB) so users get instant feedback instead of a 400 from the server.
-
----
-
-## 6. End-to-end verification — phase completion gate
-
-Run this once everything above is ticked.
+Run this once every box in §3.7 and §4 is ticked.
 
 - [ ] `pnpm dev:down && pnpm dev:rebuild`. Clean boot, no errors in any container log.
 - [ ] `pnpm seed`.
+- [ ] `pnpm preflight` green (server + client typecheck + build). The client still builds even though Phase 2.5 is in progress — its current shape is the post-PR-#15 stub set, and that must stay buildable.
 - [ ] Run the Postman collection top-to-bottom (§2 + §3 + §4.3 + §4.5). All pass.
-- [ ] Browser `/`: catalog renders, 4 products, category badges visible.
-- [ ] Browser `/productos/sobres-clasicos`: detail page, variant buttons toggle, personalization counter increments up to 80 chars, quantity spinner works.
-- [ ] Browser `/admin/productos` while logged out → `/admin/login` (with `from` preserved).
-- [ ] Log in → lands on admin page. Email shows in header.
-- [ ] Create a new product through the UI. It appears in the admin list and on the public `/` after refresh.
-- [ ] Edit the product; changes persist. Delete it; it's gone from both lists.
-- [ ] DevTools → responsive mode → iPhone SE (375 px). Catalog and detail are readable, no horizontal scroll.
-- [ ] Update `docs/tech-roadmap.md` §10 Phase 2 checkboxes (all already `[x]` — just confirm they're honest). If anything's truly missing, add a note under "Deferred to Phase 3".
+- [ ] Re-run §2.5 (`GET /products`) and §2.6 (`GET /products/sobres-clasicos`) — responses byte-identical to the pre-cleanup baseline. The shared serializer must not change wire format.
+- [ ] Confirm `docs/tech-roadmap.md` §10 Phase 2 checkboxes are still honest. (No edits expected — Phase 2 was already declared complete on `main`.)
 
-Once every box in this §6 is ticked, **Phase 2 is done**. Move to `docs/tech-roadmap.md` §10 Phase 3 (cart + guest checkout foundation).
+Once every box in this §5 is ticked, **the Phase 2 server cleanup branch is done** and `refactor/phase2-server-cleanup` can merge. Phase 2.5 client work continues independently per [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md).
+
+Phase 3 (cart + guest checkout) is unblocked when this branch lands AND Phase 2.5 reaches its own §12 exit criteria.
 
 ---
 
-## 7. Debugging appendix — likely failure modes
+## 6. Debugging appendix — likely failure modes
 
-### 7.1 "Login returns 200 but `/me` returns 401"
+### 6.1 "Login returns 200 but `/me` returns 401"
 
 Your Postman cookie jar isn't actually saving. Fix:
 
@@ -435,24 +327,24 @@ Your Postman cookie jar isn't actually saving. Fix:
 - Settings → Cookies → after login you should see a `localhost` entry with `quarzo_admin_session`. If not, toggle the domain on manually.
 - Don't mix `http://localhost:3000` and `http://127.0.0.1:3000`. They are different cookie jars.
 
-### 7.2 "Admin route returns 401 even after a fresh login" (browser, not Postman)
+### 6.2 "Admin route returns 401 even after a fresh login" (browser, not Postman)
 
 Usually a cookie-flag mismatch:
 
 - `APP_ENV=production` in your local `.env` → `secure: true` → browser refuses to send the cookie over `http://`. Set `APP_ENV=development`.
 - Cross-site flow (API on a different origin than the client) + `SameSite=Lax` → cookie dropped on POSTs. In dev, the Vite proxy keeps you same-origin, so this shouldn't happen. If you swapped that proxy out, re-add it.
 
-### 7.3 "Prisma P1001: Can't reach database"
+### 6.3 "Prisma P1001: Can't reach database"
 
 - `pnpm dev` hasn't fully started `db` yet. Watch `docker compose logs db` — wait for `database system is ready to accept connections`.
 - `.env` has `DATABASE_URL=postgresql://...@localhost:5432/...`. Inside the `api` container, the hostname is `db`, not `localhost`. Should be `postgresql://quarzo:...@db:5432/quarzo?schema=public`.
 
-### 7.4 "CORS error in the browser" (local dev)
+### 6.4 "CORS error in the browser" (local dev)
 
 - `CLIENT_ORIGIN` in `.env` doesn't match the URL you loaded (`5173` vs `3000`, `localhost` vs `127.0.0.1`).
 - API not running → the "CORS error" is actually a connection refused. Check `docker compose ps`.
 
-### 7.5 "CORS blocked on a Cloudflare Pages preview URL" (staging)
+### 6.5 "CORS blocked on a Cloudflare Pages preview URL" (staging)
 
 The allowlist in `server/src/index.ts` accepts `env.CLIENT_ORIGIN` (exact match) plus `env.CLIENT_ORIGIN_PREVIEW_PATTERN` (optional regex). If previews aren't matching:
 
@@ -461,10 +353,10 @@ The allowlist in `server/src/index.ts` accepts `env.CLIENT_ORIGIN` (exact match)
 - Empty string (secret exists but value is empty) is safe — `config/env.ts` normalizes it to `undefined`, so CORS falls back to exact-match only on `CLIENT_ORIGIN`.
 - Prod intentionally does *not* set this secret. If you see prod accepting preview-shaped origins, someone added it — remove it.
 
-### 7.6 "Admin login works but `/me` 401s" (staging / prod, browser)
+### 6.6 "Admin login works but `/me` 401s" (staging / prod, browser)
 
 Cross-site cookie policy. Verify `Set-Cookie` on the login response includes `SameSite=None; Secure; HttpOnly`. If it shows `SameSite=Lax`, the `APP_ENV` on Fly is `development` (shouldn't be) or the cookie helper was reverted. See `server/src/auth/cookies.ts:21`.
 
 ---
 
-*This plan replaces ad-hoc Phase 2 tracking. When every checkbox in §§2–6 is ticked, Phase 2 is complete and verified.*
+*This plan covers the Phase 2 server cleanup branch. Client work after the SCSS pivot is in [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md). When every checkbox in §§2–5 is ticked, the server cleanup is complete and ready to merge.*
