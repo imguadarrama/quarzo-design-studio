@@ -2,7 +2,7 @@
 
 Custom-stationery e-commerce store (Saltillo, Coahuila — Spanish copy, MXN payments) built on a deliberately pedagogical stack: TypeScript monorepo, Express + Prisma, Vite + React, Postgres, all wrapped in Docker Compose.
 
-> **Status:** **Phase 2.5 — Frontend refactor, in progress.** Phase 2 shipped the functional skeleton (public catalog + product detail, admin auth, admin product CRUD — live on staging + prod). Phase 2.5 is a DRY/SOLID/KISS refactor of the 8 client `.tsx` files before Phase 3 adds cart and checkout. Cleanup is split across two tracks: [`docs/phase-2-execution-plan.md`](docs/phase-2-execution-plan.md) (server cleanup) and [`docs/phase-2.5-execution-plan.md`](docs/phase-2.5-execution-plan.md) (frontend refactor).
+> **Status:** **Phase 2.5 — Client foundation rebuild (SCSS modules), in progress.** Phase 2 shipped the functional skeleton on `main` (catalog, product detail, admin auth, admin product CRUD — live on staging + prod). PR #15 then pivoted the client off Tailwind onto an SCSS-modules + design-token system with three sibling layouts and a zustand admin auth store; the public catalog, product detail, and admin product CRUD UIs were intentionally stubbed out and will be rebuilt UX-first as one PR per slice. Server cleanup runs in parallel: [`docs/phase-2-execution-plan.md`](docs/phase-2-execution-plan.md) (server) + [`docs/phase-2.5-execution-plan.md`](docs/phase-2.5-execution-plan.md) (client slices).
 >
 > See [`docs/tech-roadmap.md`](docs/tech-roadmap.md) for the phased plan and [`CLAUDE.md`](CLAUDE.md) for architecture conventions and invariants.
 

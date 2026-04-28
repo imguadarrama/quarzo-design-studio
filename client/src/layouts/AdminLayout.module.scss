@@ -1,0 +1,27 @@
+@use "../styles/tokens" as t;
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  background-color: t.$color-bg;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: t.$color-surface;
+  border-bottom: 1px solid t.$color-border;
+}
+
+.content {
+  flex: 1;
+  padding: t.$space-6 t.$space-4;
+}
+
+@media (min-width: t.$bp-md) {
+  .content {
+    padding: t.$space-8;
+  }
+}

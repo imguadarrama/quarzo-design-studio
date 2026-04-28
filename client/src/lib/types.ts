@@ -1,12 +1,17 @@
+export type AdminUser = {
+  id: string;
+  email: string;
+};
+
 export type ProductImage = {
-  id?: string;
+  id: string;
   url: string;
   alt: string | null;
-  position?: number;
+  position: number;
 };
 
 export type ProductVariant = {
-  id?: string;
+  id: string;
   name: string;
   sku: string;
   priceDelta: number;
@@ -27,9 +32,16 @@ export type Product = {
   variants: ProductVariant[];
 };
 
-export type AdminUser = {
-  id: string;
-  email: string;
+export type ProductImagePayload = {
+  url: string;
+  alt?: string;
+};
+
+export type ProductVariantPayload = {
+  name: string;
+  sku: string;
+  priceDelta: number;
+  stock: number;
 };
 
 export type ProductPayload = {
@@ -39,14 +51,6 @@ export type ProductPayload = {
   category: string;
   basePrice: number;
   active: boolean;
-  images: Array<{
-    url: string;
-    alt: string;
-  }>;
-  variants: Array<{
-    name: string;
-    sku: string;
-    priceDelta: number;
-    stock: number;
-  }>;
+  images: ProductImagePayload[];
+  variants: ProductVariantPayload[];
 };

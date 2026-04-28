@@ -1,0 +1,20 @@
+@use "../../../styles/tokens" as t;
+
+.wrapper {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.title {
+  font-family: t.$font-primary;
+  font-size: 28px;
+  font-weight: t.$weight-bold;
+  margin: 0 0 t.$space-3;
+}
+
+.note {
+  font-family: t.$font-secondary;
+  color: t.$color-muted;
+  font-size: 14px;
+  margin: 0;
+}

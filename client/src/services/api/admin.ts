@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { AdminUser, Product, ProductPayload } from "../../lib/types";
+import type { AdminUser, Product, ProductPayload } from "../../lib/types.js";
 
 type ErrorResponse = {
   error?: string;
@@ -8,9 +8,9 @@ type ErrorResponse = {
 async function readError(response: Response): Promise<string> {
   try {
     const data = (await response.json()) as ErrorResponse;
-    return data.error ?? "Ocurrio un error inesperado";
+    return data.error ?? "Ocurrió un error inesperado";
   } catch {
-    return "Ocurrio un error inesperado";
+    return "Ocurrió un error inesperado";
   }
 }
 
@@ -29,8 +29,12 @@ export async function loginAdmin(email: string, password: string): Promise<Admin
   return data.admin;
 }
 
-export async function fetchAdminSession(): Promise<AdminUser> {
+export async function fetchAdminSession(): Promise<AdminUser | null> {
   const response = await apiFetch("/api/admin/auth/me");
+
+  if (response.status === 401) {
+    return null;
+  }
 
   if (!response.ok) {
     throw new Error(await readError(response));

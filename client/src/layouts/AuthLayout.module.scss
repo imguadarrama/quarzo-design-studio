@@ -1,0 +1,20 @@
+@use "../styles/tokens" as t;
+@use "../styles/mixins" as m;
+
+.shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100svh;
+  background-color: t.$color-bg;
+  padding: t.$space-4;
+
+  @include m.screen-md {
+    padding: t.$space-6;
+  }
+}
+
+.content {
+  width: 100%;
+  max-width: 420px;
+}

@@ -1,0 +1,43 @@
+@use "../../styles/tokens" as t;
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 t.$space-4;
+  height: 64px;
+}
+
+.brand {
+  font-family: t.$font-primary;
+  font-size: 24px;
+  font-weight: t.$weight-bold;
+  letter-spacing: 0.5px;
+  color: t.$color-ink;
+}
+
+.links {
+  display: flex;
+  gap: t.$space-6;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: t.$font-secondary;
+  font-size: 14px;
+  font-weight: t.$weight-medium;
+
+  a {
+    color: t.$color-ink;
+    transition: color 120ms ease;
+
+    &:hover {
+      color: t.$color-accent;
+    }
+  }
+}
+
+@media (min-width: t.$bp-md) {
+  .nav {
+    padding: 0 t.$space-8;
+  }
+}
