@@ -3,22 +3,19 @@ export type AdminUser = {
   email: string;
 };
 
+export type VariantOptionType = "SELECT" | "TEXT";
+
 export type ProductImage = {
   id: string;
   url: string;
   alt: string | null;
-  position: number;
 };
-
-export type VariantOptionType = "SELECT" | "TEXT";
 
 export type ProductVariantOption = {
   id: string;
   name: string;
   type: VariantOptionType;
   values: string[] | null;
-  required: boolean;
-  position: number;
 };
 
 export type ProductVariant = {
@@ -35,10 +32,28 @@ export type Product = {
   name: string;
   description: string;
   category: string;
-  active: boolean;
-  createdAt: string;
   images: ProductImage[];
   variants: ProductVariant[];
+};
+
+export type AdminProductImage = ProductImage & {
+  position: number;
+};
+
+export type AdminProductVariantOption = ProductVariantOption & {
+  required: boolean;
+  position: number;
+};
+
+export type AdminProductVariant = Omit<ProductVariant, "options"> & {
+  options: AdminProductVariantOption[];
+};
+
+export type AdminProduct = Omit<Product, "images" | "variants"> & {
+  active: boolean;
+  createdAt: string;
+  images: AdminProductImage[];
+  variants: AdminProductVariant[];
 };
 
 export type ProductImagePayload = {

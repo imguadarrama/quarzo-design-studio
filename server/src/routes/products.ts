@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db/prisma.js";
-import { serializeProduct, type ProductWithRelations } from "../lib/serializers.js";
+import { serializeProductPublic, type ProductWithRelations } from "../lib/serializers.js";
 
 export const productsRouter = Router();
 
@@ -16,7 +16,7 @@ productsRouter.get("/products", async (_req, res, next) => {
     });
 
     res.json({
-      products: products.map((product: ProductWithRelations) => serializeProduct(product)),
+      products: products.map((product: ProductWithRelations) => serializeProductPublic(product)),
     });
   } catch (err) {
     next(err);
@@ -42,7 +42,7 @@ productsRouter.get("/products/:slug", async (req, res, next) => {
     }
 
     res.json({
-      product: serializeProduct(product as ProductWithRelations),
+      product: serializeProductPublic(product as ProductWithRelations),
     });
   } catch (err) {
     next(err);

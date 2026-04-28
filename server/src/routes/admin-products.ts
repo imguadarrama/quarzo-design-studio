@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "../db/prisma.js";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
-import { serializeProduct, type ProductWithRelations } from "../lib/serializers.js";
+import { serializeProductAdmin, type ProductWithRelations } from "../lib/serializers.js";
 
 const MAX_DATA_URL_BYTES = 500_000;
 
@@ -124,7 +124,7 @@ adminProductsRouter.get("/products", async (_req, res, next) => {
 
     res.json({
       products: products.map((product) =>
-        serializeProduct(product as unknown as ProductWithRelations),
+        serializeProductAdmin(product as unknown as ProductWithRelations),
       ),
     });
   } catch (err) {
@@ -144,7 +144,7 @@ adminProductsRouter.get("/products/:id", async (req, res, next) => {
       return;
     }
 
-    res.json({ product: serializeProduct(product as unknown as ProductWithRelations) });
+    res.json({ product: serializeProductAdmin(product as unknown as ProductWithRelations) });
   } catch (err) {
     next(err);
   }
@@ -160,7 +160,7 @@ adminProductsRouter.post("/products", async (req, res, next) => {
 
     res
       .status(201)
-      .json({ product: serializeProduct(product as unknown as ProductWithRelations) });
+      .json({ product: serializeProductAdmin(product as unknown as ProductWithRelations) });
   } catch (err) {
     next(err);
   }
@@ -207,7 +207,7 @@ adminProductsRouter.patch("/products/:id", async (req, res, next) => {
       });
     });
 
-    res.json({ product: serializeProduct(product as unknown as ProductWithRelations) });
+    res.json({ product: serializeProductAdmin(product as unknown as ProductWithRelations) });
   } catch (err) {
     next(err);
   }

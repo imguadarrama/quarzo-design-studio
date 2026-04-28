@@ -39,27 +39,59 @@ export type ProductWithRelations = {
 
 const moneyToNumber = (value: Decimal): number => Number(value);
 
-const serializeOption = (option: ProductVariantOptionRecord) => ({
+const sortByPosition = <T extends { position: number }>(items: T[]): T[] =>
+  items.slice().sort((a, b) => a.position - b.position);
+
+const optionValues = (option: ProductVariantOptionRecord): string[] | null =>
+  option.type === "SELECT" ? ((option.values as string[] | null) ?? []) : null;
+
+const serializeOptionPublic = (option: ProductVariantOptionRecord) => ({
   id: option.id,
   name: option.name,
   type: option.type,
-  values: option.type === "SELECT" ? ((option.values as string[] | null) ?? []) : null,
-  required: option.required,
-  position: option.position,
+  values: optionValues(option),
 });
 
-const serializeVariant = (variant: ProductVariantRecord) => ({
+const serializeVariantPublic = (variant: ProductVariantRecord) => ({
   id: variant.id,
   name: variant.name,
   sku: variant.sku,
   price: moneyToNumber(variant.price),
-  options: variant.options
-    .slice()
-    .sort((a, b) => a.position - b.position)
-    .map(serializeOption),
+  options: sortByPosition(variant.options).map(serializeOptionPublic),
 });
 
-export const serializeProduct = (product: ProductWithRelations) => ({
+export const serializeProductPublic = (product: ProductWithRelations) => ({
+  id: product.id,
+  slug: product.slug,
+  name: product.name,
+  description: product.description,
+  category: product.category,
+  images: sortByPosition(product.images).map((image) => ({
+    id: image.id,
+    url: image.url,
+    alt: image.alt,
+  })),
+  variants: product.variants.map(serializeVariantPublic),
+});
+
+const serializeOptionAdmin = (option: ProductVariantOptionRecord) => ({
+  id: option.id,
+  name: option.name,
+  type: option.type,
+  values: optionValues(option),
+  required: option.required,
+  position: option.position,
+});
+
+const serializeVariantAdmin = (variant: ProductVariantRecord) => ({
+  id: variant.id,
+  name: variant.name,
+  sku: variant.sku,
+  price: moneyToNumber(variant.price),
+  options: sortByPosition(variant.options).map(serializeOptionAdmin),
+});
+
+export const serializeProductAdmin = (product: ProductWithRelations) => ({
   id: product.id,
   slug: product.slug,
   name: product.name,
@@ -67,14 +99,11 @@ export const serializeProduct = (product: ProductWithRelations) => ({
   category: product.category,
   active: product.active,
   createdAt: product.createdAt.toISOString(),
-  images: product.images
-    .slice()
-    .sort((left, right) => left.position - right.position)
-    .map((image) => ({
-      id: image.id,
-      url: image.url,
-      alt: image.alt,
-      position: image.position,
-    })),
-  variants: product.variants.map(serializeVariant),
+  images: sortByPosition(product.images).map((image) => ({
+    id: image.id,
+    url: image.url,
+    alt: image.alt,
+    position: image.position,
+  })),
+  variants: product.variants.map(serializeVariantAdmin),
 });

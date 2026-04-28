@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { AdminUser, Product, ProductPayload } from "../../lib/types.js";
+import type { AdminProduct, AdminUser, ProductPayload } from "../../lib/types.js";
 
 type ErrorResponse = {
   error?: string;
@@ -54,18 +54,18 @@ export async function logoutAdmin(): Promise<void> {
   }
 }
 
-export async function fetchAdminProducts(): Promise<Product[]> {
+export async function fetchAdminProducts(): Promise<AdminProduct[]> {
   const response = await apiFetch("/api/admin/products");
 
   if (!response.ok) {
     throw new Error(await readError(response));
   }
 
-  const data = (await response.json()) as { products: Product[] };
+  const data = (await response.json()) as { products: AdminProduct[] };
   return data.products;
 }
 
-export async function createProduct(payload: ProductPayload): Promise<Product> {
+export async function createProduct(payload: ProductPayload): Promise<AdminProduct> {
   const response = await apiFetch("/api/admin/products", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -76,11 +76,11 @@ export async function createProduct(payload: ProductPayload): Promise<Product> {
     throw new Error(await readError(response));
   }
 
-  const data = (await response.json()) as { product: Product };
+  const data = (await response.json()) as { product: AdminProduct };
   return data.product;
 }
 
-export async function updateProduct(id: string, payload: ProductPayload): Promise<Product> {
+export async function updateProduct(id: string, payload: ProductPayload): Promise<AdminProduct> {
   const response = await apiFetch(`/api/admin/products/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -91,7 +91,7 @@ export async function updateProduct(id: string, payload: ProductPayload): Promis
     throw new Error(await readError(response));
   }
 
-  const data = (await response.json()) as { product: Product };
+  const data = (await response.json()) as { product: AdminProduct };
   return data.product;
 }
 
