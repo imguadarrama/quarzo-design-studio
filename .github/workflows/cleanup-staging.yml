@@ -14,6 +14,10 @@ on:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    # `FLY_APP_STAGING` is a staging-environment secret (see
+    # docs/CI-CD/deploy-setup.md §4). Declaring the environment here
+    # mirrors deploy-staging.yml so the secret resolves at job time.
+    environment: staging
     steps:
       - uses: neondatabase/delete-branch-action@v3
         continue-on-error: true
@@ -21,3 +25,14 @@ jobs:
           project_id: ${{ secrets.NEON_PROJECT_ID_STAGING }}
           branch: pr-${{ github.event.number }}
           api_key: ${{ secrets.NEON_API_KEY }}
+
+      # Belt-and-suspenders to fly.staging.toml's auto_stop_machines = "stop":
+      # auto-stop kicks in after the idle window, but explicitly scaling to 0
+      # on PR close stops the staging machine immediately so we don't pay for
+      # the idle interval between PR close and Fly's idle timer firing.
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Stop staging machine
+        continue-on-error: true
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl scale count 0 -a ${{ secrets.FLY_APP_STAGING }} --yes

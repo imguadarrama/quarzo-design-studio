@@ -9,14 +9,16 @@ Execution runbook for setting up the Quarzo deployment pipeline. Work through th
 | Component | Provider | Staging | Production | Monthly cost |
 |---|---|---|---|---|
 | Client (static Vite build) | Cloudflare Pages | free | free | $0 |
-| Server (Express + Prisma) | Fly.io, `dfw` region | `shared-cpu-1x` 256 MB, always-on (`min_machines_running = 1`) | `shared-cpu-1x` 256 MB, always-on | $0 |
+| Server (Express + Prisma) | Fly.io, `dfw` region | `shared-cpu-1x` 256 MB, scale-to-zero | `shared-cpu-1x` 256 MB, scale-to-zero | ~$0–1 |
 | Postgres | Neon | free, DB branch per PR | free (upgrade to Launch if prod exceeds limits) | $0 |
 | DNS | Cloudflare | free | free | $0 |
-| **Total** | | | | **$0** |
+| **Total** | | | | **~$0–1** |
 
-**Prod VM sizing is pre-launch-only.** Production is currently a display URL for the client — no public traffic, no expected concurrency. Two 256 MB machines fit inside Fly's Hobby free allowance (3 × `shared-cpu-1x` 256 MB always free). **Before public launch**, bump prod to `shared-cpu-1x` 512 MB (~$1.94/mo) and reassess after the first launch-day spike — see the Phase 7 checklist in `tech-roadmap.md`.
+**Fly's "always-free 3 machines" allowance was retired October 2024.** All new orgs are pure pay-as-you-go — `shared-cpu-1x` 256 MB always-on is ~$1.94/mo. To keep the bill near zero pre-launch we set `auto_stop_machines = "stop"` and `min_machines_running = 0` on both apps; the machine wakes on the first request (~3–5 s cold start) and idles back to zero after a few minutes of no traffic. See `fly.toml` and `fly.staging.toml`.
 
-**Why staging is always-on (not scale-to-zero):** MercadoPago webhooks time out after ~15s, but a cold Fly machine takes ~30s to wake. A sleeping staging would silently hide MP integration bugs — you'd see retries eventually succeed once the machine is warm, but never actually exercise the cold-path. Staging stays up.
+**Prod VM sizing is pre-launch-only.** Production is currently a display URL for the client — no public traffic, no expected concurrency. **Before public launch**, bump prod to `shared-cpu-1x` 512 MB and flip back to always-on (`auto_stop_machines = false`, `min_machines_running = 1`) — see the Phase 7 checklist in `tech-roadmap.md`. Expected cost change at that point: ~$0 → ~$3.88/mo.
+
+**Why staging will need to flip back to always-on at Phase 4:** MercadoPago webhooks time out after ~15s, but a cold Fly machine takes ~30s to wake. A sleeping staging would silently hide MP integration bugs — you'd see retries eventually succeed once the machine is warm, but never actually exercise the cold-path. Until Phase 4 starts, scale-to-zero is safe; **revert `fly.staging.toml` to `auto_stop_machines = false` + `min_machines_running = 1` as the first task of Phase 4** so MP integration is exercised under realistic cold-start conditions.
 
 Domain: GoDaddy (to be purchased). Default hostnames (`*.pages.dev`, `*.fly.dev`) are used until the custom domain is wired up — see §8.
 
@@ -157,9 +159,9 @@ Files: [`../../fly.toml`](../../fly.toml), [`../../fly.staging.toml`](../../fly.
 
 Both apps run `shared-cpu-1x` 256 MB in `dfw` (Dallas — closest active Fly region to Saltillo after `qro` was deprecated in 2026). Healthcheck is `GET /api/health`. Both configs point at `server/Dockerfile` with `build-target = "runtime"`.
 
-**Pre-launch sizing.** `memory_mb = 256` fits Fly's Hobby free allowance — prod is currently a demo URL for the client, not a serving workload. Before public launch, bump prod to `512` (see Phase 7 in `tech-roadmap.md`). Expected cost change at that point: $0 → ~$1.94/mo.
+**Pre-launch sizing.** `memory_mb = 256` is the cheapest tier — prod is currently a demo URL for the client, not a serving workload. Before public launch, bump prod to `512` (see Phase 7 in `tech-roadmap.md`).
 
-**Staging always-on.** `fly.staging.toml` keeps `min_machines_running = 1` and `auto_stop_machines = false`. MercadoPago webhooks time out at ~15s but a cold Fly machine wakes in ~30s — a sleeping staging would silently hide MP integration bugs. Staging stays up. See §1.
+**Both apps scale to zero (pre-launch).** `auto_stop_machines = "stop"` + `min_machines_running = 0` on both files. Machines stop after idle and wake on the first request (~3–5 s cold start). Phase 4 must flip staging back to `auto_stop_machines = false` + `min_machines_running = 1` before MercadoPago integration begins; Phase 7 flips prod back at public launch. See §1.
 
 ### 5.7 `.node-version` — new file at repo root
 ```
