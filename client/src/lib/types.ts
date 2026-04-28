@@ -10,12 +10,23 @@ export type ProductImage = {
   position: number;
 };
 
+export type VariantOptionType = "SELECT" | "TEXT";
+
+export type ProductVariantOption = {
+  id: string;
+  name: string;
+  type: VariantOptionType;
+  values: string[] | null;
+  required: boolean;
+  position: number;
+};
+
 export type ProductVariant = {
   id: string;
   name: string;
   sku: string;
-  priceDelta: number;
-  stock: number;
+  price: number;
+  options: ProductVariantOption[];
 };
 
 export type Product = {
@@ -24,8 +35,6 @@ export type Product = {
   name: string;
   description: string;
   category: string;
-  basePrice: number;
-  startingPrice?: number;
   active: boolean;
   createdAt: string;
   images: ProductImage[];
@@ -37,11 +46,18 @@ export type ProductImagePayload = {
   alt?: string;
 };
 
+export type ProductVariantOptionPayload = {
+  name: string;
+  type: VariantOptionType;
+  values?: string[];
+  required?: boolean;
+};
+
 export type ProductVariantPayload = {
   name: string;
   sku: string;
-  priceDelta: number;
-  stock: number;
+  price: number;
+  options: ProductVariantOptionPayload[];
 };
 
 export type ProductPayload = {
@@ -49,7 +65,6 @@ export type ProductPayload = {
   name: string;
   description: string;
   category: string;
-  basePrice: number;
   active: boolean;
   images: ProductImagePayload[];
   variants: ProductVariantPayload[];

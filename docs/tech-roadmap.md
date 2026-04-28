@@ -97,7 +97,7 @@ Confirmed during discovery. These shape the product and are not open for re-liti
 - **Guest checkout by default** (see §8)
 - **Optional** account creation post-purchase
 - Customer account area (when opted in): order history
-- Admin panel: login, product/variant/image CRUD, order list with status transitions, manual bank-transfer confirmation, per-variant inventory
+- Admin panel: login, product/variant/image CRUD, order list with status transitions, manual bank-transfer confirmation
 - Mobile responsive (primary device: phone — traffic comes from IG)
 - Spanish (Mexico) copy throughout
 
@@ -248,7 +248,6 @@ Exit criteria: every slice merged; `pnpm preflight:full` green; browser smoke co
 - [ ] Post-purchase "create account" prompt (§8, Path B)
 - [ ] `/mi-cuenta` order history
 - [ ] Order tracking page (public, by token)
-- [ ] Inventory decrement on `PAGADO` transition; "agotado" UI at stock 0
 
 ### Phase 6 — Admin orders + polish
 - [ ] Admin order list with filters and status transitions

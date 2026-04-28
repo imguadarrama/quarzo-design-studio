@@ -30,7 +30,6 @@ model Product {
   name        String
   description String
   category    String
-  basePrice   Decimal          @db.Decimal(10, 2)
   images      ProductImage[]
   variants    ProductVariant[]
   active      Boolean          @default(true)
@@ -41,15 +40,28 @@ model Product {
 }
 
 model ProductVariant {
-  id         String  @id @default(cuid())
-  productId  String
-  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name       String
-  priceDelta Decimal @db.Decimal(10, 2) @default(0)
-  stock      Int     @default(0)
-  sku        String  @unique
+  id        String                 @id @default(cuid())
+  productId String
+  product   Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name      String
+  sku       String                 @unique
+  price     Decimal                @db.Decimal(10, 2)
+  options   ProductVariantOption[]
 
   @@index([productId])
+}
+
+model ProductVariantOption {
+  id        String            @id @default(cuid())
+  variantId String
+  variant   ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  name      String
+  type      VariantOptionType
+  values    Json?
+  required  Boolean           @default(true)
+  position  Int               @default(0)
+
+  @@index([variantId])
 }
 
 model ProductImage {
@@ -101,6 +113,7 @@ model OrderItem {
   unitPrice           Decimal @db.Decimal(10, 2)
   quantity            Int
   personalizationText String
+  selections          Json
 
   @@index([orderId])
 }
@@ -121,4 +134,9 @@ enum OrderStatus {
   ENVIADO
   ENTREGADO
   CANCELADO
+}
+
+enum VariantOptionType {
+  SELECT
+  TEXT
 }

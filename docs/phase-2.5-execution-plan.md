@@ -146,7 +146,7 @@ Replace the 13-line `AdminProductsPage` stub with a real list view: fetch produc
 
 ### Decisions to make
 - **List shape: table, card grid, or stacked rows?** Mobile-first matters — admin uses this on phone occasionally. *Recommendation: card list on mobile, table on `screen-md+`. CSS-only switch via the existing breakpoint mixins.*
-- **Per-row info** — name, slug, category, base price, variant count, stock total, active flag, primary image thumbnail? Pick the minimum that lets the operator confirm "this is the right product."
+- **Per-row info** — name, slug, category, base price, variant count, active flag, primary image thumbnail? Pick the minimum that lets the operator confirm "this is the right product."
 - **Image rendering** — show the primary image (first by `sortOrder`) as a thumbnail, or hide images in the list and only show them in the form? *Recommendation: thumb in the list. The wife identifies products by sight.*
 - **Sorting / filtering** — do you want a category filter or a name search now, or punt to a later slice? *Recommendation: punt. Catalog is < 20 SKUs. YAGNI until there are 50.*
 - **Inactive product visibility** — show all, or hide inactive behind a toggle? *Decide based on operator workflow.*
@@ -234,7 +234,7 @@ Round out admin CRUD for product *metadata* (still no images / variants). Editin
 ## 8. Slice 7 — Admin product images + variants editor
 
 ### Goal
-The hardest slice. Add image upload (base64, ≤ 8 images, ≤ 500 KB each per `phase-2-execution-plan.md` §4.4) and variant editing (name, sku, priceDelta, stock) to the product form.
+The hardest slice. Add image upload (base64, ≤ 8 images, ≤ 500 KB each per `phase-2-execution-plan.md` §4.4) and variant editing to the product form. Each variant has `name`, `sku`, `price`, and a nested `options` array — each option has `name`, `type` (SELECT or TEXT), `values` (only for SELECT), `required`, `position`. Two levels of `useFieldArray` (variants → options).
 
 ### Decisions to make
 - **Sub-component split** — `ProductImageEditor` and `ProductVariantEditor` as siblings of `AdminProductForm`, or inline? *Recommendation: separate components. Each owns its own field-array slice and can be tested visually in isolation.*
@@ -271,10 +271,9 @@ Replace `<h1>hello</h1>` with a real catalog under `PublicLayout`. Reads `/api/p
 ### Decisions to make
 - **Hero / header** — full-bleed hero photo, simple title + subtitle, or category tiles up top? *Open. Mood-board it before opening the PR.*
 - **Grid** — 2-up on mobile / 3-up on tablet / 4-up on desktop, or 1-up / 2-up / 3-up? *Recommendation: 1 / 2 / 3 — IG traffic prefers larger cards.*
-- **Card hierarchy** — image-first card with name + starting price, or info-leading? *Recommendation: image-first. Stationery is a visual purchase.*
+- **Card hierarchy** — image-first card with name + price, or info-leading? *Recommendation: image-first. Stationery is a visual purchase.*
 - **Category filter** — chips at top, sidebar, or `/catalogo?categoria=…` URL only? *Recommendation: chips — trivial to thumb on mobile.*
-- **Empty state copy** — what reads well in Spanish for "we sold out / no products in this category yet"? *Pick the line; it's the brand voice.*
-- **Out-of-stock display** — show all products and grey-out sold-out, or hide them? *Recommendation: show + grey. Catalog feels fuller, sets expectation that they restock.*
+- **Empty state copy** — what reads well in Spanish for "no products in this category yet"? *Pick the line; it's the brand voice.*
 
 ### Files
 - **Created:** `client/src/pages/CatalogPage/CatalogPage.tsx` (+ scss), `client/src/components/ProductCard/ProductCard.tsx` (+ scss).
@@ -287,7 +286,7 @@ Replace `<h1>hello</h1>` with a real catalog under `PublicLayout`. Reads `/api/p
 - Adding to cart from the card (Phase 3).
 
 ### Acceptance
-- `/catalogo` lists active products with image, name, starting price, category badge.
+- `/catalogo` lists active products with image, name, price, category badge.
 - Category filter narrows the grid; clearing filter restores it.
 - Loading / error / empty go through `<PageState>`.
 - Mobile (375 px): grid renders cleanly, no horizontal scroll, taps are ≥ 44 px.
@@ -306,7 +305,6 @@ A detail page that is the customer's last stop before adding to cart (Phase 3). 
 - **Personalization input** — single-line input or textarea? Char limit (server says 80) — show counter as "23/80" or "57 left"? *Recommendation: textarea; "23/80" reads cleaner.*
 - **Quantity input** — `<input type="number">` with `+`/`-` buttons, or `+`/`-` only? *Recommendation: input + buttons. Power users type, casual users tap.*
 - **CTA disabled rules** — disabled until variant chosen AND personalization filled, or only one of those? *Server requires both at order-creation; mirror in client.*
-- **Out-of-stock variant** — disable the chip, or hide it? *Recommendation: disable + tooltip. Hiding looks like the catalog is wrong.*
 
 ### Files
 - **Created:** `client/src/pages/ProductDetailPage/ProductDetailPage.tsx` (+ scss), `client/src/components/VariantSelector/VariantSelector.tsx` (+ scss), `client/src/components/PersonalizationInput/PersonalizationInput.tsx` (+ scss).
