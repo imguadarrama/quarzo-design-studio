@@ -14,16 +14,21 @@ primary_region = "dfw"  # qro (Querétaro) deprecated; dfw is next-closest to Sa
   release_command = "node scripts/smoke-prisma.mjs"
   strategy = "rolling"
 
-# Staging stays always-on (min_machines_running = 1, auto_stop = false).
-# MercadoPago webhooks time out at ~15s but a cold Fly machine takes
-# ~30s to wake — a sleeping staging would silently hide MP integration
-# bugs. See docs/CI-CD/deploy-setup.md §1.
+# Scale to zero until Phase 4. The "staging stays always-on" rationale
+# is sound — MercadoPago webhooks time out at ~15s but a cold Fly
+# machine takes ~30s to wake, so a sleeping staging would silently hide
+# MP integration bugs — but MP integration is Phase 4 and hasn't
+# started. Paying for a 24/7 machine before then is wasted spend. When
+# Phase 4 begins, flip these back to:
+#   auto_stop_machines  = false
+#   min_machines_running = 1
+# See docs/CI-CD/deploy-setup.md §1.
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = false
+  auto_stop_machines = "stop"
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
 
   # Tight grace_period + short interval so a boot failure surfaces during
   # the deploy rollout instead of showing up minutes later as random 502s.
