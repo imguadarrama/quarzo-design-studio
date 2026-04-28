@@ -71,6 +71,19 @@ jobs:
             NODE_ENV="production"
           flyctl deploy -a ${{ secrets.FLY_APP_STAGING }} -c fly.staging.toml --remote-only
 
+      # Each push to a PR runs `flyctl deploy`, which leaves the prior deploy's
+      # machines behind in `stopped` state instead of replacing them in place
+      # (auto_stop_machines = "stop" + rolling strategy = the old machines are
+      # already stopped when the next deploy lands, and Fly creates fresh ones
+      # rather than resurrecting them). They don't bill — stopped machines are
+      # free — but they pile up over a PR's lifetime until cleanup-staging.yml
+      # fires on PR close. Pruning to 1 here keeps the machine list tidy and
+      # makes the staging dashboard readable.
+      - name: Prune zombie machines from prior deploys
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl scale count 1 -a ${{ secrets.FLY_APP_STAGING }} --yes
+
       - name: Deploy client to Cloudflare Pages (preview)
         id: pages
         uses: cloudflare/pages-action@v1
