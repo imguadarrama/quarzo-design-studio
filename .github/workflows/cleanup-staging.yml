@@ -14,6 +14,10 @@ on:
 jobs:
   cleanup:
     runs-on: ubuntu-latest
+    # `FLY_APP_STAGING` is a staging-environment secret (see
+    # docs/CI-CD/deploy-setup.md §4). Declaring the environment here
+    # mirrors deploy-staging.yml so the secret resolves at job time.
+    environment: staging
     steps:
       - uses: neondatabase/delete-branch-action@v3
         continue-on-error: true
