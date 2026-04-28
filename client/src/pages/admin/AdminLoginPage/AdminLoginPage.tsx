@@ -1,26 +1,35 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import CircularLogo from "../../../../assets/circular-logo.png"
+import CircularLogo from "../../../../assets/circular-logo.png";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
 import { useAdminAuthStore } from "../../../store/adminAuth.js";
 import { Typography } from "../../../components/Typography/Typography.js";
 import { Card } from "../../../components/Card/Card.js";
 import { Button } from "../../../components/Button/Button.js";
+import { FullPageSpinner } from "../../../components/FullPageSpinner/FullPageSpinner.js";
 import styles from "./AdminLoginPage.module.scss";
 
 const schema = z.object({
-  email: z.string().email("Email invalido"),
+  email: z.string().email("Email inválido"),
   password: z.string().min(1, "Ingresa tu contraseña"),
 });
 
 type FormValues = z.infer<typeof schema>;
 
 export function AdminLoginPage() {
+  const status = useAdminAuthStore((s) => s.status);
+  const hydrate = useAdminAuthStore((s) => s.hydrate);
   const login = useAdminAuthStore((s) => s.login);
   const navigate = useNavigate();
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status === "idle") {
+      void hydrate();
+    }
+  }, [status, hydrate]);
 
   const {
     register,
@@ -38,17 +47,25 @@ export function AdminLoginPage() {
       navigate("/admin/productos", { replace: true });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Ocurrio un error inesperado";
+        error instanceof Error ? error.message : "Ocurrió un error inesperado";
       setSubmitError(message);
     }
   });
 
+  if (status === "idle" || status === "loading") {
+    return <FullPageSpinner />;
+  }
+
+  if (status === "auth") {
+    return <Navigate to="/admin/productos" replace />;
+  }
+
   return (
     <Card>
       <img src={CircularLogo} alt="Quarzo" className={styles.logo} />
-      <div style={{display: 'flex', flexDirection:'column', alignItems:'center'}}>
-      <Typography as="h1" size="xl">Inicio de sesión admin</Typography>
-      <Typography as="p">Ingresa con tus credenciales</Typography>
+      <div className={styles.titleBlock}>
+        <Typography as="h1" size="xl">Inicio de sesión admin</Typography>
+        <Typography as="p">Ingresa con tus credenciales</Typography>
       </div>
 
       <form onSubmit={onSubmit} noValidate>

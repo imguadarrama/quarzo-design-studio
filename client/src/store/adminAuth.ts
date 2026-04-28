@@ -23,8 +23,13 @@ export const useAdminAuthStore = create<AdminAuthState>((set) => ({
     set({ status: "loading" });
     try {
       const admin = await fetchAdminSession();
-      set({ admin, status: "auth" });
-    } catch {
+      if (admin === null) {
+        set({ admin: null, status: "guest" });
+      } else {
+        set({ admin, status: "auth" });
+      }
+    } catch (error) {
+      console.error("[adminAuth] hydrate failed", error);
       set({ admin: null, status: "guest" });
     }
   },

@@ -5,7 +5,7 @@ export async function fetchProducts(): Promise<Product[]> {
   const response = await apiFetch("/api/products");
 
   if (!response.ok) {
-    throw new Error("No se pudo cargar el catalogo");
+    throw new Error("No se pudo cargar el catálogo");
   }
 
   const data = (await response.json()) as { products: Product[] };

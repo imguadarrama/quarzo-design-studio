@@ -20,7 +20,7 @@ export function NavBarAdmin() {
   };
 
   return (
-    <nav className={styles.nav} aria-label="Panel de administracion">
+    <nav className={styles.nav} aria-label="Panel de administración">
       <Link to="/admin/productos" className={styles.brand}>
         Quarzo · Admin
       </Link>
@@ -32,7 +32,7 @@ export function NavBarAdmin() {
           onClick={handleLogout}
           disabled={busy}
         >
-          Cerrar sesion
+          Cerrar sesión
         </button>
       </div>
     </nav>

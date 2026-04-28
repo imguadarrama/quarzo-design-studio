@@ -3,13 +3,13 @@ import styles from "./NavBarPublic.module.scss";
 
 export function NavBarPublic() {
   return (
-    <nav className={styles.nav} aria-label="Navegacion principal">
+    <nav className={styles.nav} aria-label="Navegación principal">
       <Link to="/" className={styles.brand}>
         Quarzo
       </Link>
       <ul className={styles.links}>
         <li>
-          <Link to="/catalogo">Catalogo</Link>
+          <Link to="/catalogo">Catálogo</Link>
         </li>
         <li>
           <Link to="/carrito">Carrito</Link>

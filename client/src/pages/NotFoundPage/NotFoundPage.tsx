@@ -5,7 +5,7 @@ export function NotFoundPage() {
   return (
     <div className={styles.wrapper}>
       <h1 className={styles.title}>404</h1>
-      <p className={styles.subtitle}>No encontramos esta pagina.</p>
+      <p className={styles.subtitle}>No encontramos esta página.</p>
       <Link to="/" className={styles.link}>
         Volver al inicio
       </Link>
