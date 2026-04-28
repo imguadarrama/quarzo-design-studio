@@ -227,9 +227,10 @@ Open `server/src/index.ts`:
 
 ### 4.1 Extract shared product serializer
 
-- [x] Create `server/src/lib/serializers.ts` and move `serializeProduct` there. Single export, no options — both public and admin emit the same shape now that variants are pure option labels.
-- [x] Replace the inline `serializeProduct` in `routes/products.ts` and `routes/admin-products.ts` with `import { serializeProduct, type ProductWithRelations } from "../lib/serializers.js"` (note `.js` extension — NodeNext ESM requires it).
-- [ ] Re-run §2.5 and §2.6. Responses should match the new shape: variants are `{ id, name, sku }`, no `priceDelta`, no `stock`, no `startingPrice`.
+- [x] Create `server/src/lib/serializers.ts`. **Two exports** — `serializeProductPublic` and `serializeProductAdmin` — because the admin payload still needs `active`, `createdAt`, image `position`, and option `required`/`position` that the public catalog must not leak. Shared helpers (`sortByPosition`, `optionValues`, per-variant/option formatters) keep the duplication minimal.
+- [x] Co-locate the Prisma `include` in the same module: `export const productInclude = { images: true, variants: { include: { options: true } } } satisfies Prisma.ProductInclude;` and derive `export type ProductWithRelations = Prisma.ProductGetPayload<{ include: typeof productInclude }>;`. Both routes import `productInclude` and pass query results straight into the serializers — no `as unknown as` casts.
+- [x] Replace the inline `serializeProduct` in `routes/products.ts` and `routes/admin-products.ts` with `import { productInclude, serializeProductPublic } from "../lib/serializers.js"` (public) / `serializeProductAdmin` (admin) (note `.js` extension — NodeNext ESM requires it).
+- [x] Re-run §2.5 and §2.6. Responses should match the new shape: variants are `{ id, name, sku, price, options }`, no `priceDelta`, no `stock`, no `startingPrice`. Public payload must not include `active`, `createdAt`, or image `position`; admin payload must.
 
 ### 4.2 Global error handler middleware
 

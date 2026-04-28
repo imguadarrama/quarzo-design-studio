@@ -5,7 +5,7 @@ import { z } from "zod";
 import { prisma } from "../db/prisma.js";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
-import { serializeProductAdmin, type ProductWithRelations } from "../lib/serializers.js";
+import { productInclude, serializeProductAdmin } from "../lib/serializers.js";
 
 const MAX_DATA_URL_BYTES = 500_000;
 
@@ -106,11 +106,6 @@ const buildProductWriteInput = (input: ProductInput) => ({
   },
 });
 
-const productInclude = {
-  images: true,
-  variants: { include: { options: true } },
-} as const;
-
 export const adminProductsRouter = Router();
 
 adminProductsRouter.use(authenticateAdmin, requireAdmin);
@@ -123,9 +118,7 @@ adminProductsRouter.get("/products", async (_req, res, next) => {
     });
 
     res.json({
-      products: products.map((product) =>
-        serializeProductAdmin(product as unknown as ProductWithRelations),
-      ),
+      products: products.map(serializeProductAdmin),
     });
   } catch (err) {
     next(err);
@@ -144,7 +137,7 @@ adminProductsRouter.get("/products/:id", async (req, res, next) => {
       return;
     }
 
-    res.json({ product: serializeProductAdmin(product as unknown as ProductWithRelations) });
+    res.json({ product: serializeProductAdmin(product) });
   } catch (err) {
     next(err);
   }
@@ -158,9 +151,7 @@ adminProductsRouter.post("/products", async (req, res, next) => {
       include: productInclude,
     });
 
-    res
-      .status(201)
-      .json({ product: serializeProductAdmin(product as unknown as ProductWithRelations) });
+    res.status(201).json({ product: serializeProductAdmin(product) });
   } catch (err) {
     next(err);
   }
@@ -207,7 +198,7 @@ adminProductsRouter.patch("/products/:id", async (req, res, next) => {
       });
     });
 
-    res.json({ product: serializeProductAdmin(product as unknown as ProductWithRelations) });
+    res.json({ product: serializeProductAdmin(product) });
   } catch (err) {
     next(err);
   }

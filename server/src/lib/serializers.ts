@@ -1,58 +1,33 @@
-import type { Decimal } from "@prisma/client/runtime/library";
-import type { VariantOptionType } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
-type ProductImageRecord = {
-  id: string;
-  url: string;
-  alt: string | null;
-  position: number;
-};
+export const productInclude = {
+  images: true,
+  variants: { include: { options: true } },
+} satisfies Prisma.ProductInclude;
 
-type ProductVariantOptionRecord = {
-  id: string;
-  name: string;
-  type: VariantOptionType;
-  values: unknown;
-  required: boolean;
-  position: number;
-};
+export type ProductWithRelations = Prisma.ProductGetPayload<{
+  include: typeof productInclude;
+}>;
 
-type ProductVariantRecord = {
-  id: string;
-  name: string;
-  sku: string;
-  price: Decimal;
-  options: ProductVariantOptionRecord[];
-};
+type VariantRecord = ProductWithRelations["variants"][number];
+type VariantOptionRecord = VariantRecord["options"][number];
 
-export type ProductWithRelations = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  category: string;
-  active: boolean;
-  createdAt: Date;
-  images: ProductImageRecord[];
-  variants: ProductVariantRecord[];
-};
+const moneyToNumber = (value: Prisma.Decimal): number => Number(value);
 
-const moneyToNumber = (value: Decimal): number => Number(value);
-
-const sortByPosition = <T extends { position: number }>(items: T[]): T[] =>
+const sortByPosition = <T extends { position: number }>(items: readonly T[]): T[] =>
   items.slice().sort((a, b) => a.position - b.position);
 
-const optionValues = (option: ProductVariantOptionRecord): string[] | null =>
+const optionValues = (option: VariantOptionRecord): string[] | null =>
   option.type === "SELECT" ? ((option.values as string[] | null) ?? []) : null;
 
-const serializeOptionPublic = (option: ProductVariantOptionRecord) => ({
+const serializeOptionPublic = (option: VariantOptionRecord) => ({
   id: option.id,
   name: option.name,
   type: option.type,
   values: optionValues(option),
 });
 
-const serializeVariantPublic = (variant: ProductVariantRecord) => ({
+const serializeVariantPublic = (variant: VariantRecord) => ({
   id: variant.id,
   name: variant.name,
   sku: variant.sku,
@@ -74,7 +49,7 @@ export const serializeProductPublic = (product: ProductWithRelations) => ({
   variants: product.variants.map(serializeVariantPublic),
 });
 
-const serializeOptionAdmin = (option: ProductVariantOptionRecord) => ({
+const serializeOptionAdmin = (option: VariantOptionRecord) => ({
   id: option.id,
   name: option.name,
   type: option.type,
@@ -83,7 +58,7 @@ const serializeOptionAdmin = (option: ProductVariantOptionRecord) => ({
   position: option.position,
 });
 
-const serializeVariantAdmin = (variant: ProductVariantRecord) => ({
+const serializeVariantAdmin = (variant: VariantRecord) => ({
   id: variant.id,
   name: variant.name,
   sku: variant.sku,

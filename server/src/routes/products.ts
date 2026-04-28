@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../db/prisma.js";
-import { serializeProductPublic, type ProductWithRelations } from "../lib/serializers.js";
+import { productInclude, serializeProductPublic } from "../lib/serializers.js";
 
 export const productsRouter = Router();
 
@@ -8,15 +8,12 @@ productsRouter.get("/products", async (_req, res, next) => {
   try {
     const products = await prisma.product.findMany({
       where: { active: true },
-      include: {
-        images: true,
-        variants: { include: { options: true } },
-      },
+      include: productInclude,
       orderBy: [{ category: "asc" }, { createdAt: "desc" }],
     });
 
     res.json({
-      products: products.map((product: ProductWithRelations) => serializeProductPublic(product)),
+      products: products.map(serializeProductPublic),
     });
   } catch (err) {
     next(err);
@@ -30,10 +27,7 @@ productsRouter.get("/products/:slug", async (req, res, next) => {
         slug: req.params.slug,
         active: true,
       },
-      include: {
-        images: true,
-        variants: { include: { options: true } },
-      },
+      include: productInclude,
     });
 
     if (!product) {
@@ -42,7 +36,7 @@ productsRouter.get("/products/:slug", async (req, res, next) => {
     }
 
     res.json({
-      product: serializeProductPublic(product as ProductWithRelations),
+      product: serializeProductPublic(product),
     });
   } catch (err) {
     next(err);
