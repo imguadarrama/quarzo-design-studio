@@ -37,6 +37,11 @@ jobs:
       # Uses the same `Pages → Edit` token scope as the deploy workflow.
       # `?force=true` is required to delete the alias deployment (the one
       # currently serving `pr-<N>.<project>.pages.dev`).
+      #
+      # The list endpoint does NOT support `per_page` (returns 400 even though
+      # the public REST docs imply it does — see
+      # https://community.cloudflare.com/t/pages-deployments-api-doesnt-support-per-page-query-parameter/575193).
+      # We page with `?page=N` until Cloudflare returns an empty result set.
       - name: Delete Cloudflare Pages preview deployments
         continue-on-error: true
         env:
@@ -47,14 +52,30 @@ jobs:
         run: |
           set -euo pipefail
           api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/deployments"
-          ids=$(curl -fsS -H "Authorization: Bearer $CF_API_TOKEN" \
-            "$api?env=preview&per_page=100" \
-            | jq -r --arg b "$PR_BRANCH" \
+
+          ids=""
+          page=1
+          while :; do
+            resp=$(curl -fsS -H "Authorization: Bearer $CF_API_TOKEN" \
+              "$api?env=preview&page=$page")
+            count=$(echo "$resp" | jq '.result | length')
+            if [ "$count" -eq 0 ]; then
+              break
+            fi
+            page_ids=$(echo "$resp" | jq -r --arg b "$PR_BRANCH" \
               '.result[] | select(.deployment_trigger.metadata.branch == $b) | .id')
+            if [ -n "$page_ids" ]; then
+              ids="${ids}${page_ids}"$'\n'
+            fi
+            page=$((page + 1))
+          done
+
+          ids=$(echo "$ids" | sed '/^$/d')
           if [ -z "$ids" ]; then
             echo "No Pages deployments found for branch $PR_BRANCH"
             exit 0
           fi
+
           for id in $ids; do
             echo "Deleting deployment $id"
             curl -fsS -X DELETE -H "Authorization: Bearer $CF_API_TOKEN" \
