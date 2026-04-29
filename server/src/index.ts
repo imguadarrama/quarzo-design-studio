@@ -1,4 +1,4 @@
-import express, { type Request, type Response, type NextFunction } from "express";
+import express, { type Request, type Response } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -7,6 +7,7 @@ import { env } from "./config/env.js";
 import { adminAuthRouter } from "./routes/admin-auth.js";
 import { healthRouter } from "./routes/health.js";
 import { productsRouter } from "./routes/products.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
 
@@ -38,10 +39,7 @@ app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });
 });
 
-app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err);
-  res.status(500).json({ error: "Internal server error" });
-});
+app.use(errorHandler);
 
 app.listen(env.PORT, () => {
   console.log(`API listening on :${env.PORT}`);

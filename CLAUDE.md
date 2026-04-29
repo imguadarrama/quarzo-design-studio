@@ -111,7 +111,10 @@ Both use **JWT in an HTTP-only cookie** (not `localStorage` — XSS hardening) a
 - `Order.publicToken` is an unguessable URL slug — it's how a guest views their order without logging in. Generate with CSPRNG; never expose `Order.id` externally.
 - `OrderItem` **snapshots** `productName`, `variantName`, and `unitPrice` at purchase time so past orders stay correct when the catalog changes. Do not lazily join back to `Product` for historical display.
 - `OrderItem.personalizationText` is required and carries the customer-supplied text (name/message). Two orders of the same SKU are not interchangeable — this field is load-bearing for fulfillment.
-- Inventory decrements on the transition to `OrderStatus.PAGADO`, not on order creation (bank-transfer orders sit in `PENDIENTE` until the admin confirms payment manually).
+- `OrderItem.selections` (Json) snapshots the customer's per-option choices at purchase time (e.g. `{ "Color del foil": "Dorado", "Texto": "Sofía 15 años" }`). `personalizationText` stays as a denormalized convenience field so admin printouts don't have to JSON-dive.
+- No inventory tracking. Products are always available; `ProductVariant` has no `stock` column.
+- Pricing lives on `ProductVariant.price` (Decimal). `Product` has no price column. A product surfaces multiple priced configurations (e.g. *con foil $250* / *con tinta normal $200*); the catalog computes a "desde $X" headline from the variants.
+- `ProductVariantOption` carries the customer-facing configurators on a variant. `type: SELECT` requires `values: Json` (e.g. foil color list); `type: TEXT` is free-text input (e.g. the personalization message). Options are per-variant — *con foil* exposes color + texto; *con tinta normal* exposes only texto.
 - All money is `Decimal(10,2)`. Construct with `new Prisma.Decimal(...)`, never with `Number`.
 
 ### Payments

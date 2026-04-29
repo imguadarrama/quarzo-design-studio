@@ -210,27 +210,31 @@ Open `server/src/index.ts`:
 
 ### 3.7 No passwords in responses
 
-- [ ] Grep `server/src/routes/` for `passwordHash`. No route should include it in a response body. *Never publish hashes, even bcrypt ones.*
+- [x] Grep `server/src/routes/` for `passwordHash`. No route should include it in a response body. *Never publish hashes, even bcrypt ones.* **Verified 2026-04-28** — only hit is `admin-auth.ts:37` (`bcrypt.compare(password, adminUser.passwordHash)`); used as input, never serialized.
 
 ---
 
 ## 4. Server cleanup (do in order) *(branch: `refactor/phase2-server-cleanup`)*
 
+> **Scope expansion — 2026-04-28.** A product-model redesign landed on this branch alongside the cleanup. The real Quarzo product is a *package* (e.g. "10 sobres clásicos") sold in priced configurations — the wife's example: *con foil* $250 (with a foil-color picker) vs *con tinta normal* $200 (texto only). Both have a personalization text option. Schema changes:
+>
+> - **Dropped:** `ProductVariant.priceDelta`, `ProductVariant.stock`, `Product.basePrice`.
+> - **Added:** `ProductVariant.price` (Decimal). Each variant carries its own price.
+> - **Added:** `ProductVariantOption` table — `{ name, type: VariantOptionType (SELECT|TEXT), values: Json?, required, position }`. Per-variant configurators.
+> - **Added:** `OrderItem.selections` (Json) — snapshots the customer's per-option choices at purchase. `personalizationText` stays for admin printouts.
+>
+> The serializer emits no `basePrice` and no `startingPrice`; the catalog computes "desde $X" from `variants[].price` client-side. The admin Zod accepts `variants[].price` and a nested `options` array. The seed re-models the four sample products around this shape. This is intentionally **not** byte-identical to the pre-cleanup baseline — the §5 byte-identical check is replaced with a "new shape matches the redesigned data model" check.
+
 ### 4.1 Extract shared product serializer
 
-- [ ] Create `server/src/lib/serializers.ts` and move the `serializeProduct` function there. Accept an options object so both routes can use it:
-  ```ts
-  type SerializeOpts = { includeStock?: boolean };
-  export function serializeProduct(p: ProductWithRelations, opts: SerializeOpts = {}) { ... }
-  ```
-  - Public (`routes/products.ts`): call with `includeStock: false`. Always compute `startingPrice` (basePrice + min variant priceDelta).
-  - Admin (`routes/admin-products.ts`): call with `includeStock: true`. `startingPrice` optional.
-- [ ] Replace the inline `serializeProduct` in both route files with `import { serializeProduct } from "../lib/serializers.js"` (note `.js` extension — NodeNext ESM requires it).
-- [ ] Re-run §2.5 and §2.6. Responses should be byte-identical to before.
+- [x] Create `server/src/lib/serializers.ts`. **Two exports** — `serializeProductPublic` and `serializeProductAdmin` — because the admin payload still needs `active`, `createdAt`, image `position`, and option `required`/`position` that the public catalog must not leak. Shared helpers (`sortByPosition`, `optionValues`, per-variant/option formatters) keep the duplication minimal.
+- [x] Co-locate the Prisma `include` in the same module: `export const productInclude = { images: true, variants: { include: { options: true } } } satisfies Prisma.ProductInclude;` and derive `export type ProductWithRelations = Prisma.ProductGetPayload<{ include: typeof productInclude }>;`. Both routes import `productInclude` and pass query results straight into the serializers — no `as unknown as` casts.
+- [x] Replace the inline `serializeProduct` in `routes/products.ts` and `routes/admin-products.ts` with `import { productInclude, serializeProductPublic } from "../lib/serializers.js"` (public) / `serializeProductAdmin` (admin) (note `.js` extension — NodeNext ESM requires it).
+- [x] Re-run §2.5 and §2.6. Responses should match the new shape: variants are `{ id, name, sku, price, options }`, no `priceDelta`, no `stock`, no `startingPrice`. Public payload must not include `active`, `createdAt`, or image `position`; admin payload must.
 
 ### 4.2 Global error handler middleware
 
-- [ ] Create `server/src/middleware/errorHandler.ts`:
+- [x] Create `server/src/middleware/errorHandler.ts`:
   ```ts
   import { ErrorRequestHandler } from "express";
   import { ZodError } from "zod";
@@ -248,15 +252,15 @@ Open `server/src/index.ts`:
     return res.status(500).json({ error: "Error interno" });
   };
   ```
-- [ ] In `server/src/index.ts`, mount this **after all route `app.use("/api/...", ...)` calls** (last middleware):
+- [x] In `server/src/index.ts`, mount this **after all route `app.use("/api/...", ...)` calls** (last middleware):
   ```ts
   app.use(errorHandler);
   ```
-- [ ] In `admin-products.ts` and `products.ts`, refactor the inline `try/catch` blocks. Replace every `catch (err) { res.status(500).json(...) }` with:
+- [x] In `admin-products.ts` and `products.ts`, refactor the inline `try/catch` blocks. Replace every `catch (err) { res.status(500).json(...) }` with:
   ```ts
   } catch (err) { next(err); }
   ```
-  Add `next: NextFunction` to handler signatures where needed.
+  Add `next: NextFunction` to handler signatures where needed. **Note:** Express 4 (per `server/package.json`) does not auto-forward async rejections, so every async handler in `admin-products.ts` and `products.ts` is wrapped in `try { ... } catch (err) { next(err) }`. Validation now uses `productSchema.parse(...)` (throws `ZodError` → 400 via the central handler) instead of `safeParse`.
 
 ### 4.3 Verify 409 on duplicate slug
 
@@ -275,8 +279,8 @@ POST {{baseUrl}}/admin/products
 
 In the image sub-schema inside `server/src/routes/admin-products.ts`:
 
-- [ ] Cap array length: `z.array(imageSchema).max(8, "Máximo 8 imágenes por producto")`.
-- [ ] Add a refinement on the `url` field: if it starts with `data:image/`, reject when the decoded size exceeds ~500 KB.
+- [x] Cap array length: `z.array(imageSchema).max(8, "Máximo 8 imágenes por producto")`.
+- [x] Add a refinement on the `url` field: if it starts with `data:image/`, reject when the decoded size exceeds ~500 KB.
   ```ts
   .refine((url) => {
     if (!url.startsWith("data:image/")) return true;
@@ -308,7 +312,7 @@ Run this once every box in §3.7 and §4 is ticked.
 - [ ] `pnpm seed`.
 - [ ] `pnpm preflight` green (server + client typecheck + build). The client still builds even though Phase 2.5 is in progress — its current shape is the post-PR-#15 stub set, and that must stay buildable.
 - [ ] Run the Postman collection top-to-bottom (§2 + §3 + §4.3 + §4.5). All pass.
-- [ ] Re-run §2.5 (`GET /products`) and §2.6 (`GET /products/sobres-clasicos`) — responses byte-identical to the pre-cleanup baseline. The shared serializer must not change wire format.
+- [ ] Re-run §2.5 (`GET /products`) and §2.6 (`GET /products/sobres-clasicos`) — responses match the new post-cleanup shape: variants are `{ id, name, sku }`; no `priceDelta`, `stock`, or `startingPrice` anywhere. (Byte-identical to the pre-cleanup baseline is **intentionally** broken by the schema migration noted at the top of §4.)
 - [ ] Confirm `docs/tech-roadmap.md` §10 Phase 2 checkboxes are still honest. (No edits expected — Phase 2 was already declared complete on `main`.)
 
 Once every box in this §5 is ticked, **the Phase 2 server cleanup branch is done** and `refactor/phase2-server-cleanup` can merge. Phase 2.5 client work continues independently per [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md).

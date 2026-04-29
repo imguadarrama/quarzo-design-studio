@@ -1,9 +1,13 @@
 import { Router } from "express";
 import { Decimal } from "@prisma/client/runtime/library";
+import { VariantOptionType } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "../db/prisma.js";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
+import { productInclude, serializeProductAdmin } from "../lib/serializers.js";
+
+const MAX_DATA_URL_BYTES = 500_000;
 
 const imageUrlSchema = z
   .string()
@@ -11,13 +15,38 @@ const imageUrlSchema = z
   .refine(
     (value) => value.startsWith("data:image/") || /^https?:\/\//.test(value),
     "Image must be a data URL or an http/https URL",
-  );
+  )
+  .refine((value) => {
+    if (!value.startsWith("data:image/")) return true;
+    const b64 = value.split(",", 2)[1] ?? "";
+    const bytes = Math.floor(b64.length * 0.75);
+    return bytes <= MAX_DATA_URL_BYTES;
+  }, "Imagen demasiado grande (máx 500 KB)");
+
+const variantOptionSchema = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    type: z.nativeEnum(VariantOptionType),
+    values: z.array(z.string().trim().min(1).max(80)).max(50).optional(),
+    required: z.boolean().default(true),
+  })
+  .superRefine((opt, ctx) => {
+    if (opt.type === VariantOptionType.SELECT) {
+      if (!opt.values || opt.values.length === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["values"],
+          message: "Las opciones de tipo SELECT requieren al menos un valor",
+        });
+      }
+    }
+  });
 
 const variantSchema = z.object({
   name: z.string().trim().min(1).max(80),
   sku: z.string().trim().min(1).max(80),
-  priceDelta: z.coerce.number().min(0).max(999999),
-  stock: z.coerce.number().int().min(0).max(999999),
+  price: z.coerce.number().min(0).max(999999),
+  options: z.array(variantOptionSchema).max(8).default([]),
 });
 
 const imageSchema = z.object({
@@ -35,74 +64,35 @@ const productSchema = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().min(1).max(2000),
   category: z.string().trim().min(1).max(80),
-  basePrice: z.coerce.number().min(0).max(999999),
   active: z.coerce.boolean().default(true),
-  images: z.array(imageSchema).min(1).max(8),
+  images: z.array(imageSchema).min(1).max(8, "Máximo 8 imágenes por producto"),
   variants: z.array(variantSchema).min(1).max(12),
 });
 
-type ProductImageRecord = {
-  id: string;
-  url: string;
-  alt: string | null;
-  position: number;
-};
+type ProductInput = z.infer<typeof productSchema>;
 
-type ProductVariantRecord = {
-  id: string;
-  name: string;
-  sku: string;
-  priceDelta: Decimal;
-  stock: number;
-};
-
-type ProductWithRelations = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  category: string;
-  basePrice: Decimal;
-  active: boolean;
-  createdAt: Date;
-  images: ProductImageRecord[];
-  variants: ProductVariantRecord[];
-};
-
-const moneyToNumber = (value: Decimal): number => Number(value);
-
-const serializeProduct = (product: ProductWithRelations) => ({
-  id: product.id,
-  slug: product.slug,
-  name: product.name,
-  description: product.description,
-  category: product.category,
-  basePrice: moneyToNumber(product.basePrice),
-  active: product.active,
-  createdAt: product.createdAt.toISOString(),
-  images: product.images
-    .sort((left, right) => left.position - right.position)
-    .map((image) => ({
-      id: image.id,
-      url: image.url,
-      alt: image.alt,
-      position: image.position,
-    })),
-  variants: product.variants.map((variant) => ({
-    id: variant.id,
+const buildVariantsCreate = (variants: ProductInput["variants"]) =>
+  variants.map((variant) => ({
     name: variant.name,
     sku: variant.sku,
-    priceDelta: moneyToNumber(variant.priceDelta),
-    stock: variant.stock,
-  })),
-});
+    price: new Decimal(variant.price.toFixed(2)),
+    options: {
+      create: variant.options.map((option, index) => ({
+        name: option.name,
+        type: option.type,
+        values:
+          option.type === VariantOptionType.SELECT ? (option.values ?? []) : undefined,
+        required: option.required,
+        position: index,
+      })),
+    },
+  }));
 
-const buildProductWriteInput = (input: z.infer<typeof productSchema>) => ({
+const buildProductWriteInput = (input: ProductInput) => ({
   slug: input.slug,
   name: input.name,
   description: input.description,
   category: input.category,
-  basePrice: new Decimal(input.basePrice.toFixed(2)),
   active: input.active,
   images: {
     create: input.images.map((image, index) => ({
@@ -112,164 +102,126 @@ const buildProductWriteInput = (input: z.infer<typeof productSchema>) => ({
     })),
   },
   variants: {
-    create: input.variants.map((variant) => ({
-      name: variant.name,
-      sku: variant.sku,
-      priceDelta: new Decimal(variant.priceDelta.toFixed(2)),
-      stock: variant.stock,
-    })),
+    create: buildVariantsCreate(input.variants),
   },
 });
-
-const isUniqueConstraintError = (error: unknown): error is { code: string } =>
-  typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 
 export const adminProductsRouter = Router();
 
 adminProductsRouter.use(authenticateAdmin, requireAdmin);
 
-adminProductsRouter.get("/products", async (_req, res) => {
-  const products = await prisma.product.findMany({
-    include: {
-      images: true,
-      variants: true,
-    },
-    orderBy: [{ createdAt: "desc" }],
-  });
-
-  res.json({
-    products: products.map((product: ProductWithRelations) => serializeProduct(product)),
-  });
-});
-
-adminProductsRouter.get("/products/:id", async (req, res) => {
-  const product = await prisma.product.findUnique({
-    where: { id: req.params.id },
-    include: {
-      images: true,
-      variants: true,
-    },
-  });
-
-  if (!product) {
-    res.status(404).json({ error: "Product not found" });
-    return;
-  }
-
-  res.json({ product: serializeProduct(product as ProductWithRelations) });
-});
-
-adminProductsRouter.post("/products", async (req, res) => {
-  const parsed = productSchema.safeParse(req.body);
-
-  if (!parsed.success) {
-    res.status(400).json({
-      error: "Invalid request body",
-      details: parsed.error.flatten().fieldErrors,
-    });
-    return;
-  }
-
+adminProductsRouter.get("/products", async (_req, res, next) => {
   try {
-    const product = await prisma.product.create({
-      data: buildProductWriteInput(parsed.data),
-      include: {
-        images: true,
-        variants: true,
-      },
+    const products = await prisma.product.findMany({
+      include: productInclude,
+      orderBy: [{ createdAt: "desc" }],
     });
 
-    res.status(201).json({ product: serializeProduct(product as ProductWithRelations) });
-  } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      res.status(409).json({ error: "Slug or SKU already exists" });
-      return;
-    }
-
-    throw error;
+    res.json({
+      products: products.map(serializeProductAdmin),
+    });
+  } catch (err) {
+    next(err);
   }
 });
 
-adminProductsRouter.patch("/products/:id", async (req, res) => {
-  const parsed = productSchema.safeParse(req.body);
-
-  if (!parsed.success) {
-    res.status(400).json({
-      error: "Invalid request body",
-      details: parsed.error.flatten().fieldErrors,
-    });
-    return;
-  }
-
-  const existingProduct = await prisma.product.findUnique({
-    where: { id: req.params.id },
-    select: { id: true },
-  });
-
-  if (!existingProduct) {
-    res.status(404).json({ error: "Product not found" });
-    return;
-  }
-
+adminProductsRouter.get("/products/:id", async (req, res, next) => {
   try {
-    const product = await prisma.product.update({
+    const product = await prisma.product.findUnique({
       where: { id: req.params.id },
-      data: {
-        slug: parsed.data.slug,
-        name: parsed.data.name,
-        description: parsed.data.description,
-        category: parsed.data.category,
-        basePrice: new Decimal(parsed.data.basePrice.toFixed(2)),
-        active: parsed.data.active,
-        images: {
-          deleteMany: {},
-          create: parsed.data.images.map((image, index) => ({
-            url: image.url,
-            alt: image.alt || null,
-            position: index,
-          })),
-        },
-        variants: {
-          deleteMany: {},
-          create: parsed.data.variants.map((variant) => ({
-            name: variant.name,
-            sku: variant.sku,
-            priceDelta: new Decimal(variant.priceDelta.toFixed(2)),
-            stock: variant.stock,
-          })),
-        },
-      },
-      include: {
-        images: true,
-        variants: true,
-      },
+      include: productInclude,
     });
 
-    res.json({ product: serializeProduct(product as ProductWithRelations) });
-  } catch (error) {
-    if (isUniqueConstraintError(error)) {
-      res.status(409).json({ error: "Slug or SKU already exists" });
+    if (!product) {
+      res.status(404).json({ error: "Product not found" });
       return;
     }
 
-    throw error;
+    res.json({ product: serializeProductAdmin(product) });
+  } catch (err) {
+    next(err);
   }
 });
 
-adminProductsRouter.delete("/products/:id", async (req, res) => {
-  const existingProduct = await prisma.product.findUnique({
-    where: { id: req.params.id },
-    select: { id: true },
-  });
+adminProductsRouter.post("/products", async (req, res, next) => {
+  try {
+    const data = productSchema.parse(req.body);
+    const product = await prisma.product.create({
+      data: buildProductWriteInput(data),
+      include: productInclude,
+    });
 
-  if (!existingProduct) {
-    res.status(404).json({ error: "Product not found" });
-    return;
+    res.status(201).json({ product: serializeProductAdmin(product) });
+  } catch (err) {
+    next(err);
   }
+});
 
-  await prisma.product.delete({
-    where: { id: req.params.id },
-  });
+adminProductsRouter.patch("/products/:id", async (req, res, next) => {
+  try {
+    const data = productSchema.parse(req.body);
 
-  res.status(204).send();
+    const existingProduct = await prisma.product.findUnique({
+      where: { id: req.params.id },
+      select: { id: true },
+    });
+
+    if (!existingProduct) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+
+    const product = await prisma.$transaction(async (tx) => {
+      await tx.productVariant.deleteMany({ where: { productId: req.params.id } });
+      await tx.productImage.deleteMany({ where: { productId: req.params.id } });
+
+      return tx.product.update({
+        where: { id: req.params.id },
+        data: {
+          slug: data.slug,
+          name: data.name,
+          description: data.description,
+          category: data.category,
+          active: data.active,
+          images: {
+            create: data.images.map((image, index) => ({
+              url: image.url,
+              alt: image.alt || null,
+              position: index,
+            })),
+          },
+          variants: {
+            create: buildVariantsCreate(data.variants),
+          },
+        },
+        include: productInclude,
+      });
+    });
+
+    res.json({ product: serializeProductAdmin(product) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminProductsRouter.delete("/products/:id", async (req, res, next) => {
+  try {
+    const existingProduct = await prisma.product.findUnique({
+      where: { id: req.params.id },
+      select: { id: true },
+    });
+
+    if (!existingProduct) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+
+    await prisma.product.delete({
+      where: { id: req.params.id },
+    });
+
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
 });
