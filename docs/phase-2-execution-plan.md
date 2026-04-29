@@ -278,7 +278,7 @@ POST {{baseUrl}}/admin/products
 { "error": "Ya existe un registro con ese valor único" }
 ```
 
-- [ ] 409, not 500.
+- [x] 409, not 500.
 
 ### 4.4 Image payload caps
 
@@ -306,11 +306,11 @@ In the image sub-schema inside `server/src/routes/admin-products.ts`:
 
 Log in first, then:
 
-- [ ] `POST /admin/products` with a valid body → 201 + body with new `id`.
-- [ ] `GET /admin/products` → new product present.
-- [ ] `PATCH /admin/products/{id}` changing `name` and adding a variant → 200.
-- [ ] `DELETE /admin/products/{id}` → 200 (or 204).
-- [ ] `GET /admin/products/{id}` → 404.
+- [x] `POST /admin/products` with a valid body → 201 + body with new `id`.
+- [x] `GET /admin/products` → new product present.
+- [x] `PATCH /admin/products/{id}` changing `name` and adding a variant → 200.
+- [x] `DELETE /admin/products/{id}` → 200 (or 204).
+- [x] `GET /admin/products/{id}` → 404.
 
 ---
 
@@ -318,12 +318,12 @@ Log in first, then:
 
 Run this once every box in §3.7 and §4 is ticked.
 
-- [ ] `pnpm dev:down && pnpm dev:rebuild`. Clean boot, no errors in any container log.
-- [ ] `pnpm seed`.
-- [ ] `pnpm preflight` green (server + client typecheck + build). The client still builds even though Phase 2.5 is in progress — its current shape is the post-PR-#15 stub set, and that must stay buildable.
-- [ ] Run the Postman collection top-to-bottom (§2 + §3 + §4.3 + §4.5). All pass.
-- [ ] Re-run §2.5 (`GET /products`) and §2.6 (`GET /products/sobres-clasicos`) — responses match the new post-cleanup shape: variants are `{ id, name, sku }`; no `priceDelta`, `stock`, or `startingPrice` anywhere. (Byte-identical to the pre-cleanup baseline is **intentionally** broken by the schema migration noted at the top of §4.)
-- [ ] Confirm `docs/tech-roadmap.md` §10 Phase 2 checkboxes are still honest. (No edits expected — Phase 2 was already declared complete on `main`.)
+- [x] `pnpm dev:down && pnpm dev:rebuild`. Clean boot, no errors in any container log.
+- [x] `pnpm seed`.
+- [x] `pnpm preflight` green (server + client typecheck + build). The client still builds even though Phase 2.5 is in progress — its current shape is the post-PR-#15 stub set, and that must stay buildable.
+- [x] Run the Postman collection top-to-bottom (§2 + §3 + §4.3 + §4.5). All pass.
+- [x] Re-run §2.5 (`GET /products`) and §2.6 (`GET /products/sobres-clasicos`) — responses match the new post-cleanup shape: variants are `{ id, name, sku }`; no `priceDelta`, `stock`, or `startingPrice` anywhere. (Byte-identical to the pre-cleanup baseline is **intentionally** broken by the schema migration noted at the top of §4.)
+- [x] Confirm `docs/tech-roadmap.md` §10 Phase 2 checkboxes are still honest. (No edits expected — Phase 2 was already declared complete on `main`.)
 
 Once every box in this §5 is ticked, **the Phase 2 server cleanup branch is done** and `refactor/phase2-server-cleanup` can merge. Phase 2.5 client work continues independently per [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md).
 
