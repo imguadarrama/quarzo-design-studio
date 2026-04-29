@@ -32,3 +32,31 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl apps destroy ${{ secrets.FLY_APP_STAGING }}-pr-${{ github.event.number }} -y
+
+      # Delete every Cloudflare Pages preview deployment for this PR's branch.
+      # Uses the same `Pages → Edit` token scope as the deploy workflow.
+      # `?force=true` is required to delete the alias deployment (the one
+      # currently serving `pr-<N>.<project>.pages.dev`).
+      - name: Delete Cloudflare Pages preview deployments
+        continue-on-error: true
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT_STAGING }}
+          PR_BRANCH: pr-${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/deployments"
+          ids=$(curl -fsS -H "Authorization: Bearer $CF_API_TOKEN" \
+            "$api?env=preview&per_page=100" \
+            | jq -r --arg b "$PR_BRANCH" \
+              '.result[] | select(.deployment_trigger.metadata.branch == $b) | .id')
+          if [ -z "$ids" ]; then
+            echo "No Pages deployments found for branch $PR_BRANCH"
+            exit 0
+          fi
+          for id in $ids; do
+            echo "Deleting deployment $id"
+            curl -fsS -X DELETE -H "Authorization: Bearer $CF_API_TOKEN" \
+              "$api/$id?force=true" >/dev/null
+          done

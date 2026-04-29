@@ -55,7 +55,7 @@ Rules:
 ### Cloudflare
 1. Sign up at https://cloudflare.com.
 2. From the dashboard, capture your Account ID → `CLOUDFLARE_ACCOUNT_ID`.
-3. My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template won't work; use a **custom token** with permissions: `Account > Cloudflare Pages > Edit`. → `CLOUDFLARE_API_TOKEN`.
+3. My Profile → API Tokens → Create Token → "Edit Cloudflare Workers" template won't work; use a **custom token** with permissions: `Account > Cloudflare Pages > Edit`. → `CLOUDFLARE_API_TOKEN`. The same `Pages: Edit` scope covers both publishing previews and deleting them on PR close — no separate cleanup token needed.
 
 ### Neon
 1. Sign up at https://neon.tech.
@@ -200,7 +200,7 @@ Triggered on `pull_request` (opened / synchronize / reopened). Skipped for docs-
 3. On first deploy for the PR, runs `flyctl apps create <per-PR-app> --org ${FLY_ORG_STAGING}` (idempotent — subsequent pushes find the existing app and skip).
 4. Sets that app's secrets and runs `flyctl deploy -a <per-PR-app> -c fly.staging.toml`. The `app = "..."` line in `fly.staging.toml` is overridden by `-a`, so the same toml is reused across every per-PR app.
 5. Deploys the client to Cloudflare Pages with `branch: pr-<N>` (per-PR preview).
-6. Comments two URLs back on the PR: the stable Pages branch-alias URL (always the latest build for this PR) and the per-commit URL (immutable, good for debugging a specific build), plus the per-PR API health URL `https://<per-PR-app>.fly.dev/api/health`.
+6. Upserts a single **sticky comment** on the PR (via `marocchino/sticky-pull-request-comment@v2`, identified by `header: staging-preview`) with the stable Pages branch-alias URL `https://pr-<N>.<project>.pages.dev` (always the latest build for this PR) and the per-PR API health URL `https://<per-PR-app>.fly.dev/api/health`. Re-running the workflow updates that comment in place rather than stacking new ones; per-commit Pages URLs still exist on Cloudflare's side for rollback but are not surfaced.
 
 This is paired with `cleanup-staging.yml` (§6.4) which destroys the per-PR Fly app on PR close. There is no shared staging API anymore — the original single `quarzo-api-staging` app is decommissioned and can be destroyed manually once the new flow is verified.
 
@@ -220,8 +220,9 @@ Triggered on `pull_request: closed`. Tears down the per-PR stack regardless of w
 
 1. Deletes the `pr-<N>` Neon branch.
 2. Runs `flyctl apps destroy ${FLY_APP_STAGING}-pr-<N> -y` to remove the per-PR Fly app.
+3. Calls the Cloudflare API to list every preview deployment whose `deployment_trigger.metadata.branch == pr-<N>` and `DELETE`s each one with `?force=true`. This removes both the per-commit deployments and the alias deployment, so `https://pr-<N>.<project>.pages.dev` stops resolving.
 
-Both steps are `continue-on-error: true`. PRs that closed without ever deploying (`paths-ignore` filtered every push, draft PRs that never opened, etc.) won't have a Neon branch or Fly app to delete, and that's fine — the workflow shouldn't fail just because there's nothing to clean up.
+All three steps are `continue-on-error: true`. PRs that closed without ever deploying (`paths-ignore` filtered every push, draft PRs that never opened, etc.) won't have a Neon branch, Fly app, or Pages deployments to delete, and that's fine — the workflow shouldn't fail just because there's nothing to clean up.
 
 Because each PR has its own dedicated Fly app, this teardown cannot affect any other open PR. That's the property that the previous "scale shared app to zero" approach lacked.
 
