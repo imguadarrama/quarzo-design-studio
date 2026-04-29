@@ -11,20 +11,26 @@ You've added the GitHub secrets. This file picks up from there. It assumes zero 
 There are **three automated workflows** and **one manual trigger**. They all live in `.github/workflows/`.
 
 ### When you open a PR → `deploy-staging.yml` runs
-GitHub sees a new PR (or a push to an existing PR) and fires this workflow. It does five things in sequence:
+GitHub sees a new PR (or a push to an existing PR) and fires this workflow. The big idea: **every PR gets its own complete stack — DB, API, and website — all isolated from every other PR.** Closing or pushing to one PR can never affect another reviewer's environment. The workflow does six things in sequence:
 
-1. **Make a throwaway DB.** Calls Neon to clone the `main` branch of your staging Postgres into a short-lived branch named `pr-<number>`. Outputs a connection string. Subsequent pushes to the same PR reuse this branch.
-2. **Get the code ready.** Installs pnpm deps, runs `prisma generate` (builds the typed DB client), applies pending migrations to the throwaway DB, seeds the admin user + sample products.
-3. **Ship the server.** Runs `flyctl deploy` against `quarzo-api-staging`. Fly builds your Dockerfile's `runtime` stage (which runs `tsc` — so type errors fail the build here) and blue-green-swaps the running container. There's always exactly **one** running staging API, at the same URL.
-4. **Ship the website.** Runs `pnpm --filter client build` (which is `tsc -b && vite build` — type errors fail here) with `VITE_API_BASE_URL` pointing at the staging Fly URL, then uploads `client/dist/` to Cloudflare Pages as a preview deployment.
-5. **Tell you.** Posts a comment on the PR with the **stable URL** (`pr-<N>.<project>.pages.dev` — always the latest build for this PR), the **per-commit URL** (immutable, good for debugging a specific build), and the API health URL.
+1. **Resolve the per-PR app name.** `${FLY_APP_STAGING}-pr-<N>` — e.g. `quarzo-api-staging-pr-15`. Used everywhere downstream so the workflow targets *this PR's* Fly app, not a shared one.
+2. **Make a throwaway DB.** Calls Neon to clone the `main` branch of your staging Postgres into a short-lived branch named `pr-<N>`. Outputs a connection string. Subsequent pushes to the same PR reuse this branch.
+3. **Get the code ready.** Installs pnpm deps, runs `prisma generate` (builds the typed DB client), applies pending migrations to the throwaway DB, seeds the admin user + sample products.
+4. **Ensure the per-PR Fly app exists, then ship the server.** On the PR's first push, `flyctl apps create quarzo-api-staging-pr-<N>` creates a brand-new app under your Fly org. Subsequent pushes find it already there and skip. Then `flyctl deploy -a <per-PR-app> -c fly.staging.toml` builds your Dockerfile's `runtime` stage (which runs `tsc` — type errors fail the build here) and rolls out a machine in that app. The `app = "..."` line in `fly.staging.toml` is overridden by the `-a` flag, so the same toml is reused across every per-PR app.
+5. **Ship the website.** Runs `pnpm --filter client build` (which is `tsc -b && vite build` — type errors fail here) with `VITE_API_BASE_URL` pointing at this PR's API URL (`https://quarzo-api-staging-pr-<N>.fly.dev`), then uploads `client/dist/` to Cloudflare Pages as a preview deployment.
+6. **Tell you.** Posts a comment on the PR with the **stable web URL** (`pr-<N>.<project>.pages.dev` — always the latest build for this PR), the **per-commit web URL** (immutable, good for debugging a specific build), and the per-PR API health URL.
 
 Every push to the PR repeats this. The `concurrency` block cancels in-flight runs when you push again, so rapid pushes produce only one completed deployment.
 
 **Doc-only PRs are skipped.** The workflow has `paths-ignore` for `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, and `.gitattributes` — README or runbook changes don't spin up Fly + Neon.
 
 ### When the PR is closed (merged or abandoned) → `cleanup-staging.yml` runs
-Deletes the `pr-<number>` Neon branch. Keeps your Neon project tidy.
+Tears down everything that was specific to this PR:
+
+1. Deletes the `pr-<N>` Neon DB branch.
+2. Runs `flyctl apps destroy quarzo-api-staging-pr-<N> -y` to delete the per-PR Fly app.
+
+Both steps tolerate "nothing to delete" failures, so closing a PR that never deployed (e.g. a docs-only PR that `paths-ignore` skipped) won't error out. And because the destroyed Fly app belongs only to this PR, this teardown can never affect any other open PR's staging environment.
 
 ### When you merge to `main` → only `ci.yml` runs (post-merge tripwire)
 Install + build server + build client + docker smoke (via the shared `build-and-check` composite action). **No deploy.** This runs on `main` pushes only — **not on PRs**. Why? `deploy-staging.yml` already invokes the same composite on every PR, so running ci on PRs was duplicate work. On main it's a cheap sanity check that catches any merge-conflict weirdness that slipped past staging.
@@ -46,11 +52,12 @@ Three hosting systems, three URL behaviors:
 
 | System | What changes per push? | What stays stable? |
 |---|---|---|
-| **Fly.io** | Nothing. A new machine boots, old one shuts down (blue-green swap). Always exactly one API running per app. | `quarzo-api-staging.fly.dev` — one URL, always points at the latest deploy. |
+| **Fly.io (staging)** | Nothing per push. A new machine boots, old one shuts down (blue-green swap). What changes per *PR* is the app name itself: each PR gets its own app `quarzo-api-staging-pr-<N>`, created on first deploy and destroyed when the PR closes. | `quarzo-api-staging-pr-<N>.fly.dev` — one URL per PR, always points at the latest deploy of that PR. |
+| **Fly.io (prod)** | Nothing. Single shared app, blue-green swap on each release. | `quarzo-api.fly.dev`. |
 | **Cloudflare Pages** | A new immutable URL is published per build (`<hash>.<project>.pages.dev`). Old URLs stay live forever — free rollback snapshots, zero cost (unlimited bandwidth). | `pr-<N>.<project>.pages.dev` — the branch-alias URL. Always serves the latest build for the PR. This is the URL the PR comment surfaces as "stable." |
 | **Neon** | Nothing per push — the same `pr-<N>` DB branch is reused until the PR closes. | The branch URL Neon hands back is the same across all pushes to the PR. |
 
-**Practical takeaway:** when you or the client want to "see the latest staging" for a PR, use the stable URL from the PR comment. The per-commit URLs are there for debugging ("the build 2 pushes ago worked, this one doesn't — what changed?") and are free to ignore.
+**Practical takeaway:** when you or the client want to "see the latest staging" for a PR, use the stable URLs from the PR comment. They are per-PR (web *and* API), so two open PRs cannot accidentally share the API and confuse what each PR is actually testing. The per-commit URLs are there for debugging ("the build 2 pushes ago worked, this one doesn't — what changed?") and are free to ignore.
 
 **Old per-commit URLs piling up in your CF dashboard?** Not a cost or correctness issue. If they bother you, CF Pages has a retention setting per project (Settings → Preview deployments). Or leave them — each is a one-click rollback.
 
@@ -68,14 +75,30 @@ flyctl auth login
 ```
 This opens a browser tab — log in with your Fly account. Done.
 
-### Step 2 — Create the two Fly apps
+### Step 2 — Create the prod Fly app and capture the org slug
 ```powershell
 flyctl apps create quarzo-api
-flyctl apps create quarzo-api-staging
+flyctl orgs list
 ```
-You'll get output like `New app created: quarzo-api`. If Fly says the name is taken, pick a different one and update `FLY_APP_PROD`/`FLY_APP_STAGING` in your GitHub secrets + `fly.toml` / `fly.staging.toml` to match.
+You'll get output like `New app created: quarzo-api`. If Fly says the name is taken, pick a different one and update `FLY_APP_PROD` in your GitHub secrets + `fly.toml` to match.
+
+`flyctl orgs list` prints your org's **slug** (usually `personal` for solo accounts). Add it as a GitHub secret `FLY_ORG_STAGING` in the `staging` environment — the staging workflow needs it to create per-PR apps with `flyctl apps create --org <slug>`.
+
+**Don't pre-create a staging Fly app.** `deploy-staging.yml` creates one per PR on demand (`quarzo-api-staging-pr-<N>`) and `cleanup-staging.yml` destroys it on PR close. That's the whole point of the review-app pattern — staging apps are ephemeral.
+
+If you have an old leftover `quarzo-api-staging` app from a previous setup, destroy it once the new flow is verified on a real PR:
+```powershell
+flyctl apps destroy quarzo-api-staging -y
+```
 
 Don't deploy anything yet — GitHub Actions does that for you.
+
+### Step 2.5 — Make sure your `FLY_API_TOKEN` is org-scoped
+The token has to be able to create new apps. Org-scoped tokens can; app-scoped deploy tokens cannot. Generate a fresh org-scoped token and replace the secret:
+```powershell
+flyctl tokens create org <your-org-slug>
+```
+Paste the output as `FLY_API_TOKEN` (repo-level secret, not environment-level).
 
 ### Step 3 — Create the two Cloudflare Pages projects
 1. Log in at https://dash.cloudflare.com.
@@ -119,14 +142,16 @@ git add -A
 git commit -m "chore: smoke test deploy pipeline"
 git push -u origin feature/deploy-smoke-test
 ```
-Open the PR in GitHub. Go to the Actions tab and watch **Deploy Staging** run. When it finishes (5–10 min on first run, the Fly deploy is the slow part), it posts a comment on the PR with two URLs.
+Open the PR in GitHub. Go to the Actions tab and watch **Deploy Staging** run. When it finishes (5–10 min on first run, the Fly deploy is the slow part), it posts a comment on the PR with the URLs.
 
+- In the workflow run, expand the **Ensure Fly app exists** step → on a brand-new PR you should see `flyctl apps create quarzo-api-staging-pr-<N>` succeed.
 - Click the **Web** URL → you should see your string change.
-- Open **API** URL (ends in `/api/health`) → should return `{"ok":true}`.
+- Open the **API** URL (ends in `/api/health`) → should return `{"ok":true}`. Note the URL is `https://quarzo-api-staging-pr-<N>.fly.dev` — specific to *this* PR.
 - In the Neon console, confirm a `pr-<number>` branch appeared under `quarzo-staging`.
+- (Optional but instructive) `flyctl apps list | findstr quarzo-api-staging-pr` → you should see this PR's app listed.
 
 ### Step 6 — Merge the test PR
-On GitHub, click Merge. This triggers `ci.yml` (typecheck+build only) and `cleanup-staging.yml` (deletes the `pr-<number>` Neon branch). Confirm both pass. Confirm the Neon branch disappears.
+On GitHub, click Merge. This triggers `ci.yml` (typecheck+build only) and `cleanup-staging.yml` (deletes the Neon branch *and* destroys the per-PR Fly app). Confirm both pass. Confirm the Neon branch disappears, and run `flyctl apps list | findstr quarzo-api-staging-pr` again — your PR's app should be gone.
 
 ### Step 7 — Ship prod for the first time
 GitHub → Actions → **Deploy Production** → Run workflow → type `ship` → Run. Wait for it. Expected:
@@ -153,10 +178,15 @@ Always start in the **Actions tab** of your GitHub repo. Click the failed run. E
 - "Cannot find module '@prisma/client'" → `pnpm install` didn't run. Check that step's logs.
 - "does not provide an export named 'Prisma'" → `prisma generate` didn't run. It runs automatically as the server's `postinstall` hook (see `server/package.json`). If it's silently skipped, check the install step's log for errors from that hook.
 
-### If "Deploy API to Fly" fails
-- "App not found" → you haven't run `flyctl apps create quarzo-api-staging` yet. Go back to Step 2 above.
-- "Invalid API token" → `FLY_API_TOKEN` secret is wrong. Run `flyctl auth token` locally and paste the output into GitHub secrets.
+### If "Ensure Fly app exists" fails
+- "could not find org" → `FLY_ORG_STAGING` secret is missing or wrong. Run `flyctl orgs list` locally to confirm the slug, paste it into the `staging` environment in GitHub.
+- "401 Unauthorized" / "Invalid API token" / "could not create app" → `FLY_API_TOKEN` is app-scoped, not org-scoped. App-scoped tokens cannot create new apps. Regenerate with `flyctl tokens create org <slug>` and replace the repo-level secret. (See Step 2.5 above.)
+- "name has already been taken" by an app you don't own → the per-PR app name (`${FLY_APP_STAGING}-pr-<N>`) collides with someone else's Fly app globally. Rare, but if it happens, change `FLY_APP_STAGING` to something more unique (e.g. include your initials).
+
+### If "Deploy API to Fly staging" fails
+- "Invalid API token" → `FLY_API_TOKEN` secret is wrong or missing. See Step 2.5.
 - Build fails at Docker stage → open the log for the exact Dockerfile line. Usually a dependency mismatch that reproduces locally with `docker build -f server/Dockerfile --target runtime .`.
+- The deploy succeeds but `/api/health` 502s for the first ~30 s after deploy → that's the cold-start window with `auto_stop_machines = "stop"`. Hit the URL once to wake the machine, then retry.
 
 ### If "Deploy client to Cloudflare Pages" fails
 - "Project not found" → you haven't created the Pages project. Go back to Step 3.
@@ -176,7 +206,8 @@ Before asking me for help, **copy the last ~30 lines of the failing step** and p
 - **Don't push to `main` directly.** Always open a PR. (Branch protection is paywalled on private repos, so this is on discipline until the repo goes public.)
 - **Don't `flyctl deploy` from your laptop.** All deploys go through Actions so there's one audit trail. If you ever need to, you'll know.
 - **Don't hand-edit `.prisma/client` or anything under `node_modules`.** Run `prisma generate` instead.
-- **Don't rename the Fly apps, Cloudflare projects, or Neon projects after the fact.** The secret values are wired to these names. If you must rename, update all the `FLY_APP_*`, `CLOUDFLARE_PAGES_PROJECT_*`, and `NEON_PROJECT_ID_*` secrets in the same commit.
+- **Don't rename the Fly apps, Cloudflare projects, or Neon projects after the fact.** The secret values are wired to these names. If you must rename, update all the `FLY_APP_*`, `FLY_ORG_STAGING`, `CLOUDFLARE_PAGES_PROJECT_*`, and `NEON_PROJECT_ID_*` secrets in the same commit. Renaming `FLY_APP_STAGING` orphans every existing per-PR app — destroy them manually with `flyctl apps destroy <name> -y` after the rename, or wait for the open PRs to close.
+- **Don't manually `flyctl apps create quarzo-api-staging-pr-<N>`.** The workflow does that idempotently. If you create one by hand and the PR number doesn't match, the workflow can't reach it.
 
 ---
 

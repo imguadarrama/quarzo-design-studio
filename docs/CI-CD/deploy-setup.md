@@ -8,13 +8,15 @@ Execution runbook for setting up the Quarzo deployment pipeline. Work through th
 
 | Component | Provider | Staging | Production | Monthly cost |
 |---|---|---|---|---|
-| Client (static Vite build) | Cloudflare Pages | free | free | $0 |
-| Server (Express + Prisma) | Fly.io, `dfw` region | `shared-cpu-1x` 256 MB, scale-to-zero | `shared-cpu-1x` 256 MB, scale-to-zero | ~$0–1 |
+| Client (static Vite build) | Cloudflare Pages | free, preview per PR | free | $0 |
+| Server (Express + Prisma) | Fly.io, `dfw` region | `shared-cpu-1x` 256 MB, scale-to-zero, **one app per PR** (review-app pattern, see §6.2) | `shared-cpu-1x` 256 MB, scale-to-zero | ~$0–1 |
 | Postgres | Neon | free, DB branch per PR | free (upgrade to Launch if prod exceeds limits) | $0 |
 | DNS | Cloudflare | free | free | $0 |
 | **Total** | | | | **~$0–1** |
 
 **Fly's "always-free 3 machines" allowance was retired October 2024.** All new orgs are pure pay-as-you-go — `shared-cpu-1x` 256 MB always-on is ~$1.94/mo. To keep the bill near zero pre-launch we set `auto_stop_machines = "stop"` and `min_machines_running = 0` on both apps; the machine wakes on the first request (~3–5 s cold start) and idles back to zero after a few minutes of no traffic. See `fly.toml` and `fly.staging.toml`.
+
+**Per-PR staging apps don't change the cost story.** Each open PR has its own Fly app, but every per-PR machine sleeps when idle and bills nothing while sleeping. Apps and stopped machines are free to keep around. Realistic monthly bill at this PR volume stays $0–0.50 regardless of how many PRs are open simultaneously. The reason this is safe is precisely the scale-to-zero config above — turn that off and the math changes (every always-on PR app would cost ~$1.94/mo on its own).
 
 **Prod VM sizing is pre-launch-only.** Production is currently a display URL for the client — no public traffic, no expected concurrency. **Before public launch**, bump prod to `shared-cpu-1x` 512 MB and flip back to always-on (`auto_stop_machines = false`, `min_machines_running = 1`) — see the Phase 7 checklist in `tech-roadmap.md`. Expected cost change at that point: ~$0 → ~$3.88/mo.
 
@@ -78,7 +80,7 @@ GitHub → repo Settings → Environments → **New environment**:
 - `production` — no approval gate needed (the manual `workflow_dispatch` trigger IS the gate).
 
 ### Repo-level secrets (Settings → Secrets and variables → Actions → Repository secrets)
-- `FLY_API_TOKEN`
+- `FLY_API_TOKEN` — must be **org-scoped**, not app-scoped, because the staging workflow creates per-PR apps. Generate with `flyctl tokens create org <FLY_ORG_STAGING>`. App-scoped deploy tokens (`flyctl tokens create deploy -a <app>`) cannot create new apps and will fail the staging workflow.
 - `CLOUDFLARE_API_TOKEN`
 - `CLOUDFLARE_ACCOUNT_ID`
 - `NEON_API_KEY`
@@ -92,7 +94,8 @@ GitHub → repo Settings → Environments → **New environment**:
 - `ADMIN_PASSWORD_STAGING`
 - `CLIENT_ORIGIN_STAGING` — fill once Fly staging app exists, e.g. `https://quarzo-api-staging.fly.dev` (used for CORS; will be replaced by the per-PR Pages URL in env wiring)
 - `COOKIE_DOMAIN_STAGING` — leave empty initially (cross-site cookies until domain wired)
-- `FLY_APP_STAGING` = `quarzo-api-staging`
+- `FLY_APP_STAGING` = `quarzo-api-staging` — **base name only**. The actual per-PR app is `${FLY_APP_STAGING}-pr-<N>` (review-app pattern, §6.2).
+- `FLY_ORG_STAGING` — Fly org slug (run `flyctl orgs list` to find it; usually `personal` for solo accounts). Required so the workflow can create per-PR apps via `flyctl apps create --org <slug>`.
 - `CLOUDFLARE_PAGES_PROJECT_STAGING` = `quarzo-staging`
 
 ### `production` environment secrets
@@ -184,13 +187,22 @@ Runs on `push: main` only — not on PRs. Delegates to the shared `build-and-che
 
 Enable branch protection on `main` when the repo goes public: Settings → Branches → Add rule → require `build` status check, require PR, disallow direct pushes. (Paywalled on private repos — skip until public.)
 
-### 6.2 `deploy-staging.yml` — per-PR preview
+### 6.2 `deploy-staging.yml` — per-PR preview (review-app pattern)
 
 File: [`.github/workflows/deploy-staging.yml`](../../.github/workflows/deploy-staging.yml).
 
 Triggered on `pull_request` (opened / synchronize / reopened). Skipped for docs-only PRs via `paths-ignore` (`**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes`). Concurrency cancels in-flight runs when you push again to the same PR.
 
-Creates a per-PR Neon branch, deploys API to Fly staging, deploys client to Cloudflare Pages (preview), and comments two URLs back on the PR: the stable branch-alias URL (`pr-<N>.<project>.pages.dev` — always the latest build for this PR) and the per-commit URL (immutable, good for debugging a specific build).
+**Every PR gets its own complete stack — frontend, DB, *and* API.** That isolation is the whole point: closing or pushing to one PR can never affect another reviewer's environment. Specifically, the workflow:
+
+1. Resolves the per-PR app name as `${FLY_APP_STAGING}-pr-<N>` (e.g. `quarzo-api-staging-pr-15`).
+2. Creates a per-PR Neon branch (`pr-<N>`).
+3. On first deploy for the PR, runs `flyctl apps create <per-PR-app> --org ${FLY_ORG_STAGING}` (idempotent — subsequent pushes find the existing app and skip).
+4. Sets that app's secrets and runs `flyctl deploy -a <per-PR-app> -c fly.staging.toml`. The `app = "..."` line in `fly.staging.toml` is overridden by `-a`, so the same toml is reused across every per-PR app.
+5. Deploys the client to Cloudflare Pages with `branch: pr-<N>` (per-PR preview).
+6. Comments two URLs back on the PR: the stable Pages branch-alias URL (always the latest build for this PR) and the per-commit URL (immutable, good for debugging a specific build), plus the per-PR API health URL `https://<per-PR-app>.fly.dev/api/health`.
+
+This is paired with `cleanup-staging.yml` (§6.4) which destroys the per-PR Fly app on PR close. There is no shared staging API anymore — the original single `quarzo-api-staging` app is decommissioned and can be destroyed manually once the new flow is verified.
 
 ### 6.3 `deploy-production.yml` — manual release
 
@@ -200,47 +212,54 @@ File: [`.github/workflows/deploy-production.yml`](../../.github/workflows/deploy
 
 **How to deploy production:** GitHub → Actions tab → "Deploy Production" → Run workflow → type `ship` → Run. That's the weekly release ritual.
 
-### 6.4 `cleanup-staging.yml` — per-PR Neon cleanup
+### 6.4 `cleanup-staging.yml` — per-PR teardown
 
 File: [`.github/workflows/cleanup-staging.yml`](../../.github/workflows/cleanup-staging.yml).
 
-Triggered on `pull_request: closed`. Deletes the `pr-<number>` Neon branch that `deploy-staging.yml` created, regardless of whether the PR was merged or abandoned.
+Triggered on `pull_request: closed`. Tears down the per-PR stack regardless of whether the PR was merged or abandoned:
+
+1. Deletes the `pr-<N>` Neon branch.
+2. Runs `flyctl apps destroy ${FLY_APP_STAGING}-pr-<N> -y` to remove the per-PR Fly app.
+
+Both steps are `continue-on-error: true`. PRs that closed without ever deploying (`paths-ignore` filtered every push, draft PRs that never opened, etc.) won't have a Neon branch or Fly app to delete, and that's fine — the workflow shouldn't fail just because there's nothing to clean up.
+
+Because each PR has its own dedicated Fly app, this teardown cannot affect any other open PR. That's the property that the previous "scale shared app to zero" approach lacked.
 
 ---
 
 ## 7. Execution checklist
 
 ### Session 1 — accounts + CI (no deploys yet)
-- [ ] Sign up for Fly.io; install `flyctl`; `flyctl auth login`; capture `FLY_API_TOKEN`.
-- [ ] Sign up for Cloudflare; capture `CLOUDFLARE_ACCOUNT_ID`; create API token → `CLOUDFLARE_API_TOKEN`.
-- [ ] Sign up for Neon; create projects `quarzo-staging` + `quarzo-prod`; capture connection URLs, API key, project IDs.
-- [ ] Generate two `JWT_SECRET` values.
-- [ ] Create `staging` + `production` GitHub Environments.
-- [ ] Add all secrets per §4.
-- [ ] Add `.node-version` file with `22`.
-- [ ] Commit `.github/workflows/ci.yml`.
-- [ ] Enable branch protection on `main` (require CI, require PR, no direct pushes).
-- [ ] Open a throwaway PR → confirm CI is green.
+- [x] Sign up for Fly.io; install `flyctl`; `flyctl auth login`; capture `FLY_API_TOKEN`.
+- [x] Sign up for Cloudflare; capture `CLOUDFLARE_ACCOUNT_ID`; create API token → `CLOUDFLARE_API_TOKEN`.
+- [x] Sign up for Neon; create projects `quarzo-staging` + `quarzo-prod`; capture connection URLs, API key, project IDs.
+- [x] Generate two `JWT_SECRET` values.
+- [x] Create `staging` + `production` GitHub Environments.
+- [x] Add all secrets per §4.
+- [x] Add `.node-version` file with `22`.
+- [x] Commit `.github/workflows/ci.yml`.
+- [x] Enable branch protection on `main` (require CI, require PR, no direct pushes).
+- [x] Open a throwaway PR → confirm CI is green.
 
 ### Session 2 — Dockerfile, Fly/CF apps, deploy workflows
-- [ ] Refactor `server/Dockerfile` per §5.1.
-- [ ] Update `docker-compose.yml` → `api.target: dev`. Run `pnpm dev:rebuild && pnpm dev` → confirm local dev still works.
-- [ ] Add `GET /api/health` per §5.3. Hit `http://localhost:3000/api/health` locally → confirm `{ ok: true }`.
-- [ ] Add `APP_ENV` to Zod env schema (§5.4).
-- [ ] Wire `VITE_API_BASE_URL` in client fetch layer (§5.5).
-- [ ] Add `fly.toml` + `fly.staging.toml` per §5.6.
-- [ ] `flyctl apps create quarzo-api` and `flyctl apps create quarzo-api-staging`.
-- [ ] Create two Cloudflare Pages projects (`quarzo` + `quarzo-staging`). In each project's Settings → Builds & deployments, **disable the GitHub auto-build** (we deploy from Actions, not from CF's integration).
-- [ ] Run `prisma migrate deploy` once manually against the prod Neon DB:
+- [x] Refactor `server/Dockerfile` per §5.1.
+- [x] Update `docker-compose.yml` → `api.target: dev`. Run `pnpm dev:rebuild && pnpm dev` → confirm local dev still works.
+- [x] Add `GET /api/health` per §5.3. Hit `http://localhost:3000/api/health` locally → confirm `{ ok: true }`.
+- [x] Add `APP_ENV` to Zod env schema (§5.4).
+- [x] Wire `VITE_API_BASE_URL` in client fetch layer (§5.5).
+- [x] Add `fly.toml` + `fly.staging.toml` per §5.6.
+- [x] `flyctl apps create quarzo-api` for production. **Don't pre-create a staging app** — `deploy-staging.yml` now creates one per PR on demand (§6.2). Capture the Fly org slug with `flyctl orgs list` → store as `FLY_ORG_STAGING` secret.
+- [x] Create two Cloudflare Pages projects (`quarzo` + `quarzo-staging`). In each project's Settings → Builds & deployments, **disable the GitHub auto-build** (we deploy from Actions, not from CF's integration).
+- [x] Run `prisma migrate deploy` once manually against the prod Neon DB:
   ```bash
   DATABASE_URL="<prod-neon-url>" pnpm --filter server exec prisma migrate deploy
   ```
-- [ ] Run `pnpm seed` once manually against prod to create the admin user.
-- [ ] Commit `.github/workflows/deploy-staging.yml`, `deploy-production.yml`, `cleanup-staging.yml`.
-- [ ] Open a dummy PR → watch the full staging pipeline run → open the preview URL posted as a comment → hit `/api/health` on the staging API.
-- [ ] Merge the dummy PR → confirm CI runs on `main` but no deploy triggers.
-- [ ] Actions tab → "Deploy Production" → Run workflow → type `ship` → confirm prod deploys end-to-end.
-- [ ] Close the dummy PR → confirm the Neon `pr-<n>` branch disappears.
+- [x] Run `pnpm seed` once manually against prod to create the admin user.
+- [x] Commit `.github/workflows/deploy-staging.yml`, `deploy-production.yml`, `cleanup-staging.yml`.
+- [x] Open a dummy PR → watch the full staging pipeline run → open the preview URL posted as a comment → hit `/api/health` on the staging API.
+- [x] Merge the dummy PR → confirm CI runs on `main` but no deploy triggers.
+- [x] Actions tab → "Deploy Production" → Run workflow → type `ship` → confirm prod deploys end-to-end.
+- [x] Close the dummy PR → confirm the Neon `pr-<n>` branch disappears.
 
 ### Session 3 (conditional) — custom domain
 Run these only after buying the GoDaddy domain.
