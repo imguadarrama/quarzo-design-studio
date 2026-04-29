@@ -67,6 +67,7 @@ export function AdminLoginPage() {
         <Typography as="h1" size="xl">Inicio de sesión admin</Typography>
         <Typography as="p">Ingresa con tus credenciales</Typography>
       </div>
+      <h1>hello</h1>
 
       <form onSubmit={onSubmit} noValidate>
         <div className={styles.field}>
