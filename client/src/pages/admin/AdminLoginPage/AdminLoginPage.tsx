@@ -68,8 +68,6 @@ export function AdminLoginPage() {
         <Typography as="p">Ingresa con tus credenciales</Typography>
       </div>
 
-      <h1>test</h1>
-
       <form onSubmit={onSubmit} noValidate>
         <div className={styles.field}>
           <label htmlFor="email" className={styles.label}>
