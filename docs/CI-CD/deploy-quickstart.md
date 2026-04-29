@@ -18,7 +18,7 @@ GitHub sees a new PR (or a push to an existing PR) and fires this workflow. The 
 3. **Get the code ready.** Installs pnpm deps, runs `prisma generate` (builds the typed DB client), applies pending migrations to the throwaway DB, seeds the admin user + sample products.
 4. **Ensure the per-PR Fly app exists, then ship the server.** On the PR's first push, `flyctl apps create quarzo-api-staging-pr-<N>` creates a brand-new app under your Fly org. Subsequent pushes find it already there and skip. Then `flyctl deploy -a <per-PR-app> -c fly.staging.toml` builds your Dockerfile's `runtime` stage (which runs `tsc` — type errors fail the build here) and rolls out a machine in that app. The `app = "..."` line in `fly.staging.toml` is overridden by the `-a` flag, so the same toml is reused across every per-PR app.
 5. **Ship the website.** Runs `pnpm --filter client build` (which is `tsc -b && vite build` — type errors fail here) with `VITE_API_BASE_URL` pointing at this PR's API URL (`https://quarzo-api-staging-pr-<N>.fly.dev`), then uploads `client/dist/` to Cloudflare Pages as a preview deployment.
-6. **Tell you.** Posts a comment on the PR with the **stable web URL** (`pr-<N>.<project>.pages.dev` — always the latest build for this PR), the **per-commit web URL** (immutable, good for debugging a specific build), and the per-PR API health URL.
+6. **Tell you.** Upserts a single sticky comment on the PR (one per PR, updated in place on every push) with the **stable web URL** (`pr-<N>.<project>.pages.dev` — always the latest build for this PR) and the per-PR API health URL. Per-commit URLs still exist on Cloudflare's side for rollback, but the comment doesn't link them.
 
 Every push to the PR repeats this. The `concurrency` block cancels in-flight runs when you push again, so rapid pushes produce only one completed deployment.
 
@@ -29,8 +29,9 @@ Tears down everything that was specific to this PR:
 
 1. Deletes the `pr-<N>` Neon DB branch.
 2. Runs `flyctl apps destroy quarzo-api-staging-pr-<N> -y` to delete the per-PR Fly app.
+3. Calls the Cloudflare API to delete every Pages preview deployment for branch `pr-<N>`, including the alias deployment — so `pr-<N>.<project>.pages.dev` stops resolving.
 
-Both steps tolerate "nothing to delete" failures, so closing a PR that never deployed (e.g. a docs-only PR that `paths-ignore` skipped) won't error out. And because the destroyed Fly app belongs only to this PR, this teardown can never affect any other open PR's staging environment.
+All three steps tolerate "nothing to delete" failures, so closing a PR that never deployed (e.g. a docs-only PR that `paths-ignore` skipped) won't error out. And because every destroyed resource belongs only to this PR, this teardown can never affect any other open PR's staging environment.
 
 ### When you merge to `main` → only `ci.yml` runs (post-merge tripwire)
 Install + build server + build client + docker smoke (via the shared `build-and-check` composite action). **No deploy.** This runs on `main` pushes only — **not on PRs**. Why? `deploy-staging.yml` already invokes the same composite on every PR, so running ci on PRs was duplicate work. On main it's a cheap sanity check that catches any merge-conflict weirdness that slipped past staging.
@@ -54,12 +55,12 @@ Three hosting systems, three URL behaviors:
 |---|---|---|
 | **Fly.io (staging)** | Nothing per push. A new machine boots, old one shuts down (blue-green swap). What changes per *PR* is the app name itself: each PR gets its own app `quarzo-api-staging-pr-<N>`, created on first deploy and destroyed when the PR closes. | `quarzo-api-staging-pr-<N>.fly.dev` — one URL per PR, always points at the latest deploy of that PR. |
 | **Fly.io (prod)** | Nothing. Single shared app, blue-green swap on each release. | `quarzo-api.fly.dev`. |
-| **Cloudflare Pages** | A new immutable URL is published per build (`<hash>.<project>.pages.dev`). Old URLs stay live forever — free rollback snapshots, zero cost (unlimited bandwidth). | `pr-<N>.<project>.pages.dev` — the branch-alias URL. Always serves the latest build for the PR. This is the URL the PR comment surfaces as "stable." |
+| **Cloudflare Pages** | A new immutable URL is published per build (`<hash>.<project>.pages.dev`). Per-PR deployments live until the PR closes, then `cleanup-staging.yml` deletes them all. Production deployments are kept for rollback. | `pr-<N>.<project>.pages.dev` — the branch-alias URL. Always serves the latest build for the PR. This is the only URL the sticky PR comment surfaces. |
 | **Neon** | Nothing per push — the same `pr-<N>` DB branch is reused until the PR closes. | The branch URL Neon hands back is the same across all pushes to the PR. |
 
-**Practical takeaway:** when you or the client want to "see the latest staging" for a PR, use the stable URLs from the PR comment. They are per-PR (web *and* API), so two open PRs cannot accidentally share the API and confuse what each PR is actually testing. The per-commit URLs are there for debugging ("the build 2 pushes ago worked, this one doesn't — what changed?") and are free to ignore.
+**Practical takeaway:** when you or the client want to "see the latest staging" for a PR, use the URL from the sticky PR comment. It's per-PR (web *and* API), so two open PRs cannot accidentally share the API and confuse what each PR is actually testing. Cloudflare still keeps the per-commit URLs internally so you can roll back through the dashboard, but the comment doesn't link them.
 
-**Old per-commit URLs piling up in your CF dashboard?** Not a cost or correctness issue. If they bother you, CF Pages has a retention setting per project (Settings → Preview deployments). Or leave them — each is a one-click rollback.
+**Per-PR Cloudflare deployments are deleted on PR close.** `cleanup-staging.yml` calls the Cloudflare API and removes every preview deployment for the closed PR's branch (alias + per-commit). After cleanup, `pr-<N>.<project>.pages.dev` 404s. Production deployments are never touched.
 
 ---
 
@@ -151,7 +152,7 @@ Open the PR in GitHub. Go to the Actions tab and watch **Deploy Staging** run. W
 - (Optional but instructive) `flyctl apps list | findstr quarzo-api-staging-pr` → you should see this PR's app listed.
 
 ### Step 6 — Merge the test PR
-On GitHub, click Merge. This triggers `ci.yml` (typecheck+build only) and `cleanup-staging.yml` (deletes the Neon branch *and* destroys the per-PR Fly app). Confirm both pass. Confirm the Neon branch disappears, and run `flyctl apps list | findstr quarzo-api-staging-pr` again — your PR's app should be gone.
+On GitHub, click Merge. This triggers `ci.yml` (typecheck+build only) and `cleanup-staging.yml` (deletes the Neon branch, destroys the per-PR Fly app, *and* deletes the PR's Cloudflare Pages deployments). Confirm both pass. Confirm the Neon branch disappears, run `flyctl apps list | findstr quarzo-api-staging-pr` again — your PR's app should be gone — and visit `https://pr-<N>.quarzo-staging.pages.dev` to confirm it now 404s.
 
 ### Step 7 — Ship prod for the first time
 GitHub → Actions → **Deploy Production** → Run workflow → type `ship` → Run. Wait for it. Expected:
