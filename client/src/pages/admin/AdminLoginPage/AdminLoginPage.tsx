@@ -9,6 +9,8 @@ import { Typography } from "../../../components/Typography/Typography.js";
 import { Card } from "../../../components/Card/Card.js";
 import { Button } from "../../../components/Button/Button.js";
 import { FullPageSpinner } from "../../../components/FullPageSpinner/FullPageSpinner.js";
+import { FormField } from "../../../components/FormField/FormField.js";
+import { Input } from "../../../components/Input/Input.js";
 import styles from "./AdminLoginPage.module.scss";
 
 const schema = z.object({
@@ -69,39 +71,21 @@ export function AdminLoginPage() {
       </div>
 
       <form onSubmit={onSubmit} noValidate>
-        <div className={styles.field}>
-          <label htmlFor="email" className={styles.label}>
-            Email
-          </label>
-          <input
-            id="email"
+        <FormField label="Email" error={errors.email?.message}>
+          <Input
             type="email"
             autoComplete="username"
-            className={styles.input}
-            aria-invalid={Boolean(errors.email)}
             {...register("email")}
           />
-          <p className={styles.fieldError} aria-live="polite">
-            {errors.email?.message}
-          </p>
-        </div>
+        </FormField>
 
-        <div className={styles.field}>
-          <label htmlFor="password" className={styles.label}>
-            Contraseña
-          </label>
-          <input
-            id="password"
+        <FormField label="Contraseña" error={errors.password?.message}>
+          <Input
             type="password"
             autoComplete="current-password"
-            className={styles.input}
-            aria-invalid={Boolean(errors.password)}
             {...register("password")}
           />
-          <p className={styles.fieldError} aria-live="polite">
-            {errors.password?.message}
-          </p>
-        </div>
+        </FormField>
 
         {submitError ? (
           <div role="alert" className={styles.formError}>

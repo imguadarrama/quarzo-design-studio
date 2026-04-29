@@ -1,0 +1,31 @@
+@use "../../styles/tokens" as t;
+
+.field {
+  margin-bottom: t.$space-4;
+}
+
+.label {
+  display: block;
+  font-family: t.$font-secondary;
+  font-size: 13px;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+  margin-bottom: t.$space-2;
+}
+
+.hint {
+  margin: t.$space-1 0 0;
+  font-family: t.$font-secondary;
+  font-size: 12px;
+  line-height: 1.3;
+  color: t.$color-muted;
+}
+
+.error {
+  margin: 2px 0 0;
+  font-family: t.$font-secondary;
+  font-size: 12px;
+  line-height: 1.3;
+  color: t.$color-error;
+  min-height: calc(12px * 1.3);
+}
