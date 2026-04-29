@@ -28,9 +28,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Each PR gets its own Fly app so closing one PR can never affect another
-      # (review-app pattern). Base name comes from FLY_APP_STAGING; the PR
-      # number is appended. See docs/CI-CD/deploy-setup.md §6.
       - name: Resolve per-PR app name
         id: fly
         run: echo "app=${{ secrets.FLY_APP_STAGING }}-pr-${{ github.event.number }}" >> "$GITHUB_OUTPUT"
@@ -59,9 +56,6 @@ jobs:
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
-      # Idempotent: first deploy on a PR creates the app; subsequent pushes
-      # short-circuit when `flyctl status` finds it. fly.staging.toml's
-      # `app = "..."` line is overridden by the `-a` flag on deploy.
       - name: Ensure Fly app exists
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
