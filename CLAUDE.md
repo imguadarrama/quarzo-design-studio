@@ -182,4 +182,4 @@ Subagent defaults (see `.claude/agents/`):
 - **general-purpose → Sonnet** — multi-step research and coding across files.
 - **Plan → Opus** — only when architectural trade-offs are actually in play.
 
-Prefer `Grep` / `Glob` / `Read` directly when the target file is known — don't spawn `Explore` for a file you can name. Skills under `.agents/skills/*` inherit the main model, so don't invoke `audit-docs` while the main model is on Opus unless you need Opus-level reasoning.
+Prefer `Grep` / `Glob` / `Read` directly when the target file is known — don't spawn `Explore` for a file you can name. Skills under `.claude/skills/*` inherit the main model, so don't invoke `audit-docs` while the main model is on Opus unless you need Opus-level reasoning.
