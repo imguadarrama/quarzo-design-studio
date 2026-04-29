@@ -236,6 +236,8 @@ Round out admin CRUD for product *metadata* (still no images / variants). Editin
 ### Goal
 The hardest slice. Add image upload (base64, ≤ 8 images, ≤ 500 KB each per `phase-2-execution-plan.md` §4.4) and variant editing to the product form. Each variant has `name`, `sku`, `price`, and a nested `options` array — each option has `name`, `type` (SELECT or TEXT), `values` (only for SELECT), `required`, `position`. Two levels of `useFieldArray` (variants → options).
 
+> **Schema decision to make first (queued from PR #18 review).** `ProductVariant` has no `position` column today — variant order in API responses is whatever Prisma returns (insertion order in practice). The wife's example explicitly orders "Con foil $250" before "Con tinta normal $200"; if she wants control over that order in the editor, add `ProductVariant.position Int @default(0)` in the same migration class as Slice 7's other backend changes (if any), update `productInclude`/serializers to `sortByPosition` variants the same way images and options already are, and have `buildVariantsCreate` write `position: index`. Cheap now (one column, no data backfill — pre-launch DB), expensive once production has orders that snapshot variant references. **Decide before opening the Slice 7 PR.**
+
 ### Decisions to make
 - **Sub-component split** — `ProductImageEditor` and `ProductVariantEditor` as siblings of `AdminProductForm`, or inline? *Recommendation: separate components. Each owns its own field-array slice and can be tested visually in isolation.*
 - **`useFieldArray` ownership** — `AdminProductForm` registers and passes `control` down, or each editor calls `useFormContext`? *Recommendation: pass `control` explicitly. `FormProvider` is needed only for deep trees; this is two levels.*
@@ -298,6 +300,8 @@ Replace `<h1>hello</h1>` with a real catalog under `PublicLayout`. Reads `/api/p
 
 ### Goal
 A detail page that is the customer's last stop before adding to cart (Phase 3). Variant selection, personalization text input, quantity, and a CTA-ready "Agregar al carrito" button (disabled until Phase 3 wires the cart store).
+
+> **Server prep (queued from PR #18 review).** `serializeProductPublic` currently drops `ProductVariantOption.required`, so the public payload doesn't tell the client which options must be filled before the CTA un-disables. Either (a) add `required` to `serializeOptionPublic` in `server/src/lib/serializers.ts` (one line — public consumers can't write it, only read it), or (b) treat every option as required client-side. Pick (a) and ship it in the same PR as this slice; otherwise this slice ships with a guess that the spec already disagrees with.
 
 ### Decisions to make
 - **Image gallery** — single hero image with thumbnails below, swipeable carousel, or stacked column? *Mobile-first; pick one.*

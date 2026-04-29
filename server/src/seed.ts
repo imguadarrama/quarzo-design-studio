@@ -158,6 +158,10 @@ async function main() {
   });
   console.log(`Seeded admin: ${adminEmail}`);
 
+  // Idempotency note: every upsert below uses `update: {}` and the option/image blocks
+  // are guarded by count === 0. Re-running the seed will NOT propagate edits to existing
+  // rows (price changes, new options, new images). To apply seed-file edits locally,
+  // reset the dev DB (`pnpm migrate reset` inside the api container) before re-seeding.
   for (const p of products) {
     const product = await prisma.product.upsert({
       where: { slug: p.slug },

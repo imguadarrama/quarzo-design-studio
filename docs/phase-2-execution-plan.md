@@ -262,6 +262,11 @@ Open `server/src/index.ts`:
   ```
   Add `next: NextFunction` to handler signatures where needed. **Note:** Express 4 (per `server/package.json`) does not auto-forward async rejections, so every async handler in `admin-products.ts` and `products.ts` is wrapped in `try { ... } catch (err) { next(err) }`. Validation now uses `productSchema.parse(...)` (throws `ZodError` → 400 via the central handler) instead of `safeParse`.
 
+#### 4.2 follow-ups (queued — surfaced by PR #18 review)
+
+- [ ] **400 response shape changed.** Switching from `safeParse` to `parse` means 400s now return `{ error: "Datos inválidos", issues: ZodIssue[] }` instead of the previous `{ error, details: fieldErrors }`. Slice 7 (admin variants editor) needs field-level messages — either flatten `issues` here into `{ error, fields: Record<string, string[]> }` before responding, or have the client adapt. Pick one before Slice 7 lands.
+- [ ] **Spanish-ize remaining English error strings.** `admin-products.ts` still returns `"Product not found"` on the 404 paths in `GET /products/:id`, `PATCH /products/:id`, `DELETE /products/:id`. Replace with `"Producto no encontrado"` to match the rest of the handler copy. CLAUDE.md is explicit: customer-facing copy is Spanish.
+
 ### 4.3 Verify 409 on duplicate slug
 
 ```
@@ -291,6 +296,11 @@ In the image sub-schema inside `server/src/routes/admin-products.ts`:
   ```
 - [ ] Postman: POST a product with 9 images → 400 with issues array.
 - [ ] Postman: POST with a data URL that's > 500 KB → 400.
+
+#### 4.4 follow-ups (queued — surfaced by PR #18 review)
+
+- [ ] **Tighten the data-URL prefix.** The current refinement matches `data:image/...` (any sub-form) and assumes the comma-delimited tail is base64. Non-base64 data URLs (e.g. URL-encoded SVG: `data:image/svg+xml,<svg...`) match the prefix but the `length * 0.75` byte estimate is wrong. Tighten the check to require `;base64,` before applying the size math, e.g. `value.startsWith("data:image/") && value.includes(";base64,")`. Reject anything else as an unsupported data-URL form.
+- [ ] **Reject `values` on TEXT options at the schema layer.** `variantOptionSchema.superRefine` currently only enforces "SELECT must have values"; it silently accepts `{ type: TEXT, values: ["foo"] }` and `buildVariantsCreate` discards the array. Add a second branch: `if (opt.type === TEXT && opt.values !== undefined) ctx.addIssue(...)`. Failing fast in Zod gives the admin form a clear error instead of a silent strip.
 
 ### 4.5 Admin CRUD smoke test end-to-end
 
