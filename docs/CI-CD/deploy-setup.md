@@ -230,36 +230,36 @@ Because each PR has its own dedicated Fly app, this teardown cannot affect any o
 ## 7. Execution checklist
 
 ### Session 1 — accounts + CI (no deploys yet)
-- [ ] Sign up for Fly.io; install `flyctl`; `flyctl auth login`; capture `FLY_API_TOKEN`.
-- [ ] Sign up for Cloudflare; capture `CLOUDFLARE_ACCOUNT_ID`; create API token → `CLOUDFLARE_API_TOKEN`.
-- [ ] Sign up for Neon; create projects `quarzo-staging` + `quarzo-prod`; capture connection URLs, API key, project IDs.
-- [ ] Generate two `JWT_SECRET` values.
-- [ ] Create `staging` + `production` GitHub Environments.
-- [ ] Add all secrets per §4.
-- [ ] Add `.node-version` file with `22`.
-- [ ] Commit `.github/workflows/ci.yml`.
-- [ ] Enable branch protection on `main` (require CI, require PR, no direct pushes).
-- [ ] Open a throwaway PR → confirm CI is green.
+- [x] Sign up for Fly.io; install `flyctl`; `flyctl auth login`; capture `FLY_API_TOKEN`.
+- [x] Sign up for Cloudflare; capture `CLOUDFLARE_ACCOUNT_ID`; create API token → `CLOUDFLARE_API_TOKEN`.
+- [x] Sign up for Neon; create projects `quarzo-staging` + `quarzo-prod`; capture connection URLs, API key, project IDs.
+- [x] Generate two `JWT_SECRET` values.
+- [x] Create `staging` + `production` GitHub Environments.
+- [x] Add all secrets per §4.
+- [x] Add `.node-version` file with `22`.
+- [x] Commit `.github/workflows/ci.yml`.
+- [x] Enable branch protection on `main` (require CI, require PR, no direct pushes).
+- [x] Open a throwaway PR → confirm CI is green.
 
 ### Session 2 — Dockerfile, Fly/CF apps, deploy workflows
-- [ ] Refactor `server/Dockerfile` per §5.1.
-- [ ] Update `docker-compose.yml` → `api.target: dev`. Run `pnpm dev:rebuild && pnpm dev` → confirm local dev still works.
-- [ ] Add `GET /api/health` per §5.3. Hit `http://localhost:3000/api/health` locally → confirm `{ ok: true }`.
-- [ ] Add `APP_ENV` to Zod env schema (§5.4).
-- [ ] Wire `VITE_API_BASE_URL` in client fetch layer (§5.5).
-- [ ] Add `fly.toml` + `fly.staging.toml` per §5.6.
-- [ ] `flyctl apps create quarzo-api` for production. **Don't pre-create a staging app** — `deploy-staging.yml` now creates one per PR on demand (§6.2). Capture the Fly org slug with `flyctl orgs list` → store as `FLY_ORG_STAGING` secret.
-- [ ] Create two Cloudflare Pages projects (`quarzo` + `quarzo-staging`). In each project's Settings → Builds & deployments, **disable the GitHub auto-build** (we deploy from Actions, not from CF's integration).
-- [ ] Run `prisma migrate deploy` once manually against the prod Neon DB:
+- [x] Refactor `server/Dockerfile` per §5.1.
+- [x] Update `docker-compose.yml` → `api.target: dev`. Run `pnpm dev:rebuild && pnpm dev` → confirm local dev still works.
+- [x] Add `GET /api/health` per §5.3. Hit `http://localhost:3000/api/health` locally → confirm `{ ok: true }`.
+- [x] Add `APP_ENV` to Zod env schema (§5.4).
+- [x] Wire `VITE_API_BASE_URL` in client fetch layer (§5.5).
+- [x] Add `fly.toml` + `fly.staging.toml` per §5.6.
+- [x] `flyctl apps create quarzo-api` for production. **Don't pre-create a staging app** — `deploy-staging.yml` now creates one per PR on demand (§6.2). Capture the Fly org slug with `flyctl orgs list` → store as `FLY_ORG_STAGING` secret.
+- [x] Create two Cloudflare Pages projects (`quarzo` + `quarzo-staging`). In each project's Settings → Builds & deployments, **disable the GitHub auto-build** (we deploy from Actions, not from CF's integration).
+- [x] Run `prisma migrate deploy` once manually against the prod Neon DB:
   ```bash
   DATABASE_URL="<prod-neon-url>" pnpm --filter server exec prisma migrate deploy
   ```
-- [ ] Run `pnpm seed` once manually against prod to create the admin user.
-- [ ] Commit `.github/workflows/deploy-staging.yml`, `deploy-production.yml`, `cleanup-staging.yml`.
-- [ ] Open a dummy PR → watch the full staging pipeline run → open the preview URL posted as a comment → hit `/api/health` on the staging API.
-- [ ] Merge the dummy PR → confirm CI runs on `main` but no deploy triggers.
-- [ ] Actions tab → "Deploy Production" → Run workflow → type `ship` → confirm prod deploys end-to-end.
-- [ ] Close the dummy PR → confirm the Neon `pr-<n>` branch disappears.
+- [x] Run `pnpm seed` once manually against prod to create the admin user.
+- [x] Commit `.github/workflows/deploy-staging.yml`, `deploy-production.yml`, `cleanup-staging.yml`.
+- [x] Open a dummy PR → watch the full staging pipeline run → open the preview URL posted as a comment → hit `/api/health` on the staging API.
+- [x] Merge the dummy PR → confirm CI runs on `main` but no deploy triggers.
+- [x] Actions tab → "Deploy Production" → Run workflow → type `ship` → confirm prod deploys end-to-end.
+- [x] Close the dummy PR → confirm the Neon `pr-<n>` branch disappears.
 
 ### Session 3 (conditional) — custom domain
 Run these only after buying the GoDaddy domain.
