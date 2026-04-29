@@ -1,0 +1,61 @@
+@use "../../styles/tokens" as t;
+
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: t.$space-2;
+}
+
+.dot {
+  width: var(--spinner-dot-size);
+  height: var(--spinner-dot-size);
+  border-radius: 50%;
+  background-color: t.$color-accent;
+  animation: spinner-pulse 1.2s infinite ease-in-out both;
+
+  &:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  &:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+
+.size-sm {
+  --spinner-dot-size: 6px;
+  gap: t.$space-1;
+}
+
+.size-md {
+  --spinner-dot-size: 10px;
+}
+
+.size-lg {
+  --spinner-dot-size: 14px;
+  gap: t.$space-3;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes spinner-pulse {
+  0%, 80%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
