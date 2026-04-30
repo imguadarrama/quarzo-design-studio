@@ -65,8 +65,8 @@ const productSchema = z.object({
   description: z.string().trim().min(1).max(2000),
   category: z.string().trim().min(1).max(80),
   active: z.coerce.boolean().default(true),
-  images: z.array(imageSchema).min(1).max(8, "Máximo 8 imágenes por producto"),
-  variants: z.array(variantSchema).min(1).max(12),
+  images: z.array(imageSchema).max(8, "Máximo 8 imágenes por producto").default([]),
+  variants: z.array(variantSchema).max(12).default([]),
 });
 
 type ProductInput = z.infer<typeof productSchema>;

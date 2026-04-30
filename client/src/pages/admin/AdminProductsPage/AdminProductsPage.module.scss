@@ -12,11 +12,30 @@
 }
 
 .header {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-4;
   margin-bottom: t.$space-8;
+
+  @include m.screen-md {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: t.$space-6;
+  }
+}
+
+.headerText {
+  min-width: 0;
 }
 
 .title {
   margin: 0;
+}
+
+.newButton {
+  align-self: flex-start;
+  white-space: nowrap;
 }
 
 .lede {

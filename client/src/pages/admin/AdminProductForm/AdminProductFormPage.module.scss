@@ -1,0 +1,107 @@
+@use "../../../styles/tokens" as t;
+@use "../../../styles/mixins" as m;
+
+.wrapper {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: t.$space-6 t.$space-4;
+
+  @include m.screen-md {
+    padding: t.$space-8;
+  }
+}
+
+.header {
+  margin-bottom: t.$space-8;
+}
+
+.title {
+  margin: 0;
+}
+
+.lede {
+  color: t.$color-text-muted;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  margin: t.$space-2 0 0;
+  max-width: 36rem;
+}
+
+.form {
+  display: block;
+}
+
+.activeRow {
+  display: flex;
+  align-items: flex-start;
+  gap: t.$space-3;
+  margin: t.$space-2 0 t.$space-6;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: t.$color-ink;
+  flex-shrink: 0;
+
+  &:focus-visible {
+    @include m.focus-ring;
+  }
+}
+
+.activeText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activeLabel {
+  font-family: t.$font-secondary;
+  font-size: 13px;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+}
+
+.activeHint {
+  font-family: t.$font-secondary;
+  font-size: 12px;
+  line-height: 1.3;
+  color: t.$color-text-muted;
+}
+
+.formError {
+  margin-bottom: t.$space-4;
+  padding: t.$space-3 t.$space-4;
+  border-radius: t.$radius-sm;
+  border: 1px solid t.$color-ink;
+  color: t.$color-error;
+  font-family: t.$font-secondary;
+  font-size: 13px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: t.$space-3;
+  margin-top: t.$space-6;
+}
+
+.cancelLink {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  color: t.$color-text-muted;
+  text-decoration: underline;
+  padding: t.$space-2 t.$space-3;
+  border-radius: t.$radius-sm;
+
+  &:hover {
+    color: t.$color-ink;
+  }
+
+  &:focus-visible {
+    @include m.focus-ring;
+  }
+}

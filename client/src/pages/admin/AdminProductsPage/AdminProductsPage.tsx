@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "../../../components/Button/Button";
 import {
   PageEmpty,
   PageError,
@@ -27,11 +29,13 @@ function pickPrimaryImage(
   return images.reduce((a, b) => (b.position < a.position ? b : a));
 }
 
-function priceFrom(variants: AdminProductVariant[]): number {
+function priceFrom(variants: AdminProductVariant[]): number | null {
+  if (variants.length === 0) return null;
   return Math.min(...variants.map((v) => v.price));
 }
 
 export function AdminProductsPage() {
+  const navigate = useNavigate();
   const [products, setProducts] = useState<AdminProduct[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -110,7 +114,10 @@ export function AdminProductsPage() {
                   </td>
                   <td data-label="Categoría">{product.category}</td>
                   <td className={styles.numeric} data-label="Desde">
-                    {currencyFormatter.format(priceFrom(product.variants))}
+                    {(() => {
+                      const min = priceFrom(product.variants);
+                      return min == null ? "—" : currencyFormatter.format(min);
+                    })()}
                   </td>
                   <td className={styles.numeric} data-label="Variantes">
                     {variantCount}
@@ -132,12 +139,21 @@ export function AdminProductsPage() {
   return (
     <section className={styles.wrapper}>
       <header className={styles.header}>
-        <Typography as="h1" size="xxl" className={styles.title}>
-          Productos
-        </Typography>
-        <Typography as="p" className={styles.lede}>
-          {count} {count === 1 ? "producto" : "productos"} en el catálogo.
-        </Typography>
+        <div className={styles.headerText}>
+          <Typography as="h1" size="xxl" className={styles.title}>
+            Productos
+          </Typography>
+          <Typography as="p" className={styles.lede}>
+            {count} {count === 1 ? "producto" : "productos"} en el catálogo.
+          </Typography>
+        </div>
+        <Button
+          size="sm"
+          className={styles.newButton}
+          onClick={() => navigate("/admin/productos/nuevo")}
+        >
+          Nuevo producto
+        </Button>
       </header>
       {body}
     </section>
