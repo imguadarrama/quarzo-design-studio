@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
-import { Button } from "../../../components/Button/Button";
+import { ButtonLink } from "../../../components/Button/ButtonLink.js";
 import {
   PageEmpty,
   PageError,
@@ -35,7 +34,6 @@ function priceFrom(variants: AdminProductVariant[]): number | null {
 }
 
 export function AdminProductsPage() {
-  const navigate = useNavigate();
   const [products, setProducts] = useState<AdminProduct[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +85,7 @@ export function AdminProductsPage() {
             {products.map((product) => {
               const primary = pickPrimaryImage(product.images);
               const variantCount = product.variants.length;
+              const minPrice = priceFrom(product.variants);
               const rowClass = product.active
                 ? styles.row
                 : `${styles.row} ${styles.inactive}`;
@@ -114,10 +113,9 @@ export function AdminProductsPage() {
                   </td>
                   <td data-label="Categoría">{product.category}</td>
                   <td className={styles.numeric} data-label="Desde">
-                    {(() => {
-                      const min = priceFrom(product.variants);
-                      return min == null ? "—" : currencyFormatter.format(min);
-                    })()}
+                    {minPrice == null
+                      ? "—"
+                      : currencyFormatter.format(minPrice)}
                   </td>
                   <td className={styles.numeric} data-label="Variantes">
                     {variantCount}
@@ -147,13 +145,13 @@ export function AdminProductsPage() {
             {count} {count === 1 ? "producto" : "productos"} en el catálogo.
           </Typography>
         </div>
-        <Button
+        <ButtonLink
+          to="/admin/productos/nuevo"
           size="sm"
           className={styles.newButton}
-          onClick={() => navigate("/admin/productos/nuevo")}
         >
           Nuevo producto
-        </Button>
+        </ButtonLink>
       </header>
       {body}
     </section>

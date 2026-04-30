@@ -130,6 +130,11 @@ export function AdminProductFormPage() {
               Si está apagado, el producto queda como borrador (oculto del
               catálogo).
             </span>
+            {errors.active?.message ? (
+              <span className={styles.activeError} role="alert">
+                {errors.active.message}
+              </span>
+            ) : null}
           </span>
         </label>
 

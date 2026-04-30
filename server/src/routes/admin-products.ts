@@ -54,20 +54,38 @@ const imageSchema = z.object({
   alt: z.string().trim().max(160).optional().or(z.literal("")),
 });
 
-const productSchema = z.object({
-  slug: z
-    .string()
-    .trim()
-    .min(3)
-    .max(80)
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must use lowercase letters, numbers, and hyphens"),
-  name: z.string().trim().min(1).max(120),
-  description: z.string().trim().min(1).max(2000),
-  category: z.string().trim().min(1).max(80),
-  active: z.coerce.boolean().default(true),
-  images: z.array(imageSchema).max(8, "Máximo 8 imágenes por producto").default([]),
-  variants: z.array(variantSchema).max(12).default([]),
-});
+const productSchema = z
+  .object({
+    slug: z
+      .string()
+      .trim()
+      .min(3)
+      .max(80)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must use lowercase letters, numbers, and hyphens"),
+    name: z.string().trim().min(1).max(120),
+    description: z.string().trim().min(1).max(2000),
+    category: z.string().trim().min(1).max(80),
+    active: z.coerce.boolean().default(true),
+    images: z.array(imageSchema).max(8, "Máximo 8 imágenes por producto").default([]),
+    variants: z.array(variantSchema).max(12).default([]),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.active) return;
+    if (data.images.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["active"],
+        message: "No se puede publicar sin imágenes",
+      });
+    }
+    if (data.variants.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["active"],
+        message: "No se puede publicar sin variantes",
+      });
+    }
+  });
 
 type ProductInput = z.infer<typeof productSchema>;
 
