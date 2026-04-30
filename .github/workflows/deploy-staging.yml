@@ -85,15 +85,38 @@ jobs:
             NODE_ENV="production"
           flyctl deploy -a ${{ steps.fly.outputs.app }} -c fly.staging.toml --remote-only
 
-      # Same-origin proxy: requests to pr-<N>.<project>.pages.dev/api/*
-      # are rewritten by Cloudflare Pages to the per-PR Fly app. Status 200
-      # makes it a transparent rewrite (not a 30x), so Set-Cookie from Fly
-      # is returned under the Pages hostname and the auth cookie is
+      # Same-origin proxy via a Cloudflare Pages Function: requests to
+      # pr-<N>.<project>.pages.dev/api/* are forwarded at the edge to the
+      # per-PR Fly app, preserving method, headers, and body. Set-Cookie
+      # from Fly flows back under the Pages hostname so the auth cookie is
       # first-party in every browser, including iOS Safari.
-      - name: Generate Cloudflare Pages /api proxy
+      #
+      # Why a Function and not a `_redirects` 200 rewrite: `_redirects`
+      # cannot reverse-proxy POST/PUT/DELETE bodies to an external origin —
+      # the request gets downgraded or the body dropped, which surfaces as
+      # 405 Method Not Allowed at Fly. Long-term this whole step disappears
+      # once we move to a shared-eTLD+1 custom domain — see
+      # docs/tech-roadmap.md Phase 7.
+      - name: Generate Cloudflare Pages /api proxy function
+        env:
+          API_ORIGIN: ${{ steps.fly.outputs.app }}.fly.dev
         run: |
-          echo "/api/* https://${{ steps.fly.outputs.app }}.fly.dev/api/:splat 200" \
-            > client/dist/_redirects
+          mkdir -p 'client/dist/functions/api'
+          cat > 'client/dist/functions/api/[[path]].js' <<EOF
+          export async function onRequest({ request }) {
+            const url = new URL(request.url);
+            const target = "https://${API_ORIGIN}" + url.pathname + url.search;
+            const init = {
+              method: request.method,
+              headers: request.headers,
+              redirect: "manual",
+            };
+            if (request.method !== "GET" && request.method !== "HEAD") {
+              init.body = request.body;
+            }
+            return fetch(target, init);
+          }
+          EOF
 
       - name: Deploy client to Cloudflare Pages (preview)
         uses: cloudflare/pages-action@v1

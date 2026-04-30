@@ -61,14 +61,33 @@ jobs:
             NODE_ENV="production"
           flyctl deploy -a ${{ secrets.FLY_APP_PROD }} -c fly.toml --remote-only
 
-      # Same-origin proxy at the Pages edge: keeps the auth cookie
-      # first-party in every browser (iOS Safari ITP rejects cross-site
-      # SameSite=None cookies). Remove this step once prod moves behind
-      # a shared-eTLD+1 custom domain — see docs/tech-roadmap.md Phase 7.
-      - name: Generate Cloudflare Pages /api proxy
+      # Same-origin proxy at the Pages edge via a Cloudflare Pages Function:
+      # keeps the auth cookie first-party in every browser (iOS Safari ITP
+      # rejects cross-site SameSite=None cookies). The Function preserves
+      # method, headers, and body — `_redirects` 200 rewrites cannot
+      # reverse-proxy POST bodies to an external origin (Fly responds 405).
+      # Remove this step once prod moves behind a shared-eTLD+1 custom
+      # domain — see docs/tech-roadmap.md Phase 7.
+      - name: Generate Cloudflare Pages /api proxy function
+        env:
+          API_ORIGIN: ${{ secrets.FLY_APP_PROD }}.fly.dev
         run: |
-          echo "/api/* https://${{ secrets.FLY_APP_PROD }}.fly.dev/api/:splat 200" \
-            > client/dist/_redirects
+          mkdir -p 'client/dist/functions/api'
+          cat > 'client/dist/functions/api/[[path]].js' <<EOF
+          export async function onRequest({ request }) {
+            const url = new URL(request.url);
+            const target = "https://${API_ORIGIN}" + url.pathname + url.search;
+            const init = {
+              method: request.method,
+              headers: request.headers,
+              redirect: "manual",
+            };
+            if (request.method !== "GET" && request.method !== "HEAD") {
+              init.body = request.body;
+            }
+            return fetch(target, init);
+          }
+          EOF
 
       - name: Deploy client to Cloudflare Pages (prod)
         uses: cloudflare/pages-action@v1
