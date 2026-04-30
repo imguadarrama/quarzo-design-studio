@@ -66,17 +66,15 @@ export function AdminLoginPage() {
     <Card>
       <img src={CircularLogo} alt="Quarzo" className={styles.logo} />
       <div className={styles.titleBlock}>
-        <Typography as="h1" size="xl">Inicio de sesión admin</Typography>
+        <Typography as="h1" size="xl">
+          Inicio de sesión admin
+        </Typography>
         <Typography as="p">Ingresa con tus credenciales</Typography>
       </div>
 
       <form onSubmit={onSubmit} noValidate>
         <FormField label="Email" error={errors.email?.message}>
-          <Input
-            type="email"
-            autoComplete="username"
-            {...register("email")}
-          />
+          <Input type="email" autoComplete="username" {...register("email")} />
         </FormField>
 
         <FormField label="Contraseña" error={errors.password?.message}>

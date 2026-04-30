@@ -11,7 +11,7 @@
   width: var(--spinner-dot-size);
   height: var(--spinner-dot-size);
   border-radius: 50%;
-  background-color: t.$color-accent;
+  background-color: t.$color-surface;
   animation: spinner-pulse 1.2s infinite ease-in-out both;
 
   &:nth-child(2) {

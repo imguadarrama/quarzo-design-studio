@@ -2,20 +2,18 @@
 @use "../../styles/mixins" as m;
 
 .button {
-  width: 100%;
   font-family: t.$font-secondary;
-  font-size: t.$font-size-sm;
   font-weight: t.$weight-medium;
-  color: t.$color-ink;
-  background-color: t.$color-accent-soft;
+  color: t.$color-ink-on-dark;
+  background-color: t.$color-ink;
   border: none;
   border-radius: t.$radius-sm;
-  padding: t.$space-3 t.$space-4;
-  margin-top: t.$space-2;
-  transition: background-color 120ms ease, opacity 120ms ease;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
 
   &:hover:not(:disabled) {
-    background-color: t.$color-accent-soft-90;
+    background-color: t.$color-ink-hover;
   }
 
   &:focus-visible {
@@ -26,4 +24,17 @@
     opacity: 0.6;
     cursor: not-allowed;
   }
+}
+
+.md {
+  width: 100%;
+  margin-top: t.$space-2;
+  padding: t.$space-3 t.$space-4;
+  font-size: t.$font-size-sm;
+}
+
+.sm {
+  width: auto;
+  padding: t.$space-2 t.$space-2;
+  font-size: t.$font-size-xs;
 }

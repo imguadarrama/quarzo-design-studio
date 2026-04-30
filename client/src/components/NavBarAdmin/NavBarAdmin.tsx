@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAdminAuthStore } from "../../store/adminAuth.js";
+import CircularLogo from "../../../assets/circular-logo.png";
 import styles from "./NavBarAdmin.module.scss";
+import { Button } from "../Button/Button.js";
+import { Typography } from "../Typography/Typography.js";
 
 export function NavBarAdmin() {
   const admin = useAdminAuthStore((s) => s.admin);
@@ -22,18 +25,25 @@ export function NavBarAdmin() {
   return (
     <nav className={styles.nav} aria-label="Panel de administración">
       <Link to="/admin/productos" className={styles.brand}>
-        Quarzo · Admin
+        <img src={CircularLogo} className={styles.logo} alt="" loading="lazy" />
+        <Typography
+          as="span"
+          size="md"
+          weight="medium"
+          className={styles.wordmark}
+        >
+          Admin
+        </Typography>
       </Link>
       <div className={styles.right}>
-        {admin ? <span className={styles.email}>{admin.email}</span> : null}
-        <button
-          type="button"
-          className={styles.logout}
-          onClick={handleLogout}
-          disabled={busy}
-        >
+        {admin ? (
+          <Typography as="span" size="xs" className={styles.email}>
+            {admin.email}
+          </Typography>
+        ) : null}
+        <Button type="button" size="sm" onClick={handleLogout} disabled={busy}>
           Cerrar sesión
-        </button>
+        </Button>
       </div>
     </nav>
   );

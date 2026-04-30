@@ -1,9 +1,19 @@
 import type { ButtonHTMLAttributes } from "react";
 import styles from "./Button.module.scss";
 
-type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement>;
+type ButtonSize = "sm" | "md";
 
-export function Button({ className, type = "button", ...rest }: ButtonProps) {
-  const classes = className ? `${styles.button} ${className}` : styles.button;
+type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  size?: ButtonSize;
+};
+
+export function Button({
+  className,
+  size = "md",
+  type = "button",
+  ...rest
+}: ButtonProps) {
+  const base = `${styles.button} ${styles[size]}`;
+  const classes = className ? `${base} ${className}` : base;
   return <button type={type} className={classes} {...rest} />;
 }

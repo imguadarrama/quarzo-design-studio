@@ -23,7 +23,7 @@
   font-family: t.$font-secondary;
   font-size: t.$font-size-sm;
   font-weight: t.$weight-regular;
-  color: t.$color-muted;
+  color: t.$color-text-muted;
   margin: 0 0 t.$space-6;
 }
 
@@ -35,3 +35,7 @@
 .size-lg  { font-size: t.$font-size-lg; }
 .size-xl  { font-size: t.$font-size-xl; }
 .size-xxl { font-size: t.$font-size-xxl; }
+
+.weight-regular { font-weight: t.$weight-regular; }
+.weight-medium  { font-weight: t.$weight-medium; }
+.weight-bold    { font-weight: t.$weight-bold; }
