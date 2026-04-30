@@ -31,13 +31,16 @@
 | Admin auth state | `client/src/store/adminAuth.ts` (zustand) | `admin`, `status: "idle" \| "loading" \| "auth" \| "guest"`, `hydrate / login / logout`. |
 | Admin route guard | `client/src/components/RequireAdmin.tsx` | Hydrates store on first mount, shows `FullPageSpinner` while loading, redirects guests to `/admin/login` (preserves `from` location). |
 | Admin login page | `client/src/pages/admin/AdminLoginPage/` | `react-hook-form` + `@hookform/resolvers/zod`, inline field errors, top-level submit error, loading state on button. Redirects to `/admin/productos`. |
-| Components shipped | `Button`, `Card`, `FullPageSpinner`, `NavBarAdmin`, `NavBarPublic`, `RequireAdmin`, `Typography` | Each is a folder with `<Name>.tsx` + `<Name>.module.scss`. |
-| Stubs intentionally left | `AdminProductsPage` (13-line placeholder), `/catalogo` (`<h1>hello</h1>` placeholder), `NotFoundPage` | Real implementations are slices below. |
+| Components shipped | `Button`, `Card`, `FormField`, `FullPageSpinner`, `Input`, `NavBarAdmin`, `NavBarPublic`, `PageState`, `RequireAdmin`, `Spinner`, `Typography` | Each is a folder with `<Name>.tsx` + `<Name>.module.scss`. |
+| Stubs intentionally left | `NotFoundPage` | Real implementation is a slice below. `PublicLayout` exists as a file but is not yet wired into `App.tsx` — Slice 8 will mount it under `/catalogo`. |
 
 ### 1.2 Slices already merged
 
 - **Slice 0 — Foundation** (PR #15, commit `9c12bc5`) — everything in §1.1 except `Typography`.
 - **Slice 1 — Typography component** (commit `70b23af`) — `Typography` exposes `as` (`h1..h6`, `p`), `size` (`xs..xxl`), `weight`, and `margin` overrides. Used by `AdminLoginPage`.
+- **Slice 2 — Form primitives** (PR #24, commit `7ab4fe1`) — `Input` + `FormField` (label / slot / error / hint) + `FormFieldContext`. `AdminLoginPage` now consumes them; the inline `.field` / `.label` / `.input` / `.fieldError` rules were dropped.
+- **Slice 3 — Page-state feedback helpers** (PR #25, commit `508abd1`) — `PageState` exports `<PageLoading>` / `<PageError onRetry?>` / `<PageEmpty>` from one folder; shared `<Spinner>` shipped as a sibling component.
+- **Slice 4 — Admin product list (read-only)** (PR #26, commit `fa094b5`) — `AdminProductsPage` fetches `/api/admin/products`, renders mobile cards / desktop table via `data-label` + SCSS breakpoints, surfaces loading / error / empty through `<PageState>`. No CRUD yet. Cleanup commit `1f1c017` also removed the `/catalogo` `<h1>hello</h1>` placeholder route from `App.tsx` — `PublicLayout` is no longer wired in until Slice 8.
 
 ### 1.3 What remains
 
@@ -225,7 +228,7 @@ Round out admin CRUD for product *metadata* (still no images / variants). Editin
 - Audit log of changes.
 
 ### Acceptance
-- Edit round-trips name/slug/category/description/basePrice/active.
+- Edit round-trips the product-level fields (name, slug, category, description, active). Pricing lives on `ProductVariant.price` and is edited inside the variants editor in Slice 7 — Slice 6 does not touch it.
 - Delete asks for confirmation, then removes the product server-side and from the list.
 - `pnpm preflight` green.
 
