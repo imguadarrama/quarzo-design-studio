@@ -215,9 +215,9 @@ No backend changes in this phase. Image upload stays base64; server-side payload
 
 - [x] **Slice 0 — Foundation** (PR #15). SCSS tokens (`styles/_tokens.scss`, `_mixins.scss`), Lora + Quicksand via Google Fonts, three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout`), `RequireAdmin` route guard, zustand admin auth store (`store/adminAuth.ts`), `AdminLoginPage` on `react-hook-form` + `zod`, stubs for `AdminProductsPage` / `NotFoundPage` / `/catalogo`, `lib/types.ts` restored.
 - [x] **Slice 1 — Typography component** (commit `70b23af`). `<Typography as size weight margin>` covering `h1..h6` + `p` and `xs..xxl` sizes.
-- [ ] **Slice 2 — Form primitives.** Extract `<Input>` + `<FormField>` (label + slot + error + hint) from the inlined markup in `AdminLoginPage` so the upcoming admin form slices have a real field shape to consume.
-- [ ] **Slice 3 — Page-state feedback helpers.** `<PageLoading>`, `<PageError onRetry?>`, `<PageEmpty>` as a single co-located component file. Optional shared `<Spinner>` if the duplication argues for it.
-- [ ] **Slice 4 — Admin product list (read-only).** Replace the `AdminProductsPage` stub with a fetch + render of `/api/admin/products`. Mobile cards / desktop table via SCSS breakpoints. No CRUD yet.
+- [x] **Slice 2 — Form primitives** (PR #24, commit `7ab4fe1`). Extracted `<Input>` + `<FormField>` (label + slot + error + hint) from the inlined markup in `AdminLoginPage` so the upcoming admin form slices have a real field shape to consume.
+- [x] **Slice 3 — Page-state feedback helpers** (PR #25, commit `508abd1`). `<PageLoading>`, `<PageError onRetry?>`, `<PageEmpty>` as a single co-located component file; shared `<Spinner>` shipped alongside.
+- [x] **Slice 4 — Admin product list (read-only)** (PR #26, commit `fa094b5`). Replaced the `AdminProductsPage` stub with a fetch + render of `/api/admin/products`. Mobile cards / desktop table via `data-label` + SCSS breakpoints. No CRUD yet.
 - [ ] **Slice 5 — Admin product create form.** Dedicated `/admin/productos/nuevo` route. Auto-derived slug, `active=false` default, inline 409 on duplicate slug.
 - [ ] **Slice 6 — Admin product edit + delete.** `/admin/productos/:id/editar` reusing the form, two-click inline delete, hard-delete preserved.
 - [ ] **Slice 7 — Admin product images + variants editor.** `useFieldArray` for both, ≤ 8 images at ≤ 500 KB each, ≥ 1 variant required, sub-components for image and variant editors.

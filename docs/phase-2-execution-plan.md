@@ -272,11 +272,32 @@ Open `server/src/index.ts`:
 ```
 (logged in)
 POST {{baseUrl}}/admin/products
-{ "slug": "sobres-clasicos", "name": "dup", "description": "x", "category": "sobres", "basePrice": "100.00", "active": true, "variants": [{ "name":"a","sku":"TEST-DUP","priceDelta":"0","stock":1 }], "images": [] }
+{
+  "slug": "sobres-clasicos",
+  "name": "dup",
+  "description": "x",
+  "category": "sobres",
+  "active": true,
+  "variants": [
+    {
+      "name": "Con tinta normal",
+      "sku": "TEST-DUP",
+      "price": 200,
+      "options": [
+        { "name": "Texto", "type": "TEXT", "required": true }
+      ]
+    }
+  ],
+  "images": [
+    { "url": "data:image/png;base64,iVBORw0KGgo=", "alt": "placeholder" }
+  ]
+}
 
 → 409 Conflict
 { "error": "Ya existe un registro con ese valor único" }
 ```
+
+> Body shape reflects the 2026-04-28 product-model redesign (no `basePrice`, variants carry `price` + `options`, ≥ 1 image required by Zod). Confirm against the live schema in `server/src/routes/admin-products.ts`.
 
 - [x] 409, not 500.
 
