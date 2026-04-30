@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { ButtonLink } from "../../../components/Button/ButtonLink.js";
 import {
   PageEmpty,
   PageError,
@@ -27,7 +28,8 @@ function pickPrimaryImage(
   return images.reduce((a, b) => (b.position < a.position ? b : a));
 }
 
-function priceFrom(variants: AdminProductVariant[]): number {
+function priceFrom(variants: AdminProductVariant[]): number | null {
+  if (variants.length === 0) return null;
   return Math.min(...variants.map((v) => v.price));
 }
 
@@ -83,6 +85,7 @@ export function AdminProductsPage() {
             {products.map((product) => {
               const primary = pickPrimaryImage(product.images);
               const variantCount = product.variants.length;
+              const minPrice = priceFrom(product.variants);
               const rowClass = product.active
                 ? styles.row
                 : `${styles.row} ${styles.inactive}`;
@@ -110,7 +113,9 @@ export function AdminProductsPage() {
                   </td>
                   <td data-label="Categoría">{product.category}</td>
                   <td className={styles.numeric} data-label="Desde">
-                    {currencyFormatter.format(priceFrom(product.variants))}
+                    {minPrice == null
+                      ? "—"
+                      : currencyFormatter.format(minPrice)}
                   </td>
                   <td className={styles.numeric} data-label="Variantes">
                     {variantCount}
@@ -132,12 +137,21 @@ export function AdminProductsPage() {
   return (
     <section className={styles.wrapper}>
       <header className={styles.header}>
-        <Typography as="h1" size="xxl" className={styles.title}>
-          Productos
-        </Typography>
-        <Typography as="p" className={styles.lede}>
-          {count} {count === 1 ? "producto" : "productos"} en el catálogo.
-        </Typography>
+        <div className={styles.headerText}>
+          <Typography as="h1" size="xxl" className={styles.title}>
+            Productos
+          </Typography>
+          <Typography as="p" className={styles.lede}>
+            {count} {count === 1 ? "producto" : "productos"} en el catálogo.
+          </Typography>
+        </div>
+        <ButtonLink
+          to="/admin/productos/nuevo"
+          size="sm"
+          className={styles.newButton}
+        >
+          Nuevo producto
+        </ButtonLink>
       </header>
       {body}
     </section>

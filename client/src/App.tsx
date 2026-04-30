@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthLayout } from "./layouts/AuthLayout.js";
 import { AdminLayout } from "./layouts/AdminLayout.js";
 import { AdminLoginPage } from "./pages/admin/AdminLoginPage/AdminLoginPage.js";
+import { AdminProductFormPage } from "./pages/admin/AdminProductForm/AdminProductFormPage.js";
 import { AdminProductsPage } from "./pages/admin/AdminProductsPage/AdminProductsPage.js";
 import { NotFoundPage } from "./pages/NotFoundPage/NotFoundPage.js";
 
@@ -15,6 +16,7 @@ export default function App() {
 
         <Route element={<AdminLayout />}>
           <Route path="/admin/productos" element={<AdminProductsPage />} />
+          <Route path="/admin/productos/nuevo" element={<AdminProductFormPage />} />
         </Route>
 
         <Route path="/admin" element={<Navigate to="/admin/productos" replace />} />
