@@ -8,7 +8,7 @@ Quarzo Design Studio is a custom-stationery e-commerce store (Saltillo, Coahuila
 
 The full scope, customer flows, phased plan, and locked product decisions live in `docs/tech-roadmap.md` (the PRD). Read it before making non-trivial changes — it's the source of truth for "what are we building and why." Data-model invariants, architecture, and code conventions live in this file. `docs/client/discovery-with-client.md` has the raw client discovery notes.
 
-As of the current commit: **Phase 2 functional foundation is merged on `main`** — public `/api/products` + catalog and detail pages, admin auth (JWT-in-HTTP-only-cookie), `authenticateAdmin` + `requireAdmin` middleware, admin product CRUD with nested variants + base64 images. **Phase 2.5 is the active phase and pivoted in PR #15**: the original Tailwind frontend was demolished and a new SCSS-modules + design-token foundation was built in its place — three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout`), zustand admin auth store, `<RequireAdmin>` route guard, `AdminLoginPage` on `react-hook-form` + `zod`. Public catalog, public product detail, and the admin product CRUD UI are intentionally stubs and will be rebuilt UX-first as one PR per slice per `docs/phase-2.5-execution-plan.md`. Phase 2 server cleanup (shared serializer, global error handler, image payload caps, 409 on duplicate slug, `passwordHash` response audit) runs in parallel per `docs/phase-2-execution-plan.md`. Phase 3 (cart + guest checkout) is blocked on both and has not started.
+As of the current commit: **Phase 2 functional foundation is merged on `main`** — public `/api/products` + admin auth (JWT-in-HTTP-only-cookie), `authenticateAdmin` + `requireAdmin` middleware, admin product CRUD endpoints with nested variants + base64 images, and the parallel Phase 2 server cleanup (shared serializer, global error handler, image payload caps, 409 on duplicate slug, `passwordHash` response audit) per `docs/phase-2-execution-plan.md`. **Phase 2.5 is the active phase and pivoted in PR #15**: the original Tailwind frontend was demolished and a new SCSS-modules + design-token foundation was built in its place — three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout` — `PublicLayout` exists but is not yet wired into `App.tsx` until Slice 8), zustand admin auth store, `<RequireAdmin>` route guard, `AdminLoginPage` on `react-hook-form` + `zod`. Slices 0–4 have shipped: foundation (PR #15), `Typography` (commit `70b23af`), form primitives `Input` + `FormField` (PR #24), page-state helpers `PageLoading` / `PageError` / `PageEmpty` + shared `Spinner` (PR #25), and the read-only admin product list at `/admin/productos` (PR #26). The admin create/edit/delete form (Slices 5–7) and public catalog + product detail (Slices 8–9) are still stubs and will be rebuilt UX-first as one PR per slice per `docs/phase-2.5-execution-plan.md`. Phase 3 (cart + guest checkout) is blocked on Phase 2.5 and has not started.
 
 ## Common commands
 
@@ -130,24 +130,25 @@ Current layout (folders / files land when their first occupant does — many are
 
 ```
 client/src/
-  App.tsx                    BrowserRouter + 3 layouts + 404
+  App.tsx                    BrowserRouter + AuthLayout + AdminLayout + 404
+                             (PublicLayout defined but unwired until Slice 8)
   index.scss                 global reset; reads CSS custom properties
   styles/
     _tokens.scss             SCSS vars + semantic aliases + :root custom properties
     _mixins.scss             focus-ring, screen-md, screen-lg
   layouts/
-    PublicLayout.tsx         public navbar + Outlet (Slice 8/9 will land routes here)
+    PublicLayout.tsx         public navbar + Outlet (Slice 8/9 will mount routes under it)
     AuthLayout.tsx           bare centered shell (login)
     AdminLayout.tsx          admin navbar + Outlet, internally wraps in RequireAdmin
   components/
-    Button/  Card/  FullPageSpinner/  NavBarPublic/  NavBarAdmin/  Typography/
+    Button/  Card/  FormField/  FullPageSpinner/  Input/  NavBarAdmin/  NavBarPublic/
+    PageState/  Spinner/  Typography/
     RequireAdmin.tsx
-    (Slice 2 → Input/, FormField/; Slice 3 → PageState/; Slice 8 → ProductCard/;
-     Slice 9 → VariantSelector/, PersonalizationInput/)
+    (Slice 8 → ProductCard/; Slice 9 → VariantSelector/, PersonalizationInput/)
   pages/
     NotFoundPage/
     admin/AdminLoginPage/    react-hook-form + zod
-    admin/AdminProductsPage/ stub — Slice 4 rebuilds it
+    admin/AdminProductsPage/ read-only list (Slice 4) — fetch + table/cards via PageState
     (Slice 5–7 → admin/AdminProductForm/; Slice 8 → CatalogPage/;
      Slice 9 → ProductDetailPage/)
   store/

@@ -228,7 +228,7 @@ Round out admin CRUD for product *metadata* (still no images / variants). Editin
 - Audit log of changes.
 
 ### Acceptance
-- Edit round-trips name/slug/category/description/basePrice/active.
+- Edit round-trips the product-level fields (name, slug, category, description, active). Pricing lives on `ProductVariant.price` and is edited inside the variants editor in Slice 7 — Slice 6 does not touch it.
 - Delete asks for confirmation, then removes the product server-side and from the list.
 - `pnpm preflight` green.
 
