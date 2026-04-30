@@ -31,7 +31,13 @@ jobs:
       - name: Build, typecheck, and smoke-test image
         uses: ./.github/actions/build-and-check
         with:
-          vite-api-base-url: https://${{ secrets.FLY_APP_PROD }}.fly.dev
+          # Empty so the client bundle issues relative `/api/...` requests.
+          # Cloudflare Pages proxies `/api/*` to the prod Fly app via the
+          # _redirects file written below. Once prod moves to a custom
+          # domain (`api.quarzo.shop`) sharing eTLD+1 with the frontend,
+          # set this to that absolute URL and delete the proxy step —
+          # see docs/tech-roadmap.md Phase 7.
+          vite-api-base-url: ""
 
       - name: Migrate production DB
         env:
@@ -54,6 +60,15 @@ jobs:
             APP_ENV="production" \
             NODE_ENV="production"
           flyctl deploy -a ${{ secrets.FLY_APP_PROD }} -c fly.toml --remote-only
+
+      # Same-origin proxy at the Pages edge: keeps the auth cookie
+      # first-party in every browser (iOS Safari ITP rejects cross-site
+      # SameSite=None cookies). Remove this step once prod moves behind
+      # a shared-eTLD+1 custom domain — see docs/tech-roadmap.md Phase 7.
+      - name: Generate Cloudflare Pages /api proxy
+        run: |
+          echo "/api/* https://${{ secrets.FLY_APP_PROD }}.fly.dev/api/:splat 200" \
+            > client/dist/_redirects
 
       - name: Deploy client to Cloudflare Pages (prod)
         uses: cloudflare/pages-action@v1
