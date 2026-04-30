@@ -5,56 +5,47 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 t.$space-4;
   height: 64px;
-  font-family: t.$font-secondary;
+  padding: 0 t.$space-4;
+  background-color: t.$color-bg;
+
+  @include m.screen-md {
+    padding: 0 t.$space-8;
+  }
 }
 
 .brand {
-  font-family: t.$font-primary;
-  font-size: 20px;
-  font-weight: t.$weight-bold;
+  display: inline-flex;
+  align-items: center;
+  gap: t.$space-3;
   color: t.$color-ink;
 }
 
+.logo {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+}
+
+.wordmark {
+  font-family: t.$font-primary;
+  color: t.$color-ink;
+  letter-spacing: 0.02em;
+}
+
 .right {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: t.$space-4;
 }
 
 .email {
-  font-size: 13px;
-  color: t.$color-muted;
-}
+  display: none;
+  font-family: t.$font-secondary;
+  color: t.$color-text-muted;
 
-.logout {
-  border: 1px solid t.$color-border;
-  background: transparent;
-  color: t.$color-ink;
-  font-size: 13px;
-  font-weight: t.$weight-medium;
-  padding: t.$space-2 t.$space-4;
-  border-radius: t.$radius-sm;
-  transition: background-color 120ms ease, border-color 120ms ease;
-
-  &:hover:not(:disabled) {
-    background-color: t.$color-accent-soft;
-    border-color: t.$color-accent;
-  }
-
-  &:focus-visible {
-    @include m.focus-ring;
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-@media (min-width: t.$bp-md) {
-  .nav {
-    padding: 0 t.$space-8;
+  @include m.screen-md {
+    display: inline;
   }
 }

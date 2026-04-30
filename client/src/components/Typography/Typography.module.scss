@@ -23,9 +23,14 @@
   font-family: t.$font-secondary;
   font-size: t.$font-size-sm;
   font-weight: t.$weight-regular;
-  color: t.$color-muted;
+  color: t.$color-text-muted;
   margin: 0 0 t.$space-6;
 }
+
+// `as="span"` intentionally has no base rule — spans inherit font/color from
+// their parent context. Consumers compose styling via `size` / `weight` /
+// `className`. `styles[as]` resolves to undefined and is dropped from the
+// className list in Typography.tsx.
 
 // Size overrides — declared after the defaults so they win the cascade
 // at equal specificity regardless of class order in the className string.
@@ -35,3 +40,7 @@
 .size-lg  { font-size: t.$font-size-lg; }
 .size-xl  { font-size: t.$font-size-xl; }
 .size-xxl { font-size: t.$font-size-xxl; }
+
+.weight-regular { font-weight: t.$weight-regular; }
+.weight-medium  { font-weight: t.$weight-medium; }
+.weight-bold    { font-weight: t.$weight-bold; }

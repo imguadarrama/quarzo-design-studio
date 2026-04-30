@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import CircularLogo from "../../../../assets/circular-logo.png";
+import CircularLogo from "../../../assets/circular-logo.png";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
@@ -66,17 +66,15 @@ export function AdminLoginPage() {
     <Card>
       <img src={CircularLogo} alt="Quarzo" className={styles.logo} />
       <div className={styles.titleBlock}>
-        <Typography as="h1" size="xl">Inicio de sesión admin</Typography>
+        <Typography as="h1" size="xl">
+          Inicio de sesión admin
+        </Typography>
         <Typography as="p">Ingresa con tus credenciales</Typography>
       </div>
 
       <form onSubmit={onSubmit} noValidate>
         <FormField label="Email" error={errors.email?.message}>
-          <Input
-            type="email"
-            autoComplete="username"
-            {...register("email")}
-          />
+          <Input type="email" autoComplete="username" {...register("email")} />
         </FormField>
 
         <FormField label="Contraseña" error={errors.password?.message}>

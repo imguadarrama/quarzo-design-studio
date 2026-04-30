@@ -20,7 +20,7 @@
 .subtitle {
   font-family: t.$font-secondary;
   font-size: 16px;
-  color: t.$color-muted;
+  color: t.$color-text-muted;
   margin: 0 0 t.$space-6;
 }
 
@@ -28,7 +28,7 @@
   font-family: t.$font-secondary;
   font-size: 14px;
   font-weight: t.$weight-medium;
-  color: t.$color-accent;
+  color: t.$color-ink;
 
   &:hover {
     text-decoration: underline;

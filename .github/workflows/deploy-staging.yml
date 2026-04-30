@@ -43,7 +43,12 @@ jobs:
       - name: Build, typecheck, and smoke-test image
         uses: ./.github/actions/build-and-check
         with:
-          vite-api-base-url: https://${{ steps.fly.outputs.app }}.fly.dev
+          # Empty so the client bundle issues relative `/api/...` requests.
+          # Cloudflare Pages then proxies `/api/*` to the per-PR Fly app via
+          # the _redirects file written below — keeping the browser on a
+          # single origin so the auth cookie stays first-party (Safari ITP
+          # rejects cross-site SameSite=None cookies).
+          vite-api-base-url: ""
 
       - name: Run migrations on PR branch
         env:
@@ -79,6 +84,11 @@ jobs:
             APP_ENV="staging" \
             NODE_ENV="production"
           flyctl deploy -a ${{ steps.fly.outputs.app }} -c fly.staging.toml --remote-only
+
+      - name: Generate Cloudflare Pages _worker.js (api proxy + SPA fallback)
+        uses: ./.github/actions/cf-pages-api-proxy
+        with:
+          api-origin: ${{ steps.fly.outputs.app }}.fly.dev
 
       - name: Deploy client to Cloudflare Pages (preview)
         uses: cloudflare/pages-action@v1

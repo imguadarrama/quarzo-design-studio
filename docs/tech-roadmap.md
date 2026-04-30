@@ -260,6 +260,19 @@ Exit criteria: every slice merged; `pnpm preflight:full` green; browser smoke co
 Prod has been live since Phase 1.5; this phase turns the live URL into the launched site. Pre-launch sizing, monitoring wiring, and the handoff ceremony. Deploy plumbing details live in [`CI-CD/deploy-setup.md`](CI-CD/deploy-setup.md) §11.
 - [ ] Bump prod VM from 256 MB → 512 MB (rationale + steps: `deploy-setup.md` §1)
 - [ ] Custom domain + SSL (`deploy-setup.md` §7)
+  - **Why this is its own checklist item, not just DNS:** today both staging and prod live on `*.pages.dev` (frontend) ↔ `*.fly.dev` (API) — two unrelated eTLD+1s. To make cookie-based auth survive iOS Safari's ITP, deploy currently runs a Cloudflare Pages `_redirects` proxy (`/api/*` → Fly) so the browser sees one origin. A real shared-parent domain replaces that proxy with proper subdomains, which is the textbook setup.
+  - Buy domain (e.g. `quarzo.shop`) and configure DNS:
+    - `app.quarzo.shop` → Cloudflare Pages (prod project, custom domain binding)
+    - `api.quarzo.shop` → Fly prod app (`flyctl certs add api.quarzo.shop -a $FLY_APP_PROD`)
+  - Update Fly prod secrets (run via `flyctl secrets set` or update `deploy-production.yml`):
+    - `CLIENT_ORIGIN=https://app.quarzo.shop`
+    - `COOKIE_DOMAIN=.quarzo.shop` (leading dot — scopes the cookie to all subdomains under `quarzo.shop`)
+  - Update `.github/workflows/deploy-production.yml`:
+    - Set `vite-api-base-url: https://api.quarzo.shop` (absolute URL is fine now — same eTLD+1)
+    - **Delete** the `Generate Cloudflare Pages /api proxy` step — the cookie is now same-site by domain, so the proxy is no longer needed
+  - Optional: tighten `server/src/auth/cookies.ts` from `sameSite: "none"` to `sameSite: "lax"` for prod once both hosts share `.quarzo.shop`. Not required — `None; Secure` keeps working same-site too.
+  - **Staging stays on the `_redirects` proxy.** PR previews live on `*.pages.dev` ↔ `*.fly.dev` and have no shared parent — don't try to wire the custom domain through staging.
+  - **Regression test before checking this off:** log in to `/admin/login` on iPhone Safari (the original ITP failure mode was `Algo salio mal — Admin authentication required` after login). If that no longer fires, the migration succeeded.
 - [ ] Seed production admin user (if not already done in Phase 1.5)
 - [ ] Fly.io dashboard alerts (`deploy-setup.md` §11.2)
 - [ ] UptimeRobot 5-min external ping on prod `/api/health`

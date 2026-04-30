@@ -1,20 +1,185 @@
 @use "../../../styles/tokens" as t;
+@use "../../../styles/mixins" as m;
 
 .wrapper {
-  max-width: 960px;
+  max-width: 72rem;
   margin: 0 auto;
+  padding: t.$space-6 t.$space-4;
+
+  @include m.screen-md {
+    padding: t.$space-8;
+  }
+}
+
+.header {
+  margin-bottom: t.$space-8;
 }
 
 .title {
-  font-family: t.$font-primary;
-  font-size: 28px;
-  font-weight: t.$weight-bold;
-  margin: 0 0 t.$space-3;
+  margin: 0;
 }
 
-.note {
+.lede {
+  color: t.$color-text-muted;
   font-family: t.$font-secondary;
-  color: t.$color-muted;
-  font-size: 14px;
-  margin: 0;
+  font-size: t.$font-size-sm;
+  margin: t.$space-2 0 0;
+}
+
+.tableWrap {
+  width: 100%;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  color: t.$color-ink;
+
+  thead th {
+    text-align: left;
+    background-color: t.$color-surface;
+    color: t.$color-text-muted;
+    font-family: t.$font-secondary;
+    font-size: t.$font-size-xs;
+    font-weight: t.$weight-medium;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: t.$space-3 t.$space-4;
+    border-bottom: 1px solid t.$color-line;
+  }
+
+  tbody td {
+    padding: t.$space-4;
+    border-bottom: 1px solid t.$color-line;
+    vertical-align: middle;
+  }
+
+  tbody tr {
+    transition: background-color 120ms ease;
+  }
+
+  tbody tr:hover {
+    background-color: t.$color-surface;
+  }
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row.inactive {
+  opacity: 0.55;
+}
+
+.thumbCell {
+  width: 72px;
+}
+
+.thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: t.$radius-sm;
+  overflow: hidden;
+  background-color: t.$color-surface;
+}
+
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumbFallback {
+  width: 100%;
+  height: 100%;
+  background-color: t.$color-surface;
+}
+
+.productCell {
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  font-family: t.$font-primary;
+  font-weight: t.$weight-medium;
+  font-size: t.$font-size-md;
+  color: t.$color-ink;
+}
+
+.slug {
+  display: block;
+  margin-top: 2px;
+  color: t.$color-text-muted;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xs;
+}
+
+// Mobile: collapse to stacked rows on the same semantic <table>.
+@include m.screen-below-md {
+  .table {
+    thead {
+      display: none;
+    }
+
+    tbody,
+    tbody tr,
+    tbody td {
+      display: block;
+      width: 100%;
+    }
+
+    tbody tr {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      column-gap: t.$space-4;
+      row-gap: t.$space-2;
+      padding: t.$space-4 0;
+      border-bottom: 1px solid t.$color-line;
+    }
+
+    tbody tr:hover {
+      background-color: transparent;
+    }
+
+    tbody td {
+      padding: 0;
+      border-bottom: none;
+    }
+
+    .thumbCell {
+      grid-row: 1 / span 4;
+      grid-column: 1;
+      width: auto;
+    }
+
+    .productCell {
+      grid-column: 2;
+    }
+
+    tbody td:not(.thumbCell):not(.productCell) {
+      grid-column: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: t.$font-size-sm;
+    }
+
+    tbody td:not(.thumbCell):not(.productCell)::before {
+      content: attr(data-label);
+      color: t.$color-text-muted;
+      font-family: t.$font-secondary;
+      font-size: t.$font-size-xs;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .numeric {
+      text-align: right;
+    }
+  }
 }
