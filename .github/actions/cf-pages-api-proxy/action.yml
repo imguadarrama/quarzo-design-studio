@@ -1,0 +1,61 @@
+name: "Cloudflare Pages API proxy"
+description: >
+  Generates a `_worker.js` (Cloudflare Pages advanced mode) inside `client/dist`
+  that reverse-proxies `/api/*` to the given Fly origin and falls back to static
+  assets / SPA `index.html` for everything else. This keeps the auth cookie
+  first-party in every browser, including iOS Safari (ITP rejects cross-site
+  SameSite=None cookies).
+
+  Why _worker.js and not `functions/[[path]].js`: the wrangler-based direct
+  upload (`cloudflare/pages-action@v1`) does not bundle a `functions/` directory
+  placed inside the upload dir, so the route never registers and `/api/*` falls
+  through to static-asset serving (POST → 405; GET → SPA NotFound). `_worker.js`
+  at the root of the uploaded `dist` is Cloudflare's documented "advanced mode"
+  and is picked up unconditionally.
+
+  Why not `_redirects` 200: it cannot reverse-proxy POST/PUT/DELETE bodies to an
+  external origin — the body gets dropped or the method downgraded, which
+  surfaces as 405 at Fly.
+
+  This whole action disappears once prod moves behind a shared-eTLD+1 custom
+  domain — see docs/tech-roadmap.md Phase 7.
+
+inputs:
+  api-origin:
+    description: "Hostname of the Fly API app (no scheme), e.g. quarzo-pr-12.fly.dev"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Generate client/dist/_worker.js
+      shell: bash
+      env:
+        API_ORIGIN: ${{ inputs.api-origin }}
+      run: |
+        cat > 'client/dist/_worker.js' <<EOF
+        export default {
+          async fetch(request, env) {
+            const url = new URL(request.url);
+
+            if (url.pathname.startsWith("/api/")) {
+              const target = "https://${API_ORIGIN}" + url.pathname + url.search;
+              const init = {
+                method: request.method,
+                headers: request.headers,
+                redirect: "manual",
+              };
+              if (request.method !== "GET" && request.method !== "HEAD") {
+                init.body = request.body;
+              }
+              return fetch(target, init);
+            }
+
+            const assetResponse = await env.ASSETS.fetch(request);
+            if (assetResponse.status !== 404) return assetResponse;
+
+            const indexUrl = new URL("/index.html", url.origin);
+            return env.ASSETS.fetch(new Request(indexUrl, request));
+          },
+        };
+        EOF

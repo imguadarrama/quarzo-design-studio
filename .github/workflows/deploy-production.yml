@@ -61,47 +61,10 @@ jobs:
             NODE_ENV="production"
           flyctl deploy -a ${{ secrets.FLY_APP_PROD }} -c fly.toml --remote-only
 
-      # Same-origin proxy at the Pages edge via a Cloudflare Pages Worker
-      # (advanced mode): keeps the auth cookie first-party in every browser
-      # (iOS Safari ITP rejects cross-site SameSite=None cookies). The
-      # Worker preserves method, headers, and body — `_redirects` 200 rewrites
-      # cannot reverse-proxy POST bodies to an external origin (405), and a
-      # `functions/` directory placed inside the upload dir is not picked up
-      # by the wrangler direct-upload path used by `pages-action@v1`.
-      # `_worker.js` at the root of the uploaded `dist` is Cloudflare's
-      # documented "advanced mode" and is picked up unconditionally.
-      # Remove this step once prod moves behind a shared-eTLD+1 custom
-      # domain — see docs/tech-roadmap.md Phase 7.
       - name: Generate Cloudflare Pages _worker.js (api proxy + SPA fallback)
-        env:
-          API_ORIGIN: ${{ secrets.FLY_APP_PROD }}.fly.dev
-        run: |
-          cat > 'client/dist/_worker.js' <<EOF
-          export default {
-            async fetch(request, env) {
-              const url = new URL(request.url);
-
-              if (url.pathname.startsWith("/api/")) {
-                const target = "https://${API_ORIGIN}" + url.pathname + url.search;
-                const init = {
-                  method: request.method,
-                  headers: request.headers,
-                  redirect: "manual",
-                };
-                if (request.method !== "GET" && request.method !== "HEAD") {
-                  init.body = request.body;
-                }
-                return fetch(target, init);
-              }
-
-              const assetResponse = await env.ASSETS.fetch(request);
-              if (assetResponse.status !== 404) return assetResponse;
-
-              const indexUrl = new URL("/index.html", url.origin);
-              return env.ASSETS.fetch(new Request(indexUrl, request));
-            },
-          };
-          EOF
+        uses: ./.github/actions/cf-pages-api-proxy
+        with:
+          api-origin: ${{ secrets.FLY_APP_PROD }}.fly.dev
 
       - name: Deploy client to Cloudflare Pages (prod)
         uses: cloudflare/pages-action@v1

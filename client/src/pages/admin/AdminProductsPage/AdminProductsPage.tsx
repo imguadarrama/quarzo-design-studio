@@ -24,33 +24,24 @@ function pickPrimaryImage(
   images: AdminProductImage[],
 ): AdminProductImage | null {
   if (images.length === 0) return null;
-  return [...images].sort((a, b) => a.position - b.position)[0] ?? null;
+  return images.reduce((a, b) => (b.position < a.position ? b : a));
 }
 
-function priceFrom(variants: AdminProductVariant[]): number | null {
-  if (variants.length === 0) return null;
+function priceFrom(variants: AdminProductVariant[]): number {
   return Math.min(...variants.map((v) => v.price));
-}
-
-function formatPriceFrom(value: number | null): string {
-  return value != null ? currencyFormatter.format(value) : "—";
 }
 
 export function AdminProductsPage() {
   const [products, setProducts] = useState<AdminProduct[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
     setError(null);
     try {
       const next = await fetchAdminProducts();
       setProducts(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido");
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -61,8 +52,6 @@ export function AdminProductsPage() {
   let body: ReactNode;
   if (error) {
     body = <PageError message={error} onRetry={load} />;
-  } else if (loading && !products) {
-    body = <PageLoading />;
   } else if (products == null) {
     body = <PageLoading />;
   } else if (products.length === 0) {
@@ -93,7 +82,6 @@ export function AdminProductsPage() {
           <tbody>
             {products.map((product) => {
               const primary = pickPrimaryImage(product.images);
-              const from = priceFrom(product.variants);
               const variantCount = product.variants.length;
               const rowClass = product.active
                 ? styles.row
@@ -122,7 +110,7 @@ export function AdminProductsPage() {
                   </td>
                   <td data-label="Categoría">{product.category}</td>
                   <td className={styles.numeric} data-label="Desde">
-                    {formatPriceFrom(from)}
+                    {currencyFormatter.format(priceFrom(product.variants))}
                   </td>
                   <td className={styles.numeric} data-label="Variantes">
                     {variantCount}

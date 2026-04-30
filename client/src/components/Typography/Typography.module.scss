@@ -27,6 +27,11 @@
   margin: 0 0 t.$space-6;
 }
 
+// `as="span"` intentionally has no base rule — spans inherit font/color from
+// their parent context. Consumers compose styling via `size` / `weight` /
+// `className`. `styles[as]` resolves to undefined and is dropped from the
+// className list in Typography.tsx.
+
 // Size overrides — declared after the defaults so they win the cascade
 // at equal specificity regardless of class order in the className string.
 .size-xs  { font-size: t.$font-size-xs; }

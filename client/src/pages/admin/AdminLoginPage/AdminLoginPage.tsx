@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import CircularLogo from "../../../../assets/circular-logo.png";
+import CircularLogo from "../../../assets/circular-logo.png";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
