@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { prisma } from "../db/prisma.js";
 import { productInclude, serializeProductPublic } from "../lib/serializers.js";
+import { NotFoundError } from "../lib/errors.js";
 
 export const productsRouter = Router();
 
@@ -30,10 +31,7 @@ productsRouter.get("/products/:slug", async (req, res, next) => {
       include: productInclude,
     });
 
-    if (!product) {
-      res.status(404).json({ error: "Product not found" });
-      return;
-    }
+    if (!product) throw new NotFoundError("Product not found");
 
     res.json({
       product: serializeProductPublic(product),

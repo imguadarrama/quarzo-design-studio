@@ -1,4 +1,5 @@
 @use "../styles/tokens" as t;
+@use "../styles/mixins" as m;
 
 .shell {
   display: flex;
@@ -7,9 +8,7 @@
 }
 
 .header {
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  @include m.sticky-header;
   background-color: t.$color-bg;
   border-bottom: 1px solid t.$color-line;
 }

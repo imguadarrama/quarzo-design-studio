@@ -1,24 +1,8 @@
-import { apiFetch } from "./client";
+import { fetchJson } from "./fetchJson";
 import type { Product } from "../../lib/types";
 
-export async function fetchProducts(): Promise<Product[]> {
-  const response = await apiFetch("/api/products");
+export const fetchProducts = () =>
+  fetchJson<{ products: Product[] }>("/api/products").then((d) => d.products);
 
-  if (!response.ok) {
-    throw new Error("No se pudo cargar el catálogo");
-  }
-
-  const data = (await response.json()) as { products: Product[] };
-  return data.products;
-}
-
-export async function fetchProductBySlug(slug: string): Promise<Product> {
-  const response = await apiFetch(`/api/products/${slug}`);
-
-  if (!response.ok) {
-    throw new Error(response.status === 404 ? "Producto no encontrado" : "No se pudo cargar el producto");
-  }
-
-  const data = (await response.json()) as { product: Product };
-  return data.product;
-}
+export const fetchProductBySlug = (slug: string) =>
+  fetchJson<{ product: Product }>(`/api/products/${slug}`).then((d) => d.product);

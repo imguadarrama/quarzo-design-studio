@@ -22,3 +22,25 @@
     @content;
   }
 }
+
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+@mixin form-error-banner {
+  margin-bottom: t.$space-4;
+  padding: t.$space-3 t.$space-4;
+  border-radius: t.$radius-sm;
+  border: 1px solid t.$color-ink;
+  color: t.$color-error;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+}
