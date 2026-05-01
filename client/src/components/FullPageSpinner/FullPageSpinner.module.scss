@@ -1,9 +1,8 @@
 @use "../../styles/tokens" as t;
+@use "../../styles/mixins" as m;
 
 .wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  @include m.flex-center;
   min-height: 100svh;
   background-color: t.$color-bg;
 }

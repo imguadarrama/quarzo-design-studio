@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import CircularLogo from "../../../assets/circular-logo.png";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,6 +11,7 @@ import { Button } from "../../../components/Button/Button.js";
 import { FullPageSpinner } from "../../../components/FullPageSpinner/FullPageSpinner.js";
 import { FormField } from "../../../components/FormField/FormField.js";
 import { Input } from "../../../components/Input/Input.js";
+import { useFormSubmit } from "../../../hooks/useFormSubmit.js";
 import styles from "./AdminLoginPage.module.scss";
 
 const schema = z.object({
@@ -25,7 +26,6 @@ export function AdminLoginPage() {
   const hydrate = useAdminAuthStore((s) => s.hydrate);
   const login = useAdminAuthStore((s) => s.login);
   const navigate = useNavigate();
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "idle") {
@@ -42,17 +42,12 @@ export function AdminLoginPage() {
     defaultValues: { email: "", password: "" },
   });
 
-  const onSubmit = handleSubmit(async (values) => {
-    setSubmitError(null);
-    try {
-      await login(values.email, values.password);
-      navigate("/admin/productos", { replace: true });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Ocurrió un error inesperado";
-      setSubmitError(message);
-    }
+  const { submit, submitError } = useFormSubmit<FormValues>(async (values) => {
+    await login(values.email, values.password);
+    navigate("/admin/productos", { replace: true });
   });
+
+  const onSubmit = handleSubmit(submit);
 
   if (status === "idle" || status === "loading") {
     return <FullPageSpinner />;

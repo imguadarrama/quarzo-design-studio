@@ -1,36 +1,35 @@
 @use "../../styles/tokens" as t;
+@use "../../styles/mixins" as m;
 
 .wrapper {
-  display: flex;
+  @include m.flex-center;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
   min-height: 100svh;
   padding: t.$space-6;
   text-align: center;
 }
 
-.title {
+.errorCode {
   font-family: t.$font-primary;
-  font-size: 64px;
+  font-size: t.$font-size-display;
   margin: 0 0 t.$space-2;
   color: t.$color-ink;
 }
 
 .subtitle {
   font-family: t.$font-secondary;
-  font-size: 16px;
+  font-size: t.$font-size-sm;
   color: t.$color-text-muted;
   margin: 0 0 t.$space-6;
 }
 
 .link {
   font-family: t.$font-secondary;
-  font-size: 14px;
+  font-size: t.$font-size-xs;
   font-weight: t.$weight-medium;
   color: t.$color-ink;
+}
 
-  &:hover {
-    text-decoration: underline;
-  }
+.link:hover {
+  text-decoration: underline;
 }

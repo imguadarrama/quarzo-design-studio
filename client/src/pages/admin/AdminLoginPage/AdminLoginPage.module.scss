@@ -19,11 +19,5 @@
 }
 
 .formError {
-  margin-bottom: t.$space-4;
-  padding: t.$space-3 t.$space-4;
-  border-radius: t.$radius-sm;
-  border: 1px solid t.$color-ink;
-  color: t.$color-error;
-  font-family: t.$font-secondary;
-  font-size: 13px;
+  @include m.form-error-banner;
 }

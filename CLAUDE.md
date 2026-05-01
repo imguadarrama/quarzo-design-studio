@@ -135,7 +135,7 @@ client/src/
   index.scss                 global reset; reads CSS custom properties
   styles/
     _tokens.scss             SCSS vars + semantic aliases + :root custom properties
-    _mixins.scss             focus-ring, screen-md, screen-lg
+    _mixins.scss             focus-ring, screen-md/lg/below-md, flex-center, sticky-header, form-error-banner
   layouts/
     PublicLayout.tsx         public navbar + Outlet (Slice 8/9 will mount routes under it)
     AuthLayout.tsx           bare centered shell (login)
@@ -154,7 +154,9 @@ client/src/
   store/
     adminAuth.ts             zustand: admin / status / hydrate / login / logout
   services/
-    api/{client.ts, admin.ts, products.ts}
+    api/{client.ts, fetchJson.ts, admin.ts, products.ts}
+  hooks/
+    useFormSubmit.ts         wraps async submit handlers with submitError state
   lib/
     types.ts                 mirrors server response shapes
 ```
@@ -175,6 +177,45 @@ All customer-facing copy is Spanish (Mexico). No i18n layer for v1.
 - Validate every request body with Zod. Validate env with Zod at boot.
 - Never store JWTs in `localStorage`. Never force registration before checkout. Never bypass the `requireAdmin` middleware for `/api/admin/*`.
 - Don't run `prisma migrate` or `prisma generate` on the host — use `pnpm migrate` (which shells into the `api` container) so the generated client matches the container's Node/OpenSSL.
+
+## Code style and architecture
+
+These rules are enforceable in code review. Cite them by name when pushing back on a PR.
+
+**Principles.** SOLID / KISS / DRY. Default to one-shape-one-place. Bias toward extraction on the *second* duplicate, not the first — if a pattern only exists once, leaving it inline is correct. Three near-identical lines side-by-side are better than a premature abstraction that has to bend to fit each caller.
+
+**Comments.** Only when the *why* is non-obvious — a hidden constraint, a subtle invariant, a workaround for a specific bug. Don't explain *what* the code does (well-named identifiers do that). Don't write reference-comments like "used by X" or "added for Y flow" — that belongs in the PR description and rots fast. No multi-paragraph docstrings.
+
+**Client — when to extract a hook.** Extract when at least two consumers want the same `useState` + `useEffect` shape, or the same async-submit-with-error pattern. Hooks live under `client/src/hooks/`. Examples: `useFormSubmit` (form submit + submitError state) wraps the try/catch each form page would otherwise repeat. Don't pre-extract for one consumer — wait for the second use.
+
+**Client — service layer.** All HTTP goes through `services/api/fetchJson.ts` (which wraps `apiFetch` for the cookie + base URL). `fetchJson<T>` throws `ApiError` (with `status` and `code`) on non-ok responses; consumers check `err instanceof ApiError && err.code === "..."` for structured branches (slug conflict, etc). Endpoint files (`admin.ts`, `products.ts`) should be one-line wrappers around `fetchJson`. No raw `fetch(...)` calls in pages or hooks.
+
+**Client — types.** Server response shapes live in `lib/types.ts`. Don't redeclare them in pages or services. Form schemas (zod) live next to the form (`pages/.../schema.ts`) since they're form-specific.
+
+**SCSS rules.**
+
+- One module per component, co-located with the `.tsx`.
+- **Class names are semantic and describe the file's role.** If two files want a generic name like `.title`, ask whether they mean the same thing. If yes, leave it (consistent use is fine even though scoped). If no, give one a more specific name (e.g. `.errorCode` for the giant 404, not `.title`).
+- **Max 2 levels of nesting.** Deeper selectors fight CSS-module scoping when you're debugging in dev tools. The one principled exception is HTML `<table>` — `tbody td` style selectors are unavoidable for table semantics, so allow the structural depth a table requires.
+- **No raw values in components** — colors, font sizes, spacing, shadows, breakpoints. Always reference `t.$...` tokens or `m.@include ...` mixins. If a value isn't tokenized yet, add it to `_tokens.scss` first.
+- **No tag selectors** (`button`, `input`, `a`) inside modules — use a class. Tag selectors leak intent and make grep harder.
+- Repeated style combos go in `_mixins.scss` once they have a second consumer (`flex-center`, `sticky-header`, `form-error-banner`, `focus-ring`).
+
+**Server — route shape.** Route files do: parse → call helper → serialize → respond. They don't define schemas inline or build Prisma input shapes — those live in `server/src/lib/`:
+
+- `lib/validation-schemas.ts` — zod schemas (`productSchema`, `imageUrlSchema`, etc.)
+- `lib/<resource>-write.ts` — Prisma write builders (`buildProductWriteInput`, `buildVariantsCreate`)
+- `lib/serializers.ts` — response serializers (already exists)
+- `lib/errors.ts` — typed error classes (`NotFoundError`)
+
+**Server — error handling.** `throw new NotFoundError("...")` instead of `res.status(404).json(...)`. The global error handler at `middleware/errorHandler.ts` maps typed errors and Prisma `P2002` (returns `code: "SLUG_CONFLICT"`) to consistent JSON envelopes. Error responses always include a stable `code` field clients can branch on.
+
+**Forbidden.**
+
+- No `localStorage` for JWTs (XSS surface).
+- No bypassing `requireAdmin` on `/api/admin/*`.
+- No `any` to silence types — narrow with zod or a type guard.
+- No backwards-compat shims for code we control. If you change a shape, change every caller.
 
 ## Model / agent ladder (Claude Max cost discipline)
 

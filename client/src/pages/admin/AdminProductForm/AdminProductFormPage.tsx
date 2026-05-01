@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
@@ -8,6 +8,7 @@ import { Input } from "../../../components/Input/Input.js";
 import { Textarea } from "../../../components/Textarea/Textarea.js";
 import { Typography } from "../../../components/Typography/Typography.js";
 import { createProduct } from "../../../services/api/admin.js";
+import { useFormSubmit } from "../../../hooks/useFormSubmit.js";
 import {
   productFormSchema,
   slugify,
@@ -17,7 +18,6 @@ import styles from "./AdminProductFormPage.module.scss";
 
 export function AdminProductFormPage() {
   const navigate = useNavigate();
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const slugDirtyRef = useRef(false);
 
   const {
@@ -46,9 +46,8 @@ export function AdminProductFormPage() {
     }
   }, [name, setValue]);
 
-  const onSubmit = handleSubmit(async (values) => {
-    setSubmitError(null);
-    try {
+  const { submit, submitError } = useFormSubmit<ProductFormValues>(
+    async (values) => {
       await createProduct({
         slug: values.slug,
         name: values.name,
@@ -59,12 +58,10 @@ export function AdminProductFormPage() {
         variants: [],
       });
       navigate("/admin/productos");
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Ocurrió un error inesperado";
-      setSubmitError(message);
-    }
-  });
+    },
+  );
+
+  const onSubmit = handleSubmit(submit);
 
   return (
     <section className={styles.wrapper}>

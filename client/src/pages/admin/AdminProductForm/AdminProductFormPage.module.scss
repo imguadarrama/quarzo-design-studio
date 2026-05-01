@@ -45,10 +45,10 @@
   margin-top: 2px;
   accent-color: t.$color-ink;
   flex-shrink: 0;
+}
 
-  &:focus-visible {
-    @include m.focus-ring;
-  }
+.checkbox:focus-visible {
+  @include m.focus-ring;
 }
 
 .activeText {
@@ -59,21 +59,21 @@
 
 .activeLabel {
   font-family: t.$font-secondary;
-  font-size: 13px;
+  font-size: t.$font-size-xxs;
   font-weight: t.$weight-medium;
   color: t.$color-ink;
 }
 
 .activeHint {
   font-family: t.$font-secondary;
-  font-size: 12px;
+  font-size: t.$font-size-xxs;
   line-height: 1.3;
   color: t.$color-text-muted;
 }
 
 .activeError {
   font-family: t.$font-secondary;
-  font-size: 12px;
+  font-size: t.$font-size-xxs;
   font-weight: t.$weight-medium;
   line-height: 1.3;
   color: t.$color-error;
@@ -81,13 +81,7 @@
 }
 
 .formError {
-  margin-bottom: t.$space-4;
-  padding: t.$space-3 t.$space-4;
-  border-radius: t.$radius-sm;
-  border: 1px solid t.$color-ink;
-  color: t.$color-error;
-  font-family: t.$font-secondary;
-  font-size: 13px;
+  @include m.form-error-banner;
 }
 
 .actions {
@@ -105,12 +99,12 @@
   text-decoration: underline;
   padding: t.$space-2 t.$space-3;
   border-radius: t.$radius-sm;
+}
 
-  &:hover {
-    color: t.$color-ink;
-  }
+.cancelLink:hover {
+  color: t.$color-ink;
+}
 
-  &:focus-visible {
-    @include m.focus-ring;
-  }
+.cancelLink:focus-visible {
+  @include m.focus-ring;
 }
