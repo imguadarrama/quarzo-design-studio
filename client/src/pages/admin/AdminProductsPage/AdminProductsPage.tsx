@@ -7,35 +7,22 @@ import {
   PageLoading,
 } from "../../../components/PageState/PageState";
 import { Typography } from "../../../components/Typography/Typography";
-import { fetchAdminProducts } from "../../../services/api/admin";
-import type {
-  AdminProduct,
-  AdminProductImage,
-  AdminProductVariant,
-} from "../../../lib/types";
+import {
+  deleteProduct,
+  fetchAdminProducts,
+} from "../../../services/api/admin";
+import type { AdminProduct } from "../../../lib/types";
+import { AdminProductRow } from "./AdminProductRow.js";
 import styles from "./AdminProductsPage.module.scss";
-
-const currencyFormatter = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-  minimumFractionDigits: 0,
-});
-
-function pickPrimaryImage(
-  images: AdminProductImage[],
-): AdminProductImage | null {
-  if (images.length === 0) return null;
-  return images.reduce((a, b) => (b.position < a.position ? b : a));
-}
-
-function priceFrom(variants: AdminProductVariant[]): number | null {
-  if (variants.length === 0) return null;
-  return Math.min(...variants.map((v) => v.price));
-}
 
 export function AdminProductsPage() {
   const [products, setProducts] = useState<AdminProduct[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(
+    null,
+  );
 
   const load = useCallback(async () => {
     setError(null);
@@ -50,6 +37,23 @@ export function AdminProductsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const handleConfirmDelete = useCallback(async (id: string) => {
+    setDeletingId(id);
+    setRowError(null);
+    try {
+      await deleteProduct(id);
+      setProducts((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
+      setConfirmingId(null);
+    } catch (err) {
+      setRowError({
+        id,
+        message: err instanceof Error ? err.message : "No se pudo eliminar",
+      });
+    } finally {
+      setDeletingId(null);
+    }
+  }, []);
 
   let body: ReactNode;
   if (error) {
@@ -79,53 +83,34 @@ export function AdminProductsPage() {
                 Variantes
               </th>
               <th scope="col">Estado</th>
+              <th scope="col" aria-label="Acciones" />
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => {
-              const primary = pickPrimaryImage(product.images);
-              const variantCount = product.variants.length;
-              const minPrice = priceFrom(product.variants);
-              const rowClass = product.active
-                ? styles.row
-                : `${styles.row} ${styles.inactive}`;
-
-              return (
-                <tr key={product.id} className={rowClass}>
-                  <td className={styles.thumbCell} data-label="">
-                    <div className={styles.thumb}>
-                      {primary ? (
-                        <img
-                          src={primary.url}
-                          alt={primary.alt ?? product.name}
-                        />
-                      ) : (
-                        <div
-                          className={styles.thumbFallback}
-                          aria-hidden="true"
-                        />
-                      )}
-                    </div>
-                  </td>
-                  <td className={styles.productCell} data-label="Producto">
-                    <span className={styles.name}>{product.name}</span>
-                    <span className={styles.slug}>/{product.slug}</span>
-                  </td>
-                  <td data-label="Categoría">{product.category}</td>
-                  <td className={styles.numeric} data-label="Desde">
-                    {minPrice == null
-                      ? "—"
-                      : currencyFormatter.format(minPrice)}
-                  </td>
-                  <td className={styles.numeric} data-label="Variantes">
-                    {variantCount}
-                  </td>
-                  <td data-label="Estado">
-                    {product.active ? "Activo" : "Inactivo"}
-                  </td>
-                </tr>
-              );
-            })}
+            {products.map((product) => (
+              <AdminProductRow
+                key={product.id}
+                product={product}
+                isConfirming={confirmingId === product.id}
+                isDeleting={deletingId === product.id}
+                errorMessage={
+                  rowError && rowError.id === product.id
+                    ? rowError.message
+                    : null
+                }
+                onStartConfirm={() => {
+                  setConfirmingId(product.id);
+                  setRowError(null);
+                }}
+                onCancelConfirm={() => {
+                  setConfirmingId(null);
+                  setRowError(null);
+                }}
+                onConfirmDelete={() => {
+                  void handleConfirmDelete(product.id);
+                }}
+              />
+            ))}
           </tbody>
         </table>
       </div>
