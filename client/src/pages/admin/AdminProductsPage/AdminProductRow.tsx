@@ -5,7 +5,8 @@ import type {
   AdminProductImage,
   AdminProductVariant,
 } from "../../../lib/types.js";
-import styles from "./AdminProductsPage.module.scss";
+import pageStyles from "./AdminProductsPage.module.scss";
+import styles from "./AdminProductRow.module.scss";
 
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
@@ -48,39 +49,39 @@ export function AdminProductRow({
   const variantCount = product.variants.length;
   const minPrice = priceFrom(product.variants);
   const rowClass = product.active
-    ? styles.row
-    : `${styles.row} ${styles.inactive}`;
+    ? pageStyles.row
+    : `${pageStyles.row} ${pageStyles.inactive}`;
 
   return (
     <tr className={rowClass}>
-      <td className={styles.thumbCell} data-label="">
-        <div className={styles.thumb}>
+      <td className={pageStyles.thumbCell} data-label="">
+        <div className={pageStyles.thumb}>
           {primary ? (
             <img src={primary.url} alt={primary.alt ?? product.name} />
           ) : (
-            <div className={styles.thumbFallback} aria-hidden="true" />
+            <div className={pageStyles.thumbFallback} aria-hidden="true" />
           )}
         </div>
       </td>
-      <td className={styles.productCell} data-label="Producto">
-        <span className={styles.name}>{product.name}</span>
-        <span className={styles.slug}>/{product.slug}</span>
+      <td className={pageStyles.productCell} data-label="Producto">
+        <span className={pageStyles.name}>{product.name}</span>
+        <span className={pageStyles.slug}>/{product.slug}</span>
       </td>
       <td data-label="Categoría">{product.category}</td>
-      <td className={styles.numeric} data-label="Desde">
+      <td className={pageStyles.numeric} data-label="Desde">
         {minPrice == null ? "—" : currencyFormatter.format(minPrice)}
       </td>
-      <td className={styles.numeric} data-label="Variantes">
+      <td className={pageStyles.numeric} data-label="Variantes">
         {variantCount}
       </td>
       <td data-label="Estado">{product.active ? "Activo" : "Inactivo"}</td>
       <td className={styles.actionsCell} data-label="Acciones">
-        <div className={styles.actions}>
+        <div className={styles.actions} aria-live="polite">
           {isConfirming ? (
             <>
               <Button
                 size="sm"
-                className={styles.dangerButton}
+                variant="danger"
                 disabled={isDeleting}
                 onClick={onConfirmDelete}
               >
@@ -88,7 +89,7 @@ export function AdminProductRow({
               </Button>
               <Button
                 size="sm"
-                className={styles.ghostButton}
+                variant="ghost"
                 disabled={isDeleting}
                 onClick={onCancelConfirm}
               >
@@ -103,11 +104,7 @@ export function AdminProductRow({
               >
                 Editar
               </ButtonLink>
-              <Button
-                size="sm"
-                className={styles.ghostButton}
-                onClick={onStartConfirm}
-              >
+              <Button size="sm" variant="ghost" onClick={onStartConfirm}>
                 Eliminar
               </Button>
             </>

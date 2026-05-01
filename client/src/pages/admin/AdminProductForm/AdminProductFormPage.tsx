@@ -34,14 +34,15 @@ import styles from "./AdminProductFormPage.module.scss";
 const SLUG_CONFLICT_MESSAGE = "Ese slug ya existe";
 
 export function AdminProductFormPage() {
-  const { id } = useParams<{ id: string }>();
-  const mode: "create" | "edit" = id ? "edit" : "create";
+  const { id: editId } = useParams<{ id: string }>();
+  const mode: "create" | "edit" = editId ? "edit" : "create";
   const navigate = useNavigate();
   const slugDirtyRef = useRef(false);
   const nestedRef = useRef<{
     images: AdminProductImage[];
     variants: AdminProductVariant[];
   }>({ images: [], variants: [] });
+  const loadIdRef = useRef<string | null>(null);
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<boolean>(mode === "create");
@@ -66,11 +67,14 @@ export function AdminProductFormPage() {
   });
 
   const load = useCallback(async () => {
-    if (!id) return;
+    if (!editId) return;
+    const requestedId = editId;
+    loadIdRef.current = requestedId;
     setLoadError(null);
     setLoaded(false);
     try {
-      const product: AdminProduct = await fetchAdminProduct(id);
+      const product: AdminProduct = await fetchAdminProduct(requestedId);
+      if (loadIdRef.current !== requestedId) return;
       nestedRef.current = {
         images: product.images,
         variants: product.variants,
@@ -85,9 +89,10 @@ export function AdminProductFormPage() {
       slugDirtyRef.current = true;
       setLoaded(true);
     } catch (err) {
+      if (loadIdRef.current !== requestedId) return;
       setLoadError(err instanceof Error ? err.message : "Error desconocido");
     }
-  }, [id, reset]);
+  }, [editId, reset]);
 
   useEffect(() => {
     if (mode === "edit") {
@@ -116,8 +121,8 @@ export function AdminProductFormPage() {
         variants: nestedRef.current.variants.map(variantToPayload),
       };
       try {
-        if (mode === "edit" && id) {
-          await updateProduct(id, payload);
+        if (editId) {
+          await updateProduct(editId, payload);
         } else {
           await createProduct(payload);
         }

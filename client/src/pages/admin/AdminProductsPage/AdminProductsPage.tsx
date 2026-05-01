@@ -20,9 +20,7 @@ export function AdminProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(
-    null,
-  );
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setError(null);
@@ -38,22 +36,33 @@ export function AdminProductsPage() {
     void load();
   }, [load]);
 
-  const handleConfirmDelete = useCallback(async (id: string) => {
-    setDeletingId(id);
-    setRowError(null);
-    try {
-      await deleteProduct(id);
-      setProducts((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
-      setConfirmingId(null);
-    } catch (err) {
-      setRowError({
-        id,
-        message: err instanceof Error ? err.message : "No se pudo eliminar",
-      });
-    } finally {
-      setDeletingId(null);
-    }
+  const clearRowError = useCallback((id: string) => {
+    setRowErrors((prev) => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }, []);
+
+  const handleConfirmDelete = useCallback(
+    async (id: string) => {
+      setDeletingId(id);
+      clearRowError(id);
+      try {
+        await deleteProduct(id);
+        setProducts((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
+        setConfirmingId(null);
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "No se pudo eliminar";
+        setRowErrors((prev) => ({ ...prev, [id]: message }));
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [clearRowError],
+  );
 
   let body: ReactNode;
   if (error) {
@@ -93,18 +102,14 @@ export function AdminProductsPage() {
                 product={product}
                 isConfirming={confirmingId === product.id}
                 isDeleting={deletingId === product.id}
-                errorMessage={
-                  rowError && rowError.id === product.id
-                    ? rowError.message
-                    : null
-                }
+                errorMessage={rowErrors[product.id] ?? null}
                 onStartConfirm={() => {
                   setConfirmingId(product.id);
-                  setRowError(null);
+                  clearRowError(product.id);
                 }}
                 onCancelConfirm={() => {
                   setConfirmingId(null);
-                  setRowError(null);
+                  clearRowError(product.id);
                 }}
                 onConfirmDelete={() => {
                   void handleConfirmDelete(product.id);
