@@ -8,7 +8,7 @@ Quarzo Design Studio is a custom-stationery e-commerce store (Saltillo, Coahuila
 
 The full scope, customer flows, phased plan, and locked product decisions live in `docs/tech-roadmap.md` (the PRD). Read it before making non-trivial changes — it's the source of truth for "what are we building and why." Data-model invariants, architecture, and code conventions live in this file. `docs/client/discovery-with-client.md` has the raw client discovery notes.
 
-As of the current commit: **Phase 2 functional foundation is merged on `main`** — public `/api/products` + admin auth (JWT-in-HTTP-only-cookie), `authenticateAdmin` + `requireAdmin` middleware, admin product CRUD endpoints with nested variants + base64 images, and the parallel Phase 2 server cleanup (shared serializer, global error handler, image payload caps, 409 on duplicate slug, `passwordHash` response audit) per `docs/phase-2-execution-plan.md`. **Phase 2.5 is the active phase and pivoted in PR #15**: the original Tailwind frontend was demolished and a new SCSS-modules + design-token foundation was built in its place — three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout` — `PublicLayout` exists but is not yet wired into `App.tsx` until Slice 8), zustand admin auth store, `<RequireAdmin>` route guard, `AdminLoginPage` on `react-hook-form` + `zod`. Slices 0–4 have shipped: foundation (PR #15), `Typography` (commit `70b23af`), form primitives `Input` + `FormField` (PR #24), page-state helpers `PageLoading` / `PageError` / `PageEmpty` + shared `Spinner` (PR #25), and the read-only admin product list at `/admin/productos` (PR #26). The admin create/edit/delete form (Slices 5–7) and public catalog + product detail (Slices 8–9) are still stubs and will be rebuilt UX-first as one PR per slice per `docs/phase-2.5-execution-plan.md`. Phase 3 (cart + guest checkout) is blocked on Phase 2.5 and has not started.
+As of the current commit: **Phase 2 functional foundation is merged on `main`** — public `/api/products` + admin auth (JWT-in-HTTP-only-cookie), `authenticateAdmin` + `requireAdmin` middleware, admin product CRUD endpoints with nested variants + base64 images, and the parallel Phase 2 server cleanup (shared serializer, global error handler, image payload caps, 409 on duplicate slug, `passwordHash` response audit) per `docs/phase-2-execution-plan.md`. **Phase 2.5 is the active phase and pivoted in PR #15**: the original Tailwind frontend was demolished and a new SCSS-modules + design-token foundation was built in its place — three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout` — `PublicLayout` exists but is not yet wired into `App.tsx` until Slice 8), zustand admin auth store, `<RequireAdmin>` route guard, `AdminLoginPage` on `react-hook-form` + `zod`. Slices 0–6 have shipped: foundation (PR #15), `Typography` (commit `70b23af`), form primitives `Input` + `FormField` (PR #24), page-state helpers `PageLoading` / `PageError` / `PageEmpty` + shared `Spinner` (PR #25), the read-only admin product list at `/admin/productos` (PR #26), the admin product create form at `/admin/productos/nuevo` (PR #28), and admin product edit + delete at `/admin/productos/:id/editar` (PR #30). Slice 7 (images + variants editor) is next; the public catalog + product detail (Slices 8–9) and the cleanup/a11y pass (Slice 10) are still pending and will be built UX-first as one PR per slice per `docs/phase-2.5-execution-plan.md`. Phase 3 (cart + guest checkout) is blocked on Phase 2.5 and has not started.
 
 ## Common commands
 
@@ -130,7 +130,7 @@ Current layout (folders / files land when their first occupant does — many are
 
 ```
 client/src/
-  App.tsx                    BrowserRouter + AuthLayout + AdminLayout + 404
+  App.tsx                    BrowserRouter + composed route groups (currently adminRoutes + 404)
                              (PublicLayout defined but unwired until Slice 8)
   index.scss                 global reset; reads CSS custom properties
   styles/
@@ -140,17 +140,19 @@ client/src/
     PublicLayout.tsx         public navbar + Outlet (Slice 8/9 will mount routes under it)
     AuthLayout.tsx           bare centered shell (login)
     AdminLayout.tsx          admin navbar + Outlet, internally wraps in RequireAdmin
+  routes/
+    adminRoutes.tsx          AuthLayout (/admin/login) + AdminLayout (/admin/productos*) + /admin redirect
   components/
     Button/  Card/  FormField/  FullPageSpinner/  Input/  NavBarAdmin/  NavBarPublic/
-    PageState/  Spinner/  Typography/
+    PageState/  Spinner/  Textarea/  Typography/
     RequireAdmin.tsx
     (Slice 8 → ProductCard/; Slice 9 → VariantSelector/, PersonalizationInput/)
   pages/
     NotFoundPage/
-    admin/AdminLoginPage/    react-hook-form + zod
-    admin/AdminProductsPage/ read-only list (Slice 4) — fetch + table/cards via PageState
-    (Slice 5–7 → admin/AdminProductForm/; Slice 8 → CatalogPage/;
-     Slice 9 → ProductDetailPage/)
+    admin/AdminLoginPage/      react-hook-form + zod
+    admin/AdminProductsPage/   list with two-click delete (Slices 4 + 6) — fetch + table/cards via PageState
+    admin/AdminProductForm/    create + edit form (Slices 5–6) — AdminProductFormPage.tsx, schema.ts, mappers.ts
+    (Slice 8 → CatalogPage/; Slice 9 → ProductDetailPage/)
   store/
     adminAuth.ts             zustand: admin / status / hydrate / login / logout
   services/
@@ -160,6 +162,8 @@ client/src/
   lib/
     types.ts                 mirrors server response shapes
 ```
+
+**Path alias.** Client cross-folder imports use the `@/` alias (e.g. `import { Button } from "@/components/Button/Button"`); same-folder imports stay relative (`./schema.js`, `./mappers.js`). Wired in `client/tsconfig.json` (`paths`) and `client/vite.config.ts` (`resolve.alias`). Server has no alias — keep using `../db/prisma.js`-style relative imports there (NodeNext resolution + `tsc` emit, no bundler in the loop).
 
 **Component file convention.** One folder per component, `<Name>.tsx` + `<Name>.module.scss` co-located (e.g. `Button/Button.tsx` + `Button/Button.module.scss`). The named export matches the folder. Plain `.tsx` files at the top of `components/` (e.g. `RequireAdmin.tsx`) are reserved for components with no styles of their own.
 

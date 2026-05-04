@@ -411,11 +411,14 @@ client/src/
     admin/
       AdminLoginPage/
       AdminProductsPage/                      (Slice 4)
-      AdminProductForm/                       (Slice 5–7)
+      AdminProductForm/                       (Slices 5–7)
+        AdminProductFormPage.tsx
+        AdminProductFormPage.module.scss
+        schema.ts
+        mappers.ts
         components/
           ProductImageEditor.tsx              (Slice 7)
           ProductVariantEditor.tsx            (Slice 7)
-        schema.ts
   store/
     adminAuth.ts
   services/
