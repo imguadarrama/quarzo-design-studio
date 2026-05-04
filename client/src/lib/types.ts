@@ -46,6 +46,7 @@ export type AdminProductVariantOption = ProductVariantOption & {
 };
 
 export type AdminProductVariant = Omit<ProductVariant, "options"> & {
+  position: number;
   options: AdminProductVariantOption[];
 };
 

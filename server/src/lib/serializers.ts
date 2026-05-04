@@ -46,7 +46,7 @@ export const serializeProductPublic = (product: ProductWithRelations) => ({
     url: image.url,
     alt: image.alt,
   })),
-  variants: product.variants.map(serializeVariantPublic),
+  variants: sortByPosition(product.variants).map(serializeVariantPublic),
 });
 
 const serializeOptionAdmin = (option: VariantOptionRecord) => ({
@@ -63,6 +63,7 @@ const serializeVariantAdmin = (variant: VariantRecord) => ({
   name: variant.name,
   sku: variant.sku,
   price: moneyToNumber(variant.price),
+  position: variant.position,
   options: sortByPosition(variant.options).map(serializeOptionAdmin),
 });
 
@@ -80,5 +81,5 @@ export const serializeProductAdmin = (product: ProductWithRelations) => ({
     alt: image.alt,
     position: image.position,
   })),
-  variants: product.variants.map(serializeVariantAdmin),
+  variants: sortByPosition(product.variants).map(serializeVariantAdmin),
 });
