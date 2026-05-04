@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAdminAuthStore } from "../../store/adminAuth.js";
-import CircularLogo from "../../assets/circular-logo.png";
+import { useAdminAuthStore } from "@/store/adminAuth";
+import CircularLogo from "@/assets/circular-logo.png";
 import styles from "./NavBarAdmin.module.scss";
 import { Button } from "../Button/Button.js";
 import { Typography } from "../Typography/Typography.js";
