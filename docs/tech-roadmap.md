@@ -218,8 +218,8 @@ No backend changes in this phase. Image upload stays base64; server-side payload
 - [x] **Slice 2 — Form primitives** (PR #24, commit `7ab4fe1`). Extracted `<Input>` + `<FormField>` (label + slot + error + hint) from the inlined markup in `AdminLoginPage` so the upcoming admin form slices have a real field shape to consume.
 - [x] **Slice 3 — Page-state feedback helpers** (PR #25, commit `508abd1`). `<PageLoading>`, `<PageError onRetry?>`, `<PageEmpty>` as a single co-located component file; shared `<Spinner>` shipped alongside.
 - [x] **Slice 4 — Admin product list (read-only)** (PR #26, commit `fa094b5`). Replaced the `AdminProductsPage` stub with a fetch + render of `/api/admin/products`. Mobile cards / desktop table via `data-label` + SCSS breakpoints. No CRUD yet.
-- [ ] **Slice 5 — Admin product create form.** Dedicated `/admin/productos/nuevo` route. Auto-derived slug, `active=false` default, inline 409 on duplicate slug.
-- [ ] **Slice 6 — Admin product edit + delete.** `/admin/productos/:id/editar` reusing the form, two-click inline delete, hard-delete preserved.
+- [x] **Slice 5 — Admin product create form** (PR #28, commit `97b6ad0`). Dedicated `/admin/productos/nuevo` route. Auto-derived slug, inline 409 on duplicate slug.
+- [x] **Slice 6 — Admin product edit + delete** (PR #30, commit `3bf65cd`). `/admin/productos/:id/editar` reusing the form, two-click inline delete, hard-delete preserved.
 - [ ] **Slice 7 — Admin product images + variants editor.** `useFieldArray` for both, ≤ 8 images at ≤ 500 KB each, ≥ 1 variant required, sub-components for image and variant editors.
 - [ ] **Slice 8 — Public catalog page (`/catalogo`).** Real catalog under `PublicLayout` with `<ProductCard>` and category filter; UX is your call (the previous version did not satisfy the client).
 - [ ] **Slice 9 — Public product detail page (`/producto/:slug`).** Variant selector, personalization textarea with character counter, quantity input, "Agregar al carrito" CTA in disabled state until Phase 3 wires the cart.
