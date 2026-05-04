@@ -4,7 +4,7 @@ import type {
   ProductImagePayload,
   ProductVariantOptionPayload,
   ProductVariantPayload,
-} from "../../../lib/types.js";
+} from "@/lib/types";
 
 export function imageToPayload(img: AdminProductImage): ProductImagePayload {
   return img.alt ? { url: img.url, alt: img.alt } : { url: img.url };

@@ -1,17 +1,17 @@
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
-import CircularLogo from "../../../assets/circular-logo.png";
+import CircularLogo from "@/assets/circular-logo.png";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Navigate, useNavigate } from "react-router-dom";
 import { z } from "zod";
-import { useAdminAuthStore } from "../../../store/adminAuth.js";
-import { Typography } from "../../../components/Typography/Typography.js";
-import { Card } from "../../../components/Card/Card.js";
-import { Button } from "../../../components/Button/Button.js";
-import { FullPageSpinner } from "../../../components/FullPageSpinner/FullPageSpinner.js";
-import { FormField } from "../../../components/FormField/FormField.js";
-import { Input } from "../../../components/Input/Input.js";
-import { useFormSubmit } from "../../../hooks/useFormSubmit.js";
+import { useAdminAuthStore } from "@/store/adminAuth";
+import { Typography } from "@/components/Typography/Typography";
+import { Card } from "@/components/Card/Card";
+import { Button } from "@/components/Button/Button";
+import { FullPageSpinner } from "@/components/FullPageSpinner/FullPageSpinner";
+import { FormField } from "@/components/FormField/FormField";
+import { Input } from "@/components/Input/Input";
+import { useFormSubmit } from "@/hooks/useFormSubmit";
 import styles from "./AdminLoginPage.module.scss";
 
 const schema = z.object({

@@ -2,27 +2,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Button } from "../../../components/Button/Button.js";
-import { FormField } from "../../../components/FormField/FormField.js";
-import { Input } from "../../../components/Input/Input.js";
-import {
-  PageError,
-  PageLoading,
-} from "../../../components/PageState/PageState.js";
-import { Textarea } from "../../../components/Textarea/Textarea.js";
-import { Typography } from "../../../components/Typography/Typography.js";
+import { Button } from "@/components/Button/Button";
+import { FormField } from "@/components/FormField/FormField";
+import { Input } from "@/components/Input/Input";
+import { PageError, PageLoading } from "@/components/PageState/PageState";
+import { Textarea } from "@/components/Textarea/Textarea";
+import { Typography } from "@/components/Typography/Typography";
 import {
   createProduct,
   fetchAdminProduct,
   updateProduct,
-} from "../../../services/api/admin.js";
-import { ApiError } from "../../../services/api/fetchJson.js";
-import { useFormSubmit } from "../../../hooks/useFormSubmit.js";
+} from "@/services/api/admin";
+import { ApiError } from "@/services/api/fetchJson";
+import { useFormSubmit } from "@/hooks/useFormSubmit";
 import type {
   AdminProduct,
   AdminProductImage,
   AdminProductVariant,
-} from "../../../lib/types.js";
+} from "@/lib/types";
 import { imageToPayload, variantToPayload } from "./mappers.js";
 import {
   productFormSchema,

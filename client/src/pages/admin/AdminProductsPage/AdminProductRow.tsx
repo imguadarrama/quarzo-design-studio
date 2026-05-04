@@ -1,10 +1,10 @@
-import { Button } from "../../../components/Button/Button.js";
-import { ButtonLink } from "../../../components/Button/ButtonLink.js";
+import { Button } from "@/components/Button/Button";
+import { ButtonLink } from "@/components/Button/ButtonLink";
 import type {
   AdminProduct,
   AdminProductImage,
   AdminProductVariant,
-} from "../../../lib/types.js";
+} from "@/lib/types";
 import pageStyles from "./AdminProductsPage.module.scss";
 import styles from "./AdminProductRow.module.scss";
 

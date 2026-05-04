@@ -1,17 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ButtonLink } from "../../../components/Button/ButtonLink.js";
+import { ButtonLink } from "@/components/Button/ButtonLink";
 import {
   PageEmpty,
   PageError,
   PageLoading,
-} from "../../../components/PageState/PageState";
-import { Typography } from "../../../components/Typography/Typography";
-import {
-  deleteProduct,
-  fetchAdminProducts,
-} from "../../../services/api/admin";
-import type { AdminProduct } from "../../../lib/types";
+} from "@/components/PageState/PageState";
+import { Typography } from "@/components/Typography/Typography";
+import { deleteProduct, fetchAdminProducts } from "@/services/api/admin";
+import type { AdminProduct } from "@/lib/types";
 import { AdminProductRow } from "./AdminProductRow.js";
 import styles from "./AdminProductsPage.module.scss";
 
