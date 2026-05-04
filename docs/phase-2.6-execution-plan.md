@@ -35,10 +35,48 @@
 
 ## 3. Server changes
 
+### 3.0 Provision R2 (one-time setup)
+
+This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, one API token, the five `R2_*` env values §3.1 needs. Estimated time: ~10 minutes.
+
+1. **Sign in to Cloudflare** (`dash.cloudflare.com`) with the same account that owns the Pages projects (`quarzo` + `quarzo-staging`). Capture the **Account ID** from the right-hand sidebar of the dashboard home — that's `R2_ACCOUNT_ID`.
+2. **Enable R2.** Left sidebar → **R2 Object Storage** → click through the "Subscribe to R2" / payment-method prompt. Base fee is $0; Cloudflare requires a card on file to handle overage, but you won't be charged unless you exceed the free tier (see §9).
+3. **Create the production bucket.**
+   - Click **Create bucket**.
+   - Name: `quarzo-media`.
+   - Location: **Automatic** (or **Eastern North America (ENAM)** if you want hint placement closer to MX traffic — both are fine; auto is the standard choice).
+   - Default storage class: **Standard**.
+   - Click **Create bucket**.
+4. **Create the staging bucket.** Repeat step 3 with name `quarzo-media-staging`. This bucket holds per-PR uploads under `pr-<N>/` prefixes (see §3.6).
+5. **Enable public access on both buckets.**
+   - Open `quarzo-media` → **Settings** → **Public access** → under "R2.dev subdomain" click **Allow Access**.
+   - Cloudflare displays a URL like `https://pub-<hash>.r2.dev`. Copy it — that's `R2_PUBLIC_BASE_URL` for production.
+   - Repeat for `quarzo-media-staging` to get the staging public URL.
+   - (Custom domain `https://media.quarzo.shop` waits for Phase 7 — until then the `pub-<hash>.r2.dev` URL is what gets stored in `ProductImage.url`.)
+6. **Create one API token covering both buckets.**
+   - R2 home → **Manage R2 API Tokens** (right side) → **Create API Token**.
+   - Token name: `quarzo-r2-rw`.
+   - Permissions: **Object Read & Write**.
+   - Specify buckets: select **Apply to specific buckets only** → tick `quarzo-media` and `quarzo-media-staging`.
+   - TTL: **Forever** (rotate manually when needed).
+   - Click **Create API Token**. Cloudflare shows the **Access Key ID** and **Secret Access Key** *once* — capture both immediately. They map to `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`.
+   - The page also shows an **S3-compatible endpoint** (`https://<account-id>.r2.cloudflarestorage.com`). The `@aws-sdk/client-s3` wrapper in §3.2 derives this from `R2_ACCOUNT_ID`, so you don't need to store it separately — but copy it once for sanity-checking with the AWS CLI if you want a smoke test before wiring code.
+7. **Smoke-test the token (optional but recommended).** From your host with the AWS CLI installed:
+   ```bash
+   AWS_ACCESS_KEY_ID=<key> AWS_SECRET_ACCESS_KEY=<secret> \
+     aws s3 ls --endpoint-url https://<account-id>.r2.cloudflarestorage.com
+   ```
+   Should list both buckets. If it 403s, the token's bucket scope is wrong; re-create it.
+8. **Record the five values.** You should now have, ready to paste into `.env` and GitHub Environments per §3.1:
+   - `R2_ACCOUNT_ID` — from step 1
+   - `R2_ACCESS_KEY_ID` — from step 6
+   - `R2_SECRET_ACCESS_KEY` — from step 6
+   - `R2_BUCKET` — `quarzo-media` for production env, `quarzo-media-staging` for staging env
+   - `R2_PUBLIC_BASE_URL` — `https://pub-<hash>.r2.dev` from step 5 (different per bucket; production env gets the prod URL, staging env gets the staging URL)
+
 ### 3.1 Bucket + secrets
 
-- [ ] Create R2 bucket `quarzo-media` (production) and `quarzo-media-staging` (per-PR uploads). Enable public access via `r2.dev` URLs, or attach a custom subdomain after the Phase 7 domain ships.
-- [ ] Issue R2 API tokens (one with read/write on prod bucket, one with the same on staging).
+- [ ] Provision R2 per **§3.0** (two buckets + one API token covering both). Output: the five `R2_*` values used below.
 - [ ] Add to `.env.example`:
   ```
   R2_ACCOUNT_ID=
@@ -216,7 +254,11 @@ Once all six are green, **Phase 2.7 (designs) is unblocked**.
 
 - **Why R2 over S3:** zero egress fees on R2 (S3 charges per GB egressed to internet). For a stationery store served from a CDN, egress cost dominates storage cost. R2's S3-compatible API means migrating to S3 later is a config swap, not a code change.
 - **Why not Cloudinary / imgix:** both are excellent but they're hosted services with their own SDK, pricing, and learning curves. The pedagogical goal of this project says: own the storage layer the way we own auth. Sharp + R2 is ~120 lines of code we control end-to-end.
-- **Cost ceiling:** R2 free tier is 10 GB storage + 1M Class A ops/month. Quarzo at v1 fits in the free tier with two orders of magnitude of headroom. If we somehow blow past it, that's a problem worth having.
+- **Cost ceiling:** R2 free tier is 10 GB storage + 1M Class A ops/month + 10M Class B ops/month. Quarzo v1 demand:
+  - Storage: ~30 MB (20 products × ~5 images × ~300 KB processed). After Phase 2.7 designs, worst-case ~1.5 GB at 100 products × 30 designs.
+  - Class A (writes): admin uploads only — ~500/month ceiling.
+  - Class B (reads): Cloudflare edge cache absorbs nearly all public reads; origin sees low thousands/month.
+  All three sit 3+ orders of magnitude under the free tier. Cloudflare requires a card on file to enable R2 even on the $0 plan, but charges only kick in on overage. If we somehow blow past it, that's a problem worth having.
 
 ---
 
