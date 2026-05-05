@@ -23,7 +23,7 @@
 | Layer | Where | Notes |
 |---|---|---|
 | Design tokens | `client/src/styles/_tokens.scss` | Brand palette + semantic aliases (`$color-bg`, `$color-accent`, `$space-*`, `$radius-*`, `$bp-*`). Re-emitted as CSS custom properties on `:root` so JS / media queries can read them. |
-| Mixins | `client/src/styles/_mixins.scss` | `focus-ring`, `screen-md`, `screen-lg`. |
+| Mixins | `client/src/styles/_mixins.scss` | `focus-ring`, `screen-md`, `screen-lg`, `screen-below-md`, `flex-center`, `sticky-header`, `form-error-banner`. |
 | Global stylesheet | `client/src/index.scss` | Reset + body defaults reading from CSS custom properties. |
 | Fonts | `client/index.html` | Lora (primary, serif) + Quicksand (secondary, sans) via Google Fonts. |
 | Routing | `client/src/App.tsx` | `BrowserRouter`. Three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout`), `*` → `NotFoundPage`, `/admin` → `Navigate` to `/admin/productos`. |
@@ -43,10 +43,16 @@
 - **Slice 4 — Admin product list (read-only)** (PR #26, commit `fa094b5`) — `AdminProductsPage` fetches `/api/admin/products`, renders mobile cards / desktop table via `data-label` + SCSS breakpoints, surfaces loading / error / empty through `<PageState>`. No CRUD yet. Cleanup commit `1f1c017` also removed the `/catalogo` `<h1>hello</h1>` placeholder route from `App.tsx` — `PublicLayout` is no longer wired in until Slice 8.
 - **Slice 5 — Admin product create form** (PR #28, commit `97b6ad0`) — `AdminProductFormPage` at `/admin/productos/nuevo` under `AdminLayout`, `react-hook-form` + zod schema in `pages/admin/AdminProductForm/schema.ts`, auto-derived slug with manual override, inline 409 mapping on duplicate slug, redirects to `/admin/productos` on success. New products are created `active=true` (the create-mode publish toggle was intentionally omitted — see auto-memory `admin_create_auto_active.md`).
 - **Slice 6 — Admin product edit + delete** (PR #30, commit `3bf65cd`) — same `AdminProductFormPage` reused in edit mode at `/admin/productos/:id/editar` (route lives in `client/src/routes/adminRoutes.tsx`), two-click inline delete from the list, hard-delete preserved. Slice 6 also dropped the `active=true` filter on both client and server so unpublished products remain reachable from the admin list — Slice 8's catalog must filter defensively (auto-memory `publish_guard_removed.md`).
+- **Slice 7 — Admin product images + variants editor** — full nested editing in one form for both create and edit modes. `useFieldArray` for images and variants (with another nested level for per-variant options); ≤ 8 images at ≤ 500 KB each (hard-rejected client-side), `variants.min(1)` in zod, inline duplicate-SKU warning across the form, arrow-button reorder for images / variants / options, comma-separated values input for SELECT options. Server gained `ProductVariant.position` (migration `add_variant_position`) so admin-controlled variant order persists; both serializers now `sortByPosition(variants)`. Form was migrated from a `nestedRef.current` mutable ref to RHF `FormProvider` so the editors get stable per-row IDs. Image storage stays base64-in-Postgres; the proper migration is Phase 2.6.
 
 ### 1.3 What remains
 
-The slices in §3 below. None of them are gated on each other except where called out — slice priority is yours to set per Phase 3 needs.
+Slices 8–10 below, plus two interleaved phases that must land first:
+
+- **Phase 2.6** — image storage migration (base64 → Cloudflare R2 + Sharp). Plan: [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md). Touches Slice 7's `ProductImageEditor` (file picker swap) and the `imageSchema.url` zod refinement (drop the data-URL branch). No customer-facing changes.
+- **Phase 2.7** — adds `ProductDesign` model + `DesignVariantCompat` join + admin design editor inline in `AdminProductFormPage`. Plan: [`phase-2.7-execution-plan.md`](phase-2.7-execution-plan.md). Surfaced during Slice 7 review when the client clarified the customer flow is **design → variant → options**, not **variant → options**. Blocked on Phase 2.6.
+
+Order: Slice 8 (independent) → Phase 2.6 → Phase 2.7 → Slice 9 (revised — consumes designs) → Slice 10. Slice 8 can land before 2.6/2.7 since the catalog grid doesn't depend on either.
 
 ---
 
@@ -301,34 +307,61 @@ Replace `<h1>hello</h1>` with a real catalog under `PublicLayout`. Reads `/api/p
 
 ---
 
-## 10. Slice 9 — Public product detail page (`/producto/:slug`)
+## 10. Slice 9 — Public product detail page (`/producto/:slug`) *(revised)*
+
+> **Blocked on Phase 2.7.** This slice consumes the `designs[]` array on the public payload. Don't open the PR until Phase 2.7 is merged.
 
 ### Goal
-A detail page that is the customer's last stop before adding to cart (Phase 3). Variant selection, personalization text input, quantity, and a CTA-ready "Agregar al carrito" button (disabled until Phase 3 wires the cart store).
+The customer's last stop before adding to cart. The flow is **design → variant → options → personalization → CTA**, *not* the simpler variant-first flow originally planned. Surfaced during Slice 7 review when the client clarified that for *sobres* (and implicitly any future invitation-style products), the customer picks a visual design first; the variant choice ("tinta normal" vs "con foil") only narrows the compatible ones; options are then variant-specific. For products without designs (stickers, etiquetas), the design step is skipped and the page jumps straight to variant selection.
 
 > **Server prep (queued from PR #18 review).** `serializeProductPublic` currently drops `ProductVariantOption.required`, so the public payload doesn't tell the client which options must be filled before the CTA un-disables. Either (a) add `required` to `serializeOptionPublic` in `server/src/lib/serializers.ts` (one line — public consumers can't write it, only read it), or (b) treat every option as required client-side. Pick (a) and ship it in the same PR as this slice; otherwise this slice ships with a guess that the spec already disagrees with.
 
+### Customer flow (target)
+```
+Hero (one image) + product summary
+        ▼
+Diseño picker  (visual grid, 2-up mobile / 3-up tablet / 4-up desktop)   ← skipped if designs[] is empty
+        ▼
+Variante chips (only those in design.compatibleVariantIds enabled; the rest visibly disabled with reason)
+        ▼
+Opciones (per the chosen variant — SELECT chips, TEXT input, etc.)
+        ▼
+Personalization textarea (counter "23/80")
+        ▼
+Quantity (input + +/- buttons)
+        ▼
+"Agregar al carrito" (disabled until: design (if any) chosen, variant chosen, every required option filled, personalization non-empty)
+```
+
 ### Decisions to make
-- **Image gallery** — single hero image with thumbnails below, swipeable carousel, or stacked column? *Mobile-first; pick one.*
-- **Variant selector UX** — pills/chips, segmented control, or radio group? *Recommendation: chips with `aria-pressed`. Reads as visual choice.*
-- **Personalization input** — single-line input or textarea? Char limit (server says 80) — show counter as "23/80" or "57 left"? *Recommendation: textarea; "23/80" reads cleaner.*
+- **Default design selection** — auto-pick the first active design, or force the customer to choose? *Recommendation: auto-pick the first; auto-picking variant + options is over-eager. Lets the page render with a non-empty preview state on first paint.*
+- **Image strategy** — show the product hero shots on the page, or also show the chosen design as a preview? *Recommendation: chosen design **replaces** the hero. The design IS the visual the customer is buying. Product hero shots become a fallback if `designs.length === 0`.*
+- **Variant chips when incompatible** — disabled with strikethrough, hidden, or visible-but-greyed with a tooltip? *Recommendation: visible-but-greyed with `aria-disabled` + a small "(no disponible con este diseño)" label. Hiding makes the variant set feel inconsistent across designs.*
+- **Personalization textarea** — single textarea or per-TEXT-option input? *Recommendation: per-option, since the variant editor lets the operator add multiple TEXT options (e.g. "Texto principal" + "Texto secundario"). Each gets its own input + counter.*
 - **Quantity input** — `<input type="number">` with `+`/`-` buttons, or `+`/`-` only? *Recommendation: input + buttons. Power users type, casual users tap.*
-- **CTA disabled rules** — disabled until variant chosen AND personalization filled, or only one of those? *Server requires both at order-creation; mirror in client.*
+- **404 / inactive product** — `<PageError>` or render a slim "ya no está disponible" page? *Recommendation: `<PageError>` with a back-to-catalog CTA. Keeps the same error surface as the rest of the public app.*
 
 ### Files
-- **Created:** `client/src/pages/ProductDetailPage/ProductDetailPage.tsx` (+ scss), `client/src/components/VariantSelector/VariantSelector.tsx` (+ scss), `client/src/components/PersonalizationInput/PersonalizationInput.tsx` (+ scss).
-- **Modified:** `App.tsx` — add `/producto/:slug` under `PublicLayout`. (Final route name is your call — `/producto/:slug` vs `/productos/:slug`.)
+- **Created:** `client/src/pages/ProductDetailPage/ProductDetailPage.tsx` (+ scss).
+- **Created:** `client/src/components/DesignPicker/DesignPicker.tsx` (+ scss) — visual grid that takes `designs[]` and an `onSelect`.
+- **Created:** `client/src/components/VariantSelector/VariantSelector.tsx` (+ scss) — chip group; takes `variants[]` and `enabledVariantIds: Set<string>` derived from the chosen design.
+- **Created:** `client/src/components/PersonalizationInput/PersonalizationInput.tsx` (+ scss) — labeled textarea + counter, one instance per TEXT option.
+- **Modified:** `App.tsx` (or `routes/publicRoutes.tsx` if that's where public routes land by Slice 8) — add `/producto/:slug` under `PublicLayout`.
 - **Touch:** `services/api/products.ts` — confirm `fetchProductBySlug` exists.
 
 ### Out of scope
 - Add-to-cart wiring — Phase 3.
+- Cart line snapshot of the chosen design — Phase 3 (server-side `OrderItem.designId/Name/ImageUrl` columns ship in Phase 2.7).
 - Reviews / ratings.
 - Related products.
+- Image lightbox / zoom — design images are already at 1600 px from Phase 2.6; tap-to-zoom is a polish call for Slice 10 if Lighthouse demands.
 
 ### Acceptance
-- Detail page reads from API by slug, renders gallery, variants, personalization, quantity.
-- "Agregar al carrito" stays disabled until both variant and personalization are valid; clicking does nothing yet (or shows a "próximamente" placeholder — your call).
+- For a product with designs: visual picker → variant chips reflect compatibility → options render only for the chosen variant → "Agregar al carrito" stays disabled until every required field is valid.
+- For a product without designs: design step is skipped; page goes straight to variant + options as in the original Slice 9 plan.
+- Switching design re-evaluates variant compatibility. If the currently-selected variant becomes incompatible, the variant selection is cleared.
 - 404 path: invalid slug renders `<PageError>` with a "back to catalog" CTA.
+- Mobile (375 px): design grid renders 2-up cleanly, variant chips wrap, no horizontal scroll, taps are ≥ 44 px.
 - `pnpm preflight` green.
 
 ---
@@ -367,19 +400,21 @@ Last slice before declaring Phase 2.5 done. No new features.
 
 Phase 2.5 is done when:
 
-1. Every slice in §§3–11 is merged.
-2. `pnpm preflight:full` passes.
-3. Browser smoke from a fresh container:
+1. Every slice in §§3–11 is merged. (Slices 8–10 only — Slices 0–7 already shipped.)
+2. Phase 2.6 and Phase 2.7 both complete (those have their own exit criteria in their respective plans).
+3. `pnpm preflight:full` passes.
+4. Browser smoke from a fresh container:
    - `/catalogo` lists products, filter works, mobile renders cleanly.
-   - `/producto/<slug>` shows variant selection + personalization counter; CTA disabled state is correct.
+   - `/producto/<slug>` for a product *with* designs: design picker → variant chips (compatibility honored) → options → personalization counter → CTA disabled state correct.
+   - `/producto/<slug>` for a product *without* designs (stickers): jumps straight to variant + options; CTA gates the same way.
    - `/admin/login` validates, redirects.
-   - `/admin/productos` lists products, create/edit/delete round-trip with images + variants.
+   - `/admin/productos` lists products, create/edit/delete round-trip with images + variants + designs.
    - `/admin` redirects to `/admin/productos`.
    - Unknown route → `NotFoundPage`.
-4. `docs/tech-roadmap.md` §10 Phase 2.5 has the slice boxes ticked and §10 Phase 3 is unblocked.
-5. `CLAUDE.md` client section accurately lists the components and pages that now exist.
+5. `docs/tech-roadmap.md` §10 Phase 2.5 has the slice boxes ticked and §10 Phase 3 is unblocked.
+6. `CLAUDE.md` client section accurately lists the components and pages that now exist.
 
-Once all five are green, Phase 3 (cart + guest checkout) starts on a clean foundation.
+Once all six are green, Phase 3 (cart + guest checkout) starts on a clean foundation.
 
 ---
 
@@ -401,7 +436,7 @@ client/src/
     Button/                Card/                FormField/         (Slice 2)
     FullPageSpinner/       Input/      (Slice 2)  PageState/        (Slice 3)
     NavBarAdmin/           NavBarPublic/        PersonalizationInput/  (Slice 9)
-    ProductCard/           (Slice 8)
+    ProductCard/           (Slice 8)            DesignPicker/      (Slice 9)
     RequireAdmin.tsx       Spinner/    (Slice 3, optional)
     Typography/            VariantSelector/     (Slice 9)
   pages/
@@ -417,12 +452,16 @@ client/src/
         schema.ts
         mappers.ts
         components/
-          ProductImageEditor.tsx              (Slice 7)
+          ProductImageEditor.tsx              (Slice 7; refactored in Phase 2.6)
           ProductVariantEditor.tsx            (Slice 7)
+          ProductDesignEditor.tsx             (Phase 2.7)
   store/
     adminAuth.ts
   services/
-    api/{admin.ts, client.ts, products.ts}
+    api/{admin.ts, client.ts, fetchJson.ts, products.ts, uploadImage.ts}
+                                              # uploadImage.ts: Phase 2.6
+  hooks/
+    useFormSubmit.ts
   lib/
     types.ts
 ```

@@ -46,6 +46,7 @@ model ProductVariant {
   name      String
   sku       String                 @unique
   price     Decimal                @db.Decimal(10, 2)
+  position  Int                    @default(0)
   options   ProductVariantOption[]
 
   @@index([productId])

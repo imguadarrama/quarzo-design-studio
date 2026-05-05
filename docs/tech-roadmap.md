@@ -211,7 +211,7 @@ Monitoring (Fly alerts + UptimeRobot) is deferred to Phase 7 — with zero traff
 ### Phase 2.5 — Client foundation rebuild (SCSS modules) — in progress
 Phase 2 shipped a functional but uneven frontend on Tailwind, with a 571-line `AdminProductsPage`, no shared primitives, and brand colors scattered across raw utility classes. PR #15 abandoned that surface in favor of a clean SCSS-modules + design-token foundation (3-layout routing, zustand admin auth, `RequireAdmin` route guard, `react-hook-form` + `zod` admin login) and intentionally left the rest of the client as stubs to rebuild slice by slice. The remaining work is delivered as one PR per slice — each one specs its architecture and style decisions before code lands. Public catalog and product detail will be designed UX-first; they are not restorations of what existed before.
 
-No backend changes in this phase. Image upload stays base64; server-side payload caps are handled separately in [`phase-2-execution-plan.md`](phase-2-execution-plan.md) §4.4.
+Slice 7 added a small server change (`ProductVariant.position`) so variant order is admin-controlled. Image storage migration (base64 → R2) and the design-style data model are split into Phases 2.6 and 2.7 below — they need their own focus and were too large to fold into a Phase 2.5 slice.
 
 - [x] **Slice 0 — Foundation** (PR #15). SCSS tokens (`styles/_tokens.scss`, `_mixins.scss`), Lora + Quicksand via Google Fonts, three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout`), `RequireAdmin` route guard, zustand admin auth store (`store/adminAuth.ts`), `AdminLoginPage` on `react-hook-form` + `zod`, stubs for `AdminProductsPage` / `NotFoundPage` / `/catalogo`, `lib/types.ts` restored.
 - [x] **Slice 1 — Typography component** (commit `70b23af`). `<Typography as size weight margin>` covering `h1..h6` + `p` and `xs..xxl` sizes.
@@ -220,16 +220,42 @@ No backend changes in this phase. Image upload stays base64; server-side payload
 - [x] **Slice 4 — Admin product list (read-only)** (PR #26, commit `fa094b5`). Replaced the `AdminProductsPage` stub with a fetch + render of `/api/admin/products`. Mobile cards / desktop table via `data-label` + SCSS breakpoints. No CRUD yet.
 - [x] **Slice 5 — Admin product create form** (PR #28, commit `97b6ad0`). Dedicated `/admin/productos/nuevo` route. Auto-derived slug, inline 409 on duplicate slug.
 - [x] **Slice 6 — Admin product edit + delete** (PR #30, commit `3bf65cd`). `/admin/productos/:id/editar` reusing the form, two-click inline delete, hard-delete preserved.
-- [ ] **Slice 7 — Admin product images + variants editor.** `useFieldArray` for both, ≤ 8 images at ≤ 500 KB each, ≥ 1 variant required, sub-components for image and variant editors.
+- [x] **Slice 7 — Admin product images + variants editor.** `useFieldArray` for both, ≤ 8 images at ≤ 500 KB each, ≥ 1 variant required, sub-components for image and variant editors. Adds `ProductVariant.position` (migration `add_variant_position`) so variant order is admin-controlled and persists.
 - [ ] **Slice 8 — Public catalog page (`/catalogo`).** Real catalog under `PublicLayout` with `<ProductCard>` and category filter; UX is your call (the previous version did not satisfy the client).
-- [ ] **Slice 9 — Public product detail page (`/producto/:slug`).** Variant selector, personalization textarea with character counter, quantity input, "Agregar al carrito" CTA in disabled state until Phase 3 wires the cart.
+- [ ] **Slice 9 — Public product detail page (`/producto/:slug`)** *(revised flow — depends on Phase 2.7).* Visual design picker → variant selector (only compatible variants enabled) → per-variant options → personalization textarea with character counter → quantity → "Agregar al carrito" CTA in disabled state until Phase 3 wires the cart. For products without designs (stickers, etiquetas), the design step is skipped.
 - [ ] **Slice 10 — Cleanup + accessibility pass.** Lighthouse a11y target, keyboard tab order, screen-reader spot-check on login + detail.
 
 Full execution-level detail (per-slice decisions, files touched, acceptance criteria, PR body skeleton): [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md).
 
 Exit criteria: every slice merged; `pnpm preflight:full` green; browser smoke covers `/catalogo`, `/producto/:slug`, `/admin/login`, `/admin/productos` (full CRUD); Lighthouse mobile a11y ≥ 95 on the public pages; `CLAUDE.md` client section accurately lists the components and pages now in the tree.
 
-### Phase 3 — Cart + guest checkout foundation (next)
+> **Slice 8–10 are blocked on Phases 2.6 + 2.7 below.** Slice 7 shipped a working admin product editor on the legacy base64-in-Postgres image pipeline; before the public-facing slices land, image storage moves to Cloudflare R2 (Phase 2.6) and the design-style axis is added to the data model (Phase 2.7). Slice 9 in particular consumes both.
+
+### Phase 2.6 — Image storage migration
+
+Move product images off base64-in-Postgres to Cloudflare R2 with server-side resize via Sharp. Slice 7 shipped against the existing 500 KB data-URL pipeline; this phase swaps the backend without changing the customer-facing surface. Without this, Phase 2.7 (designs) would carry 20+ image rows per product as inline base64 in every public response.
+
+- [ ] R2 buckets provisioned (prod + staging); secrets in GitHub Environments + Fly.
+- [ ] `POST /api/admin/images` upload endpoint with Sharp pipeline (max 1600 px, JPEG quality 0.82, EXIF stripped).
+- [ ] `ProductImageEditor` swapped from `FileReader → data URL` to `uploadImage(file) → CDN URL`.
+- [ ] `imageSchema.url` accepts only `https?://` URLs; 500 KB cap dropped.
+- [ ] Backfill script run cleanly on staging + prod; zero `data:` URLs remaining.
+- [ ] `cleanup-staging.yml` extended to delete per-PR R2 keys.
+
+Full plan: [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md).
+
+### Phase 2.7 — Product designs (visual selection)
+
+Add a "design style" axis to the catalog. Surfaced during Slice 7 review when the client clarified that customers pick a design first, then a variant, then options. New `ProductDesign` table sibling of `ProductVariant`, plus a `DesignVariantCompat` join for variant-specific compatibility (some designs render only in foil, etc.). Public API exposes `designs[]` with `compatibleVariantIds`. No customer-facing UX in this phase — Slice 9 (revised) consumes it.
+
+- [ ] Migration `add_product_designs`: new `ProductDesign` + `DesignVariantCompat` tables; nullable `OrderItem.{designId, designName, designImageUrl}` snapshot columns added pre-Phase-3.
+- [ ] Admin form gains "Diseños" section between Variants and the active flag; visual upload + name + active flag + per-variant compatibility checkboxes + reorder.
+- [ ] Public `serializeProductPublic` exposes active designs only with `compatibleVariantIds`.
+- [ ] Browser smoke: design upload, variant-specific compatibility, edit round-trip, variant-removal compat sweep.
+
+Full plan: [`phase-2.7-execution-plan.md`](phase-2.7-execution-plan.md). Blocked on Phase 2.6.
+
+### Phase 3 — Cart + guest checkout foundation
 - [ ] Cart in zustand + `localStorage`
 - [ ] Cart drawer / cart page
 - [ ] Checkout form (contact, shipping, payment method) with `react-hook-form` + `zod`

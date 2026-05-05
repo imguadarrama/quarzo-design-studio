@@ -3,18 +3,19 @@ import { VariantOptionType } from "@prisma/client";
 import type { ProductInput } from "./validation-schemas.js";
 
 export const buildVariantsCreate = (variants: ProductInput["variants"]) =>
-  variants.map((variant) => ({
+  variants.map((variant, index) => ({
     name: variant.name,
     sku: variant.sku,
     price: new Decimal(variant.price.toFixed(2)),
+    position: index,
     options: {
-      create: variant.options.map((option, index) => ({
+      create: variant.options.map((option, optionIndex) => ({
         name: option.name,
         type: option.type,
         values:
           option.type === VariantOptionType.SELECT ? (option.values ?? []) : undefined,
         required: option.required,
-        position: index,
+        position: optionIndex,
       })),
     },
   }));

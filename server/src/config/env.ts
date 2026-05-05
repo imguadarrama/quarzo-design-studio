@@ -2,8 +2,12 @@ import "dotenv/config";
 import { z } from "zod";
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  APP_ENV: z.enum(["development", "staging", "production"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "test", "production"])
+    .default("development"),
+  APP_ENV: z
+    .enum(["development", "staging", "production"])
+    .default("development"),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
@@ -12,21 +16,21 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((p) => (p && p.length > 0 ? p : undefined))
-    .refine(
-      (p) => {
-        if (!p) return true;
-        try {
-          new RegExp(p);
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      "CLIENT_ORIGIN_PREVIEW_PATTERN must be a valid regex",
-    ),
+    .refine((p) => {
+      if (!p) return true;
+      try {
+        new RegExp(p);
+        return true;
+      } catch {
+        return false;
+      }
+    }, "CLIENT_ORIGIN_PREVIEW_PATTERN must be a valid regex"),
   COOKIE_DOMAIN: z.string().default("localhost"),
   ADMIN_AUTH_COOKIE_NAME: z.string().min(1).default("quarzo_admin_session"),
-  CUSTOMER_AUTH_COOKIE_NAME: z.string().min(1).default("quarzo_customer_session"),
+  CUSTOMER_AUTH_COOKIE_NAME: z
+    .string()
+    .min(1)
+    .default("quarzo_customer_session"),
   AUTH_TOKEN_TTL_HOURS: z.coerce.number().int().positive().default(12),
   ADMIN_EMAIL: z.string().email(),
   ADMIN_PASSWORD: z.string().min(8),
@@ -35,7 +39,10 @@ const envSchema = z.object({
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error("Invalid environment variables:", parsed.error.flatten().fieldErrors);
+  console.error(
+    "Invalid environment variables:",
+    parsed.error.flatten().fieldErrors,
+  );
   process.exit(1);
 }
 

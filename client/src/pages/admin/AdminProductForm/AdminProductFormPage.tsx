@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/Button/Button";
@@ -15,12 +15,10 @@ import {
 } from "@/services/api/admin";
 import { ApiError } from "@/services/api/fetchJson";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
-import type {
-  AdminProduct,
-  AdminProductImage,
-  AdminProductVariant,
-} from "@/lib/types";
-import { imageToPayload, variantToPayload } from "./mappers.js";
+import type { AdminProduct } from "@/lib/types";
+import { ProductImageEditor } from "./components/ProductImageEditor.js";
+import { ProductVariantEditor } from "./components/ProductVariantEditor.js";
+import { formValuesToPayload, productToFormValues } from "./mappers.js";
 import {
   productFormSchema,
   slugify,
@@ -35,15 +33,23 @@ export function AdminProductFormPage() {
   const mode: "create" | "edit" = editId ? "edit" : "create";
   const navigate = useNavigate();
   const slugDirtyRef = useRef(false);
-  const nestedRef = useRef<{
-    images: AdminProductImage[];
-    variants: AdminProductVariant[];
-  }>({ images: [], variants: [] });
   const loadIdRef = useRef<string | null>(null);
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<boolean>(mode === "create");
 
+  const formMethods = useForm<ProductFormValues>({
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      name: "",
+      slug: "",
+      category: "",
+      description: "",
+      active: true,
+      images: [],
+      variants: [],
+    },
+  });
   const {
     register,
     handleSubmit,
@@ -52,16 +58,7 @@ export function AdminProductFormPage() {
     watch,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<ProductFormValues>({
-    resolver: zodResolver(productFormSchema),
-    defaultValues: {
-      name: "",
-      slug: "",
-      category: "",
-      description: "",
-      active: true,
-    },
-  });
+  } = formMethods;
 
   const load = useCallback(async () => {
     if (!editId) return;
@@ -72,17 +69,7 @@ export function AdminProductFormPage() {
     try {
       const product: AdminProduct = await fetchAdminProduct(requestedId);
       if (loadIdRef.current !== requestedId) return;
-      nestedRef.current = {
-        images: product.images,
-        variants: product.variants,
-      };
-      reset({
-        name: product.name,
-        slug: product.slug,
-        category: product.category,
-        description: product.description,
-        active: product.active,
-      });
+      reset(productToFormValues(product));
       slugDirtyRef.current = true;
       setLoaded(true);
     } catch (err) {
@@ -108,15 +95,7 @@ export function AdminProductFormPage() {
 
   const { submit, submitError } = useFormSubmit<ProductFormValues>(
     async (values) => {
-      const payload = {
-        slug: values.slug,
-        name: values.name,
-        description: values.description,
-        category: values.category,
-        active: values.active,
-        images: nestedRef.current.images.map(imageToPayload),
-        variants: nestedRef.current.variants.map(variantToPayload),
-      };
+      const payload = formValuesToPayload(values);
       try {
         if (editId) {
           await updateProduct(editId, payload);
@@ -155,10 +134,19 @@ export function AdminProductFormPage() {
   const heading = mode === "edit" ? "Editar producto" : "Nuevo producto";
   const lede =
     mode === "edit"
-      ? "Actualiza los datos del producto. Las imágenes y variantes se editan en otra sección."
-      : "Crea el producto con la información básica. Las imágenes y variantes se agregan después.";
+      ? "Actualiza los datos, imágenes y variantes del producto."
+      : "Crea el producto con sus imágenes y variantes en una sola pantalla.";
   const submitLabel = mode === "edit" ? "Guardar cambios" : "Crear producto";
   const submittingLabel = mode === "edit" ? "Guardando…" : "Creando…";
+
+  const variantsRootError =
+    typeof errors.variants?.message === "string"
+      ? errors.variants.message
+      : undefined;
+  const imagesRootError =
+    typeof errors.images?.message === "string"
+      ? errors.images.message
+      : undefined;
 
   return (
     <section className={styles.wrapper}>
@@ -171,6 +159,7 @@ export function AdminProductFormPage() {
         </Typography>
       </header>
 
+      <FormProvider {...formMethods}>
       <form onSubmit={onSubmit} noValidate className={styles.form}>
         <FormField label="Nombre" error={errors.name?.message}>
           <Input
@@ -215,6 +204,16 @@ export function AdminProductFormPage() {
           <Textarea rows={5} maxLength={2000} {...register("description")} />
         </FormField>
 
+        <ProductImageEditor
+          fieldErrors={errors.images}
+          rootError={imagesRootError}
+        />
+
+        <ProductVariantEditor
+          fieldErrors={errors.variants}
+          rootError={variantsRootError}
+        />
+
         {mode === "edit" ? (
           <label className={styles.activeRow}>
             <input
@@ -246,6 +245,7 @@ export function AdminProductFormPage() {
           </Link>
         </div>
       </form>
+      </FormProvider>
     </section>
   );
 }
