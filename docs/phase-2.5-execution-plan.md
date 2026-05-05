@@ -23,7 +23,7 @@
 | Layer | Where | Notes |
 |---|---|---|
 | Design tokens | `client/src/styles/_tokens.scss` | Brand palette + semantic aliases (`$color-bg`, `$color-accent`, `$space-*`, `$radius-*`, `$bp-*`). Re-emitted as CSS custom properties on `:root` so JS / media queries can read them. |
-| Mixins | `client/src/styles/_mixins.scss` | `focus-ring`, `screen-md`, `screen-lg`. |
+| Mixins | `client/src/styles/_mixins.scss` | `focus-ring`, `screen-md`, `screen-lg`, `screen-below-md`, `flex-center`, `sticky-header`, `form-error-banner`. |
 | Global stylesheet | `client/src/index.scss` | Reset + body defaults reading from CSS custom properties. |
 | Fonts | `client/index.html` | Lora (primary, serif) + Quicksand (secondary, sans) via Google Fonts. |
 | Routing | `client/src/App.tsx` | `BrowserRouter`. Three sibling layouts (`PublicLayout` / `AuthLayout` / `AdminLayout`), `*` → `NotFoundPage`, `/admin` → `Navigate` to `/admin/productos`. |
