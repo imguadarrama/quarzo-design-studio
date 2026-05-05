@@ -37,9 +37,9 @@
 
 ### 3.0 Provision R2 (one-time setup)
 
-This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, one API token, the five `R2_*` env values §3.1 needs. Estimated time: ~10 minutes.
+This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two API tokens (one per bucket)**, and the per-env GitHub secret values §3.1 needs. Estimated time: ~10 minutes.
 
-1. **Sign in to Cloudflare** (`dash.cloudflare.com`) with the same account that owns the Pages projects (`quarzo` + `quarzo-staging`). Capture the **Account ID** from the right-hand sidebar of the dashboard home — that's `R2_ACCOUNT_ID`.
+1. **Sign in to Cloudflare** (`dash.cloudflare.com`) with the same account that owns the Pages projects (`quarzo` + `quarzo-staging`). Confirm the **Account ID** from the right-hand sidebar of the dashboard home matches the existing `CLOUDFLARE_ACCOUNT_ID` GitHub secret — R2 reuses this same value as its account ID, so no new secret is needed for it.
 2. **Enable R2.** Left sidebar → **R2 Object Storage** → click through the "Subscribe to R2" / payment-method prompt. Base fee is $0; Cloudflare requires a card on file to handle overage, but you won't be charged unless you exceed the free tier (see §9).
 3. **Create the production bucket.**
    - Click **Create bucket**.
@@ -50,34 +50,46 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, one A
 4. **Create the staging bucket.** Repeat step 3 with name `quarzo-media-staging`. This bucket holds per-PR uploads under `pr-<N>/` prefixes (see §3.6).
 5. **Enable public access on both buckets.**
    - Open `quarzo-media` → **Settings** → **Public access** → under "R2.dev subdomain" click **Allow Access**.
-   - Cloudflare displays a URL like `https://pub-<hash>.r2.dev`. Copy it — that's `R2_PUBLIC_BASE_URL` for production.
-   - Repeat for `quarzo-media-staging` to get the staging public URL.
-   - (Custom domain `https://media.quarzo.shop` waits for Phase 7 — until then the `pub-<hash>.r2.dev` URL is what gets stored in `ProductImage.url`.)
-6. **Create one API token covering both buckets.**
+   - Cloudflare displays a URL like `https://pub-<hash>.r2.dev`. Copy it — that's the value you'll store as `R2_PUBLIC_BASE_URL_PROD` in GitHub (and as plain `R2_PUBLIC_BASE_URL` once injected into Fly).
+   - Repeat for `quarzo-media-staging` to get the staging public URL → `R2_PUBLIC_BASE_URL_STAGING`.
+   - **About the warning Cloudflare shows when you click Allow Access.** CF flags the `pub-<hash>.r2.dev` subdomain as rate-limited and intended for development/staging traffic, recommending a Custom Domain for production. We accept the warning for v1: at ~20 SKUs and Instagram-driven traffic, the rate limit will not bite. The custom domain `media.quarzo.shop` is deferred to **Phase 7** because `quarzo.shop` is not yet registered or onboarded to Cloudflare DNS. When Phase 7 lands the domain, we attach `media.quarzo.shop` as a Custom Domain on `quarzo-media`, update `R2_PUBLIC_BASE_URL_PROD`, and rewrite stored `ProductImage.url` values via a one-line search-replace backfill on the URL prefix. Until then, prod stays on `pub-<hash>.r2.dev` — by design, not by oversight.
+6. **Create two API tokens — one per bucket.** A staging token must not be able to write to the prod bucket; this mirrors the same blast-radius split that `JWT_SECRET_STAGING` / `JWT_SECRET_PROD` already give us. The Account ID returned by both tokens is the same (it's the Cloudflare account, not per-token); only the Access Key ID and Secret Access Key differ.
+
+   **Token A — staging:**
    - R2 home → **Manage R2 API Tokens** (right side) → **Create API Token**.
-   - Token name: `quarzo-r2-rw`.
+   - Token name: `quarzo-r2-rw-staging`.
    - Permissions: **Object Read & Write**.
-   - Specify buckets: select **Apply to specific buckets only** → tick `quarzo-media` and `quarzo-media-staging`.
+   - Specify buckets: select **Apply to specific buckets only** → tick **only** `quarzo-media-staging`.
    - TTL: **Forever** (rotate manually when needed).
-   - Click **Create API Token**. Cloudflare shows the **Access Key ID** and **Secret Access Key** *once* — capture both immediately. They map to `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`.
-   - The page also shows an **S3-compatible endpoint** (`https://<account-id>.r2.cloudflarestorage.com`). The `@aws-sdk/client-s3` wrapper in §3.2 derives this from `R2_ACCOUNT_ID`, so you don't need to store it separately — but copy it once for sanity-checking with the AWS CLI if you want a smoke test before wiring code.
+   - Click **Create API Token**. Cloudflare shows the **Access Key ID** and **Secret Access Key** *once* — capture both immediately. They map to `R2_ACCESS_KEY_ID_STAGING` and `R2_SECRET_ACCESS_KEY_STAGING` in GitHub.
+
+   **Token B — production:**
+   - Repeat the flow with token name `quarzo-r2-rw-prod`, scoped to **only** `quarzo-media`. The captured keys map to `R2_ACCESS_KEY_ID_PROD` and `R2_SECRET_ACCESS_KEY_PROD`.
+
+   The token-creation page also shows an **S3-compatible endpoint** (`https://<account-id>.r2.cloudflarestorage.com`). The `@aws-sdk/client-s3` wrapper in §3.2 derives this from the account ID, so you don't need to store it separately — but copy it once for sanity-checking with the AWS CLI if you want a smoke test before wiring code.
 7. **Smoke-test the token (optional but recommended).** From your host with the AWS CLI installed:
    ```bash
    AWS_ACCESS_KEY_ID=<key> AWS_SECRET_ACCESS_KEY=<secret> \
      aws s3 ls --endpoint-url https://<account-id>.r2.cloudflarestorage.com
    ```
    Should list both buckets. If it 403s, the token's bucket scope is wrong; re-create it.
-8. **Record the five values.** You should now have, ready to paste into `.env` and GitHub Environments per §3.1:
-   - `R2_ACCOUNT_ID` — from step 1
-   - `R2_ACCESS_KEY_ID` — from step 6
-   - `R2_SECRET_ACCESS_KEY` — from step 6
-   - `R2_BUCKET` — `quarzo-media` for production env, `quarzo-media-staging` for staging env
-   - `R2_PUBLIC_BASE_URL` — `https://pub-<hash>.r2.dev` from step 5 (different per bucket; production env gets the prod URL, staging env gets the staging URL)
+8. **Record the values.** You should now have everything needed for §3.1. Two layers — the **GitHub Actions secrets** the workflows reference, and the **Fly app env vars** they inject (unsuffixed, what `server/src/config/env.ts` validates).
+
+   **GitHub Actions secrets — reuse:**
+   - `CLOUDFLARE_ACCOUNT_ID` — already configured (used by `cloudflare/pages-action@v1` in both deploy workflows). R2 needs this exact same value as its account ID; **do not** create a separate `R2_ACCOUNT_ID` GitHub secret.
+
+   **GitHub Actions secrets — add (eight new, four per env, follows the `<NAME>_STAGING` / `<NAME>_PROD` convention used by `JWT_SECRET`, `ADMIN_EMAIL`, `CLIENT_ORIGIN`, etc.):**
+   - `R2_ACCESS_KEY_ID_STAGING` / `R2_ACCESS_KEY_ID_PROD` — from step 6 token A / token B respectively
+   - `R2_SECRET_ACCESS_KEY_STAGING` / `R2_SECRET_ACCESS_KEY_PROD` — from step 6 token A / token B respectively
+   - `R2_BUCKET_STAGING` (= `quarzo-media-staging`) / `R2_BUCKET_PROD` (= `quarzo-media`)
+   - `R2_PUBLIC_BASE_URL_STAGING` / `R2_PUBLIC_BASE_URL_PROD` — from step 5 (one `pub-<hash>.r2.dev` URL per bucket; the hashes differ)
+
+   **Fly app env vars (unsuffixed — what app code reads):** `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`. The deploy workflows map suffixed GitHub secrets → unsuffixed Fly env vars exactly the way they already do for `JWT_SECRET="${{ secrets.JWT_SECRET_STAGING }}"`. See §3.1 for the snippet.
 
 ### 3.1 Bucket + secrets
 
-- [ ] Provision R2 per **§3.0** (two buckets + one API token covering both). Output: the five `R2_*` values used below.
-- [ ] Add to `.env.example`:
+- [ ] Provision R2 per **§3.0**: two buckets (`quarzo-media` + `quarzo-media-staging`) + two API tokens (`quarzo-r2-rw-prod` scoped to `quarzo-media`, `quarzo-r2-rw-staging` scoped to `quarzo-media-staging`).
+- [ ] Add to `.env.example` (unsuffixed — these are the in-app names, matching the Fly env var shape and `server/src/config/env.ts`):
   ```
   R2_ACCOUNT_ID=
   R2_ACCESS_KEY_ID=
@@ -85,8 +97,26 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, one A
   R2_BUCKET=
   R2_PUBLIC_BASE_URL=
   ```
-- [ ] Extend `server/src/config/env.ts` to validate these (`min(1)` strings; `R2_PUBLIC_BASE_URL` must be a URL). Boot fails fast on misconfigured env.
-- [ ] Add the same five secrets to GitHub Environments (`production` + `staging`); update `deploy-staging.yml` and `deploy-production.yml` to forward them to Fly.
+  Local dev leaves these blank — the upload route only runs against R2 in deployed envs. (To smoke-test uploads locally, paste the staging values; not required for normal local dev.)
+- [ ] Extend `server/src/config/env.ts` to validate the five unsuffixed names (`min(1)` strings; `R2_PUBLIC_BASE_URL` must be a URL). Boot fails fast on misconfigured env.
+- [ ] **Add the eight new secrets to GitHub** (Repo → Settings → Secrets and variables → Actions → Environments). Add to the `staging` environment: `R2_ACCESS_KEY_ID_STAGING`, `R2_SECRET_ACCESS_KEY_STAGING`, `R2_BUCKET_STAGING`, `R2_PUBLIC_BASE_URL_STAGING`. Add to the `production` environment: `R2_ACCESS_KEY_ID_PROD`, `R2_SECRET_ACCESS_KEY_PROD`, `R2_BUCKET_PROD`, `R2_PUBLIC_BASE_URL_PROD`. **Do not** add `R2_ACCOUNT_ID` — the workflows reference the existing `CLOUDFLARE_ACCOUNT_ID` instead.
+- [ ] **Update `.github/workflows/deploy-staging.yml`** — extend the existing `flyctl secrets set` block (the one that already sets `JWT_SECRET`, `ADMIN_EMAIL`, etc.) with five more lines:
+  ```yaml
+            R2_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
+            R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_STAGING }}" \
+            R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_STAGING }}" \
+            R2_BUCKET="${{ secrets.R2_BUCKET_STAGING }}" \
+            R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_STAGING }}" \
+  ```
+- [ ] **Update `.github/workflows/deploy-production.yml`** — same shape, prod-suffixed:
+  ```yaml
+            R2_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
+            R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_PROD }}" \
+            R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_PROD }}" \
+            R2_BUCKET="${{ secrets.R2_BUCKET_PROD }}" \
+            R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_PROD }}" \
+  ```
+  Pattern matches the existing `JWT_SECRET="${{ secrets.JWT_SECRET_STAGING }}"` line at `deploy-staging.yml` and the `JWT_SECRET="${{ secrets.JWT_SECRET_PROD }}"` line in `deploy-production.yml` — suffixed GitHub secret on the right, unsuffixed Fly env var on the left.
 
 ### 3.2 Upload library + endpoint
 
@@ -254,6 +284,8 @@ Once all six are green, **Phase 2.7 (designs) is unblocked**.
 
 - **Why R2 over S3:** zero egress fees on R2 (S3 charges per GB egressed to internet). For a stationery store served from a CDN, egress cost dominates storage cost. R2's S3-compatible API means migrating to S3 later is a config swap, not a code change.
 - **Why not Cloudinary / imgix:** both are excellent but they're hosted services with their own SDK, pricing, and learning curves. The pedagogical goal of this project says: own the storage layer the way we own auth. Sharp + R2 is ~120 lines of code we control end-to-end.
+- **Why prod is on `pub-<hash>.r2.dev` instead of a custom domain:** Cloudflare's recommended production path for a public R2 bucket is a Custom Domain (e.g. `media.quarzo.shop`). That requires the apex domain to be registered and onboarded to Cloudflare DNS — neither is true yet for `quarzo.shop` (custom domain is a Phase 7 deliverable). For v1's traffic profile (~20 SKUs, Instagram-driven), the `r2.dev` subdomain's rate limit is irrelevant. The CF warning shown when enabling public access is acknowledged and deferred, not ignored. Phase 7 swap is one line: re-attach the custom domain on the bucket, update `R2_PUBLIC_BASE_URL_PROD`, and run a one-shot `UPDATE "ProductImage" SET url = REPLACE(url, '<old-base>', '<new-base>')` SQL.
+- **Why two R2 tokens instead of one shared token:** mirrors the `JWT_SECRET_STAGING` / `JWT_SECRET_PROD` blast-radius split. A leaked staging key cannot write to the prod bucket; a leaked prod key cannot accidentally clobber per-PR staging artifacts. The Cloudflare account ID is shared (it identifies the account, not the credential), which is why GitHub stores it once as `CLOUDFLARE_ACCOUNT_ID` and the workflows reuse that value for both envs.
 - **Cost ceiling:** R2 free tier is 10 GB storage + 1M Class A ops/month + 10M Class B ops/month. Quarzo v1 demand:
   - Storage: ~30 MB (20 products × ~5 images × ~300 KB processed). After Phase 2.7 designs, worst-case ~1.5 GB at 100 products × 30 designs.
   - Class A (writes): admin uploads only — ~500/month ceiling.
