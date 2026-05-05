@@ -58,7 +58,12 @@ jobs:
             CLIENT_ORIGIN="${{ secrets.CLIENT_ORIGIN_PROD }}" \
             COOKIE_DOMAIN="${{ secrets.COOKIE_DOMAIN_PROD }}" \
             APP_ENV="production" \
-            NODE_ENV="production"
+            NODE_ENV="production" \
+            CLOUDFLARE_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
+            R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_PROD }}" \
+            R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_PROD }}" \
+            R2_BUCKET="${{ secrets.R2_BUCKET_PROD }}" \
+            R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_PROD }}"
           flyctl deploy -a ${{ secrets.FLY_APP_PROD }} -c fly.toml --remote-only
 
       - name: Generate Cloudflare Pages _worker.js (api proxy + SPA fallback)

@@ -85,14 +85,14 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
    - `R2_BUCKET_STAGING` (= `quarzo-media-staging`) / `R2_BUCKET_PROD` (= `quarzo-media`)
    - `R2_PUBLIC_BASE_URL_STAGING` / `R2_PUBLIC_BASE_URL_PROD` — from step 5 (one `pub-<hash>.r2.dev` URL per bucket; the hashes differ)
 
-   **Fly app env vars (unsuffixed — what app code reads):** `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`. The deploy workflows map suffixed GitHub secrets → unsuffixed Fly env vars exactly the way they already do for `JWT_SECRET="${{ secrets.JWT_SECRET_STAGING }}"`. See §3.1 for the snippet.
+   **Fly app env vars (unsuffixed — what app code reads):** `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`. The Cloudflare account ID flows through with the same name on every layer (GitHub secret → Fly env → `env.ts`); the four R2 vars are renamed from their `_STAGING`/`_PROD`-suffixed GitHub form, exactly the way `JWT_SECRET="${{ secrets.JWT_SECRET_STAGING }}"` already does. See §3.1 for the snippet.
 
 ### 3.1 Bucket + secrets
 
 - [x] Provision R2 per **§3.0**: two buckets (`quarzo-media` + `quarzo-media-staging`) + two API tokens (`quarzo-r2-rw-prod` scoped to `quarzo-media`, `quarzo-r2-rw-staging` scoped to `quarzo-media-staging`).
 - [x] Add to `.env.example` (unsuffixed — these are the in-app names, matching the Fly env var shape and `server/src/config/env.ts`):
   ```
-  R2_ACCOUNT_ID=
+  CLOUDFLARE_ACCOUNT_ID=
   R2_ACCESS_KEY_ID=
   R2_SECRET_ACCESS_KEY=
   R2_BUCKET=
@@ -101,17 +101,17 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
   Local dev leaves these blank — the upload route only runs against R2 in deployed envs. (To smoke-test uploads locally, paste the staging values; not required for normal local dev.)
 - [x] Extend `server/src/config/env.ts` to validate the five unsuffixed names (`min(1)` strings; `R2_PUBLIC_BASE_URL` must be a URL). Boot fails fast on misconfigured env.
 - [x] **Add the eight new secrets to GitHub** (Repo → Settings → Secrets and variables → Actions → Environments). Add to the `staging` environment: `R2_ACCESS_KEY_ID_STAGING`, `R2_SECRET_ACCESS_KEY_STAGING`, `R2_BUCKET_STAGING`, `R2_PUBLIC_BASE_URL_STAGING`. Add to the `production` environment: `R2_ACCESS_KEY_ID_PROD`, `R2_SECRET_ACCESS_KEY_PROD`, `R2_BUCKET_PROD`, `R2_PUBLIC_BASE_URL_PROD`. **Do not** add `R2_ACCOUNT_ID` — the workflows reference the existing `CLOUDFLARE_ACCOUNT_ID` instead.
-- [ ] **Update `.github/workflows/deploy-staging.yml`** — extend the existing `flyctl secrets set` block (the one that already sets `JWT_SECRET`, `ADMIN_EMAIL`, etc.) with five more lines:
+- [x] **Update `.github/workflows/deploy-staging.yml`** — extend the existing `flyctl secrets set` block (the one that already sets `JWT_SECRET`, `ADMIN_EMAIL`, etc.) with five more lines:
   ```yaml
-  R2_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
+  CLOUDFLARE_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
   R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_STAGING }}" \
   R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_STAGING }}" \
   R2_BUCKET="${{ secrets.R2_BUCKET_STAGING }}" \
   R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_STAGING }}" \
   ```
-- [ ] **Update `.github/workflows/deploy-production.yml`** — same shape, prod-suffixed:
+- [x] **Update `.github/workflows/deploy-production.yml`** — same shape, prod-suffixed:
   ```yaml
-  R2_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
+  CLOUDFLARE_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
   R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_PROD }}" \
   R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_PROD }}" \
   R2_BUCKET="${{ secrets.R2_BUCKET_PROD }}" \
