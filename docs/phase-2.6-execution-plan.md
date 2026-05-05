@@ -18,7 +18,7 @@
 
 - **Today:** `ProductImage.url` is a `String` column that holds either an `https://...` URL or a `data:image/...;base64,...` blob. The admin editor (Slice 7) writes the latter; the public catalog returns the full base64 inline. Server validates ≤ 500 KB per data URL and ≤ 8 images per product. `express.json({ limit: "1mb" })` is the outer cap.
 - **Why this needs to change:** (1) iPhone originals are 2–6 MB and require manual compression before upload, which is operator friction; (2) Phase 2.7 adds 20+ design images per product on top of product hero shots, and the public payload would balloon to 10+ MB; (3) base64-in-Postgres is fine for ~10 SKUs and unsustainable past that.
-- **What stays the same:** the `ProductImage` table, the `images: []` array on `Product`, the admin form's editor UX (file picker → preview → alt text → reorder). Only the *contents* of `url` change (from data URLs to CDN URLs) and the size/count caps relax.
+- **What stays the same:** the `ProductImage` table, the `images: []` array on `Product`, the admin form's editor UX (file picker → preview → alt text → reorder). Only the _contents_ of `url` change (from data URLs to CDN URLs) and the size/count caps relax.
 
 ---
 
@@ -61,12 +61,13 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
    - Permissions: **Object Read & Write**.
    - Specify buckets: select **Apply to specific buckets only** → tick **only** `quarzo-media-staging`.
    - TTL: **Forever** (rotate manually when needed).
-   - Click **Create API Token**. Cloudflare shows the **Access Key ID** and **Secret Access Key** *once* — capture both immediately. They map to `R2_ACCESS_KEY_ID_STAGING` and `R2_SECRET_ACCESS_KEY_STAGING` in GitHub.
+   - Click **Create API Token**. Cloudflare shows the **Access Key ID** and **Secret Access Key** _once_ — capture both immediately. They map to `R2_ACCESS_KEY_ID_STAGING` and `R2_SECRET_ACCESS_KEY_STAGING` in GitHub.
 
    **Token B — production:**
    - Repeat the flow with token name `quarzo-r2-rw-prod`, scoped to **only** `quarzo-media`. The captured keys map to `R2_ACCESS_KEY_ID_PROD` and `R2_SECRET_ACCESS_KEY_PROD`.
 
    The token-creation page also shows an **S3-compatible endpoint** (`https://<account-id>.r2.cloudflarestorage.com`). The `@aws-sdk/client-s3` wrapper in §3.2 derives this from the account ID, so you don't need to store it separately — but copy it once for sanity-checking with the AWS CLI if you want a smoke test before wiring code.
+
 7. **Smoke-test the token (optional but recommended).** From your host with the AWS CLI installed:
    ```bash
    AWS_ACCESS_KEY_ID=<key> AWS_SECRET_ACCESS_KEY=<secret> \
@@ -88,8 +89,8 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 3.1 Bucket + secrets
 
-- [ ] Provision R2 per **§3.0**: two buckets (`quarzo-media` + `quarzo-media-staging`) + two API tokens (`quarzo-r2-rw-prod` scoped to `quarzo-media`, `quarzo-r2-rw-staging` scoped to `quarzo-media-staging`).
-- [ ] Add to `.env.example` (unsuffixed — these are the in-app names, matching the Fly env var shape and `server/src/config/env.ts`):
+- [x] Provision R2 per **§3.0**: two buckets (`quarzo-media` + `quarzo-media-staging`) + two API tokens (`quarzo-r2-rw-prod` scoped to `quarzo-media`, `quarzo-r2-rw-staging` scoped to `quarzo-media-staging`).
+- [x] Add to `.env.example` (unsuffixed — these are the in-app names, matching the Fly env var shape and `server/src/config/env.ts`):
   ```
   R2_ACCOUNT_ID=
   R2_ACCESS_KEY_ID=
@@ -98,23 +99,23 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
   R2_PUBLIC_BASE_URL=
   ```
   Local dev leaves these blank — the upload route only runs against R2 in deployed envs. (To smoke-test uploads locally, paste the staging values; not required for normal local dev.)
-- [ ] Extend `server/src/config/env.ts` to validate the five unsuffixed names (`min(1)` strings; `R2_PUBLIC_BASE_URL` must be a URL). Boot fails fast on misconfigured env.
-- [ ] **Add the eight new secrets to GitHub** (Repo → Settings → Secrets and variables → Actions → Environments). Add to the `staging` environment: `R2_ACCESS_KEY_ID_STAGING`, `R2_SECRET_ACCESS_KEY_STAGING`, `R2_BUCKET_STAGING`, `R2_PUBLIC_BASE_URL_STAGING`. Add to the `production` environment: `R2_ACCESS_KEY_ID_PROD`, `R2_SECRET_ACCESS_KEY_PROD`, `R2_BUCKET_PROD`, `R2_PUBLIC_BASE_URL_PROD`. **Do not** add `R2_ACCOUNT_ID` — the workflows reference the existing `CLOUDFLARE_ACCOUNT_ID` instead.
+- [x] Extend `server/src/config/env.ts` to validate the five unsuffixed names (`min(1)` strings; `R2_PUBLIC_BASE_URL` must be a URL). Boot fails fast on misconfigured env.
+- [x] **Add the eight new secrets to GitHub** (Repo → Settings → Secrets and variables → Actions → Environments). Add to the `staging` environment: `R2_ACCESS_KEY_ID_STAGING`, `R2_SECRET_ACCESS_KEY_STAGING`, `R2_BUCKET_STAGING`, `R2_PUBLIC_BASE_URL_STAGING`. Add to the `production` environment: `R2_ACCESS_KEY_ID_PROD`, `R2_SECRET_ACCESS_KEY_PROD`, `R2_BUCKET_PROD`, `R2_PUBLIC_BASE_URL_PROD`. **Do not** add `R2_ACCOUNT_ID` — the workflows reference the existing `CLOUDFLARE_ACCOUNT_ID` instead.
 - [ ] **Update `.github/workflows/deploy-staging.yml`** — extend the existing `flyctl secrets set` block (the one that already sets `JWT_SECRET`, `ADMIN_EMAIL`, etc.) with five more lines:
   ```yaml
-            R2_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
-            R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_STAGING }}" \
-            R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_STAGING }}" \
-            R2_BUCKET="${{ secrets.R2_BUCKET_STAGING }}" \
-            R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_STAGING }}" \
+  R2_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
+  R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_STAGING }}" \
+  R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_STAGING }}" \
+  R2_BUCKET="${{ secrets.R2_BUCKET_STAGING }}" \
+  R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_STAGING }}" \
   ```
 - [ ] **Update `.github/workflows/deploy-production.yml`** — same shape, prod-suffixed:
   ```yaml
-            R2_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
-            R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_PROD }}" \
-            R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_PROD }}" \
-            R2_BUCKET="${{ secrets.R2_BUCKET_PROD }}" \
-            R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_PROD }}" \
+  R2_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
+  R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_PROD }}" \
+  R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_PROD }}" \
+  R2_BUCKET="${{ secrets.R2_BUCKET_PROD }}" \
+  R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_PROD }}" \
   ```
   Pattern matches the existing `JWT_SECRET="${{ secrets.JWT_SECRET_STAGING }}"` line at `deploy-staging.yml` and the `JWT_SECRET="${{ secrets.JWT_SECRET_PROD }}"` line in `deploy-production.yml` — suffixed GitHub secret on the right, unsuffixed Fly env var on the left.
 
@@ -126,7 +127,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
   1. `sharp(buffer).rotate().resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82, mozjpeg: true }).toBuffer()` — `.rotate()` honors EXIF orientation; the re-encode strips EXIF.
   2. `uploadImage({ buffer: processed, contentType: "image/jpeg", prefix: req.body.prefix ?? "products" })`.
   3. Return `{ url, width, height, bytes }`.
-  Errors: oversized → 413; non-image content type → 415; sharp decode failure → 422 with `code: "INVALID_IMAGE"`.
+     Errors: oversized → 413; non-image content type → 415; sharp decode failure → 422 with `code: "INVALID_IMAGE"`.
 - [ ] Mount under `app.use("/api/admin", adminImagesRouter)` in `server/src/index.ts`, after `authenticateAdmin` but in the same admin block.
 
 ### 3.3 Validation schema
@@ -205,17 +206,17 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ## 5. Decisions to lock before opening the PR
 
-| Decision | Recommendation | Why |
-|---|---|---|
-| Bucket provider | **Cloudflare R2** | Matches existing CF Pages footprint, no egress fees, S3-compatible SDK. AWS S3 / Backblaze B2 also fine. |
-| Image variants generated | **Single 1600 px JPEG** | Simplest. ~20 SKUs × ~5 images at <300 KB each is well under what a CDN handles. Multi-size variants (thumb / detail / hero) are a Phase 4+ optimization if Lighthouse scores demand. |
-| EXIF stripping | **Yes (automatic via Sharp re-encode)** | Removes geolocation from photos. Important: iPhone shots include GPS by default. |
-| URL shape in DB | **Full public URL** stored in `ProductImage.url` | Stable across deploys, no client-side base-URL knowledge. Path: `https://media.quarzo.shop/products/<cuid>.jpg`. |
-| Original retention | **Discard after upload** | Keeps R2 storage tight. If the wife ever needs originals, she has them locally; we're not building an archive. |
-| Format | **JPEG only** | Universal browser support. Add WEBP next to it only if Phase 7 Lighthouse measures meaningful savings. |
-| Per-PR isolation | **Per-PR key prefix `pr-<N>/`** in staging bucket | Lets `cleanup-staging.yml` delete cleanly on PR close. |
-| Image size cap (UX) | **Keep `images.max(8)`** | The product detail UX gets noisy past 8 photos. This is a product decision, not a storage one. |
-| 10 MB upload cap | **Yes, hard cap at multer layer** | Sharp can decode bigger but most iPhone JPEGs are 5–8 MB. 10 MB leaves headroom; anything bigger is a misconfigured camera. |
+| Decision                 | Recommendation                                    | Why                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Bucket provider          | **Cloudflare R2**                                 | Matches existing CF Pages footprint, no egress fees, S3-compatible SDK. AWS S3 / Backblaze B2 also fine.                                                                              |
+| Image variants generated | **Single 1600 px JPEG**                           | Simplest. ~20 SKUs × ~5 images at <300 KB each is well under what a CDN handles. Multi-size variants (thumb / detail / hero) are a Phase 4+ optimization if Lighthouse scores demand. |
+| EXIF stripping           | **Yes (automatic via Sharp re-encode)**           | Removes geolocation from photos. Important: iPhone shots include GPS by default.                                                                                                      |
+| URL shape in DB          | **Full public URL** stored in `ProductImage.url`  | Stable across deploys, no client-side base-URL knowledge. Path: `https://media.quarzo.shop/products/<cuid>.jpg`.                                                                      |
+| Original retention       | **Discard after upload**                          | Keeps R2 storage tight. If the wife ever needs originals, she has them locally; we're not building an archive.                                                                        |
+| Format                   | **JPEG only**                                     | Universal browser support. Add WEBP next to it only if Phase 7 Lighthouse measures meaningful savings.                                                                                |
+| Per-PR isolation         | **Per-PR key prefix `pr-<N>/`** in staging bucket | Lets `cleanup-staging.yml` delete cleanly on PR close.                                                                                                                                |
+| Image size cap (UX)      | **Keep `images.max(8)`**                          | The product detail UX gets noisy past 8 photos. This is a product decision, not a storage one.                                                                                        |
+| 10 MB upload cap         | **Yes, hard cap at multer layer**                 | Sharp can decode bigger but most iPhone JPEGs are 5–8 MB. 10 MB leaves headroom; anything bigger is a misconfigured camera.                                                           |
 
 ---
 
@@ -290,8 +291,8 @@ Once all six are green, **Phase 2.7 (designs) is unblocked**.
   - Storage: ~30 MB (20 products × ~5 images × ~300 KB processed). After Phase 2.7 designs, worst-case ~1.5 GB at 100 products × 30 designs.
   - Class A (writes): admin uploads only — ~500/month ceiling.
   - Class B (reads): Cloudflare edge cache absorbs nearly all public reads; origin sees low thousands/month.
-  All three sit 3+ orders of magnitude under the free tier. Cloudflare requires a card on file to enable R2 even on the $0 plan, but charges only kick in on overage. If we somehow blow past it, that's a problem worth having.
+    All three sit 3+ orders of magnitude under the free tier. Cloudflare requires a card on file to enable R2 even on the $0 plan, but charges only kick in on overage. If we somehow blow past it, that's a problem worth having.
 
 ---
 
-*This plan was added 2026-05-04 in response to Phase 2.7 needing image storage that doesn't bottleneck on Postgres row sizes. When every box in §§3–8 is ticked, Phase 2.6 is complete and Phase 2.7 starts.*
+_This plan was added 2026-05-04 in response to Phase 2.7 needing image storage that doesn't bottleneck on Postgres row sizes. When every box in §§3–8 is ticked, Phase 2.6 is complete and Phase 2.7 starts._
