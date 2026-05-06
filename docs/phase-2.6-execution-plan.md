@@ -121,26 +121,26 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 3.2 Upload library + endpoint
 
-- [ ] Add deps to `server/package.json`: `@aws-sdk/client-s3` (R2 is S3-compatible), `multer` (multipart parser), `sharp` (image processing). `pnpm dev:rebuild` to pull native bindings into the container.
-- [ ] **NEW** `server/src/lib/storage.ts` — thin wrapper around the S3 client targeting R2. Exports `uploadImage({ buffer, contentType, prefix }): Promise<{ url: string; key: string }>`. Generates a CSPRNG-random key (`<prefix>/<cuid>.jpg`) and returns `${R2_PUBLIC_BASE_URL}/${key}` as the `url`.
-- [ ] **NEW** `server/src/routes/admin-images.ts` — `POST /api/admin/images`, gated by `authenticateAdmin` + `requireAdmin`. Accepts a single file under field name `image`. Uses `multer` with an in-memory store and a 10 MB limit. Pipeline:
+- [x] Add deps to `server/package.json`: `@aws-sdk/client-s3` (R2 is S3-compatible), `multer` (multipart parser), `sharp` (image processing). `pnpm dev:rebuild` to pull native bindings into the container.
+- [x] **NEW** `server/src/lib/storage.ts` — thin wrapper around the S3 client targeting R2. Exports `uploadImage({ buffer, contentType, prefix }): Promise<{ url: string; key: string }>`. Generates a CSPRNG-random key (`<prefix>/<cuid>.jpg`) and returns `${R2_PUBLIC_BASE_URL}/${key}` as the `url`.
+- [x] **NEW** `server/src/routes/admin-images.ts` — `POST /api/admin/images`, gated by `authenticateAdmin` + `requireAdmin`. Accepts a single file under field name `image`. Uses `multer` with an in-memory store and a 10 MB limit. Pipeline:
   1. `sharp(buffer).rotate().resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82, mozjpeg: true }).toBuffer()` — `.rotate()` honors EXIF orientation; the re-encode strips EXIF.
   2. `uploadImage({ buffer: processed, contentType: "image/jpeg", prefix: req.body.prefix ?? "products" })`.
   3. Return `{ url, width, height, bytes }`.
      Errors: oversized → 413; non-image content type → 415; sharp decode failure → 422 with `code: "INVALID_IMAGE"`.
-- [ ] Mount under `app.use("/api/admin", adminImagesRouter)` in `server/src/index.ts`, after `authenticateAdmin` but in the same admin block.
+- [x] Mount under `app.use("/api/admin", adminImagesRouter)` in `server/src/index.ts`, after `authenticateAdmin` but in the same admin block.
 
 ### 3.3 Validation schema
 
-- [ ] In `server/src/lib/validation-schemas.ts`:
+- [x] In `server/src/lib/validation-schemas.ts`:
   - `imageUrlSchema` accepts only `^https?:\/\/`. Drop the `data:image/` branch and the `MAX_DATA_URL_BYTES` refinement.
   - Keep `imageSchema = z.object({ url: imageUrlSchema, alt: z.string().trim().max(160).optional().or(z.literal("")) })`.
   - Keep the array-level cap `z.array(imageSchema).max(8, "Máximo 8 imágenes por producto")` for now — the cap is a UX choice, not a storage one. Revisit if the wife asks for more.
-- [ ] Drop `MAX_DATA_URL_BYTES` constant + export. Grep the codebase to confirm nothing else imports it.
+- [x] Drop `MAX_DATA_URL_BYTES` constant + export. Grep the codebase to confirm nothing else imports it.
 
 ### 3.4 Express body limit
 
-- [ ] In `server/src/index.ts`: keep `express.json({ limit: "1mb" })` for non-image JSON bodies. The new image upload endpoint uses `multer`, not `express.json`, so the body parser is bypassed for that route.
+- [x] In `server/src/index.ts`: keep `express.json({ limit: "1mb" })` for non-image JSON bodies. The new image upload endpoint uses `multer`, not `express.json`, so the body parser is bypassed for that route.
 
 ### 3.5 Backfill script
 

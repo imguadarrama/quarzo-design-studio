@@ -1,21 +1,10 @@
 import { VariantOptionType } from "@prisma/client";
 import { z } from "zod";
 
-export const MAX_DATA_URL_BYTES = 500_000;
-
 export const imageUrlSchema = z
   .string()
   .trim()
-  .refine(
-    (value) => value.startsWith("data:image/") || /^https?:\/\//.test(value),
-    "Image must be a data URL or an http/https URL",
-  )
-  .refine((value) => {
-    if (!value.startsWith("data:image/")) return true;
-    const b64 = value.split(",", 2)[1] ?? "";
-    const bytes = Math.floor(b64.length * 0.75);
-    return bytes <= MAX_DATA_URL_BYTES;
-  }, "Imagen demasiado grande (máx 500 KB)");
+  .regex(/^https?:\/\//, "Image must be an http or https URL");
 
 export const variantOptionSchema = z
   .object({
