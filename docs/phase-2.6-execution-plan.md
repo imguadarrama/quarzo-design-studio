@@ -98,7 +98,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
   R2_BUCKET=
   R2_PUBLIC_BASE_URL=
   ```
-  Local dev leaves these blank — the upload route only runs against R2 in deployed envs. (To smoke-test uploads locally, paste the staging values; not required for normal local dev.)
+  Local dev requires the staging values pasted in — `env.ts` validates these as `min(1)` so the API will not boot with empty R2 vars. The staging token (`quarzo-r2-rw-staging`) is bucket-scoped to `quarzo-media-staging`, so a local mistake cannot touch prod. Use `prefix: "dev"` when smoke-testing so test uploads land under `dev/` and don't pollute `products/` or `pr-<N>/`.
 - [x] Extend `server/src/config/env.ts` to validate the five unsuffixed names (`min(1)` strings; `R2_PUBLIC_BASE_URL` must be a URL). Boot fails fast on misconfigured env.
 - [x] **Add the eight new secrets to GitHub** (Repo → Settings → Secrets and variables → Actions → Environments). Add to the `staging` environment: `R2_ACCESS_KEY_ID_STAGING`, `R2_SECRET_ACCESS_KEY_STAGING`, `R2_BUCKET_STAGING`, `R2_PUBLIC_BASE_URL_STAGING`. Add to the `production` environment: `R2_ACCESS_KEY_ID_PROD`, `R2_SECRET_ACCESS_KEY_PROD`, `R2_BUCKET_PROD`, `R2_PUBLIC_BASE_URL_PROD`. **Do not** add `R2_ACCOUNT_ID` — the workflows reference the existing `CLOUDFLARE_ACCOUNT_ID` instead.
 - [x] **Update `.github/workflows/deploy-staging.yml`** — extend the existing `flyctl secrets set` block (the one that already sets `JWT_SECRET`, `ADMIN_EMAIL`, etc.) with five more lines:

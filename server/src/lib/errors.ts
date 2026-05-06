@@ -4,3 +4,14 @@ export class NotFoundError extends Error {
     this.name = "NotFoundError";
   }
 }
+
+export class ImageUploadError extends Error {
+  status: number;
+  code: string;
+  constructor(code: string, status: number, message: string) {
+    super(message);
+    this.name = "ImageUploadError";
+    this.code = code;
+    this.status = status;
+  }
+}
