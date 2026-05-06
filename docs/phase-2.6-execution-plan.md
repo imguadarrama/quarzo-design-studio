@@ -144,7 +144,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 3.5 Backfill script
 
-- [ ] **NEW** `server/scripts/migrate-base64-to-r2.mjs`:
+- [x] **NEW** `server/scripts/migrate-base64-to-r2.mjs`:
   ```js
   // For each ProductImage where url LIKE 'data:%':
   //   1. decode base64 → Buffer
@@ -153,6 +153,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
   //   4. update ProductImage.url with the new https URL
   // Logs each row's id + before/after URL. Stops on first error.
   ```
+  Sharp pipeline extracted to `server/src/lib/image-pipeline.ts` so the route and the script can't drift.
 - [ ] Run order:
   1. Local: `pnpm dev:down && pnpm dev:rebuild && pnpm dev`. `pnpm seed` (which already produces `picsum.photos` URLs, so dev backfill is a no-op).
   2. Staging: open a PR, get the per-PR API URL, exec the script in the per-PR Fly app: `flyctl ssh console -a $FLY_APP_STAGING-pr-<N> -C "node scripts/migrate-base64-to-r2.mjs"`. Confirm the PR's Postman test of `/api/products` returns CDN URLs.

@@ -1,9 +1,9 @@
 import { Router } from "express";
 import multer from "multer";
-import sharp from "sharp";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
 import { uploadImage } from "../lib/storage.js";
+import { processImageBuffer } from "../lib/image-pipeline.js";
 import { ImageUploadError } from "../lib/errors.js";
 
 const upload = multer({
@@ -38,16 +38,7 @@ adminImagesRouter.post(
 
       let processed;
       try {
-        processed = await sharp(req.file.buffer)
-          .rotate()
-          .resize({
-            width: 1600,
-            height: 1600,
-            fit: "inside",
-            withoutEnlargement: true,
-          })
-          .jpeg({ quality: 82, mozjpeg: true })
-          .toBuffer({ resolveWithObject: true });
+        processed = await processImageBuffer(req.file.buffer);
       } catch {
         throw new ImageUploadError(
           "INVALID_IMAGE",
@@ -62,16 +53,16 @@ adminImagesRouter.post(
           : "products";
 
       const { url } = await uploadImage({
-        buffer: processed.data,
+        buffer: processed.buffer,
         contentType: "image/jpeg",
         prefix,
       });
 
       res.status(201).json({
         url,
-        width: processed.info.width,
-        height: processed.info.height,
-        bytes: processed.info.size,
+        width: processed.width,
+        height: processed.height,
+        bytes: processed.bytes,
       });
     } catch (err) {
       next(err);
