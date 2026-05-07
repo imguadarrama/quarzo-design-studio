@@ -154,14 +154,16 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
   // Logs each row's id + before/after URL. Stops on first error.
   ```
   Sharp pipeline extracted to `server/src/lib/image-pipeline.ts` so the route and the script can't drift.
-- [ ] Run order:
+- [x] Run order:
   1. Local: `pnpm dev:down && pnpm dev:rebuild && pnpm dev`. `pnpm seed` (which already produces `picsum.photos` URLs, so dev backfill is a no-op).
   2. Staging: open a PR, get the per-PR API URL, exec the script in the per-PR Fly app: `flyctl ssh console -a $FLY_APP_STAGING-pr-<N> -C "node scripts/migrate-base64-to-r2.mjs"`. Confirm the PR's Postman test of `/api/products` returns CDN URLs.
   3. Prod: after merge to `main`, run via `flyctl ssh console -a $FLY_APP_PROD -C "node scripts/migrate-base64-to-r2.mjs"`. **Take a Neon prod backup first.**
 
 ### 3.6 Cleanup workflow
 
-- [ ] Update `.github/workflows/cleanup-staging.yml`: on PR close, delete every R2 key under prefix `pr-<N>/` from the staging bucket. Use `aws s3 rm` against the R2 endpoint or a small Node script. `continue-on-error: true` so it doesn't fail closed PRs that never deployed.
+- [x] Update `.github/workflows/cleanup-staging.yml`: on PR close, delete every R2 key under prefix `pr-<N>/` from the staging bucket. Use `aws s3 rm` against the R2 endpoint or a small Node script. `continue-on-error: true` so it doesn't fail closed PRs that never deployed.
+
+  **Implementation note — `R2_KEY_PREFIX`:** the staging bucket only sees `pr-<N>/...` keys because `server/src/lib/storage.ts` prepends the optional `R2_KEY_PREFIX` env var, which `deploy-staging.yml` sets to `pr-${{ github.event.number }}` per-PR. Prod leaves `R2_KEY_PREFIX` unset, so prod keys stay at `products/<uuid>.jpg` (no migration of already-uploaded prod images). Without this prefix wiring the cleanup step would be a no-op — staging uploads would have intermingled at `products/<uuid>.jpg` alongside prod-shape paths and accumulated indefinitely. Cleanup uses `aws s3 rm s3://$R2_BUCKET/pr-<N>/ --recursive --endpoint-url https://$CF_ACCOUNT_ID.r2.cloudflarestorage.com`; the AWS CLI v2 ships preinstalled on `ubuntu-latest`, and the staging R2 token is bucket-scoped so it can never touch prod.
 
 ---
 
@@ -169,7 +171,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 4.1 Service helper
 
-- [ ] **NEW** `client/src/services/api/uploadImage.ts`:
+- [x] **NEW** `client/src/services/api/uploadImage.ts`:
   ```ts
   export async function uploadImage(file: File): Promise<{ url: string }> {
     const form = new FormData();
@@ -187,7 +189,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 4.2 ProductImageEditor swap
 
-- [ ] In `client/src/pages/admin/AdminProductForm/components/ProductImageEditor.tsx`:
+- [x] In `client/src/pages/admin/AdminProductForm/components/ProductImageEditor.tsx`:
   - Drop `readFileAsDataUrl` and `isOverSize`. Drop the `MAX_IMAGE_BYTES` import.
   - `handlePick` now: `for (const file of files) { try { const { url } = await uploadImage(file); append({ url, alt: "" }); } catch (e) { /* surface inline */ } }`. Keep the "X / 8" counter and disable-at-cap logic.
   - Show "Subiendo…" state on the picker button while requests are in flight.
@@ -195,7 +197,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 4.3 Schema relaxation
 
-- [ ] In `client/src/pages/admin/AdminProductForm/schema.ts`:
+- [x] In `client/src/pages/admin/AdminProductForm/schema.ts`:
   - `imageSchema.url` becomes `z.string().url("URL inválida")`. Drop `MAX_IMAGE_BYTES`, `dataUrlOrHttp`, `dataUrlSizeOk`.
   - Same `images.max(8)` array cap stays.
 
