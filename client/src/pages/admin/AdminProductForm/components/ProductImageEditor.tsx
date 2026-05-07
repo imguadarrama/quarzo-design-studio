@@ -7,35 +7,34 @@ import {
 import { Button } from "@/components/Button/Button";
 import { FormField } from "@/components/FormField/FormField";
 import { Input } from "@/components/Input/Input";
-import { ApiError } from "@/services/api/fetchJson";
-import { uploadImage } from "@/services/api/uploadImage";
+import {
+  isPendingUrl,
+  pendingTempId,
+  pendingUrl,
+  type PendingImageMap,
+} from "../pending-images.js";
 import type { ProductFormValues } from "../schema.js";
 import styles from "./ProductImageEditor.module.scss";
 
 const MAX_IMAGES = 8;
 
 type Props = {
+  pendingImages: PendingImageMap;
   fieldErrors?: FieldErrors<ProductFormValues>["images"];
   rootError?: string;
 };
 
-function describeUploadError(file: File, err: unknown): string {
-  if (err instanceof ApiError) {
-    switch (err.code) {
-      case "FILE_TOO_LARGE":
-        return `${file.name}: demasiado grande (máx 10 MB)`;
-      case "UNSUPPORTED_MEDIA_TYPE":
-        return `${file.name}: no es una imagen válida`;
-      case "INVALID_IMAGE":
-        return `${file.name}: no se pudo procesar`;
-      default:
-        return `${file.name}: ${err.message}`;
-    }
-  }
-  return `${file.name}: error de red`;
+function generateTempId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function ProductImageEditor({ fieldErrors, rootError }: Props) {
+export function ProductImageEditor({
+  pendingImages,
+  fieldErrors,
+  rootError,
+}: Props) {
   const { control, register } = useFormContext<ProductFormValues>();
   const { fields, append, remove, move } = useFieldArray({
     control,
@@ -43,35 +42,43 @@ export function ProductImageEditor({ fieldErrors, rootError }: Props) {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pickerError, setPickerError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
 
   const atCap = fields.length >= MAX_IMAGES;
 
-  const handlePick = async (files: FileList | null) => {
+  const handlePick = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setPickerError(null);
     const remaining = MAX_IMAGES - fields.length;
     const accepted = Array.from(files).slice(0, remaining);
-    const failures: string[] = [];
-    setUploading(true);
-    try {
-      for (const file of accepted) {
-        try {
-          const { url } = await uploadImage(file);
-          append({ url, alt: "" });
-        } catch (err) {
-          failures.push(describeUploadError(file, err));
-        }
-      }
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+    for (const file of accepted) {
+      const tempId = generateTempId();
+      const previewUrl = URL.createObjectURL(file);
+      pendingImages.set(tempId, { file, previewUrl });
+      append({ url: pendingUrl(tempId), alt: "" });
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleRemove = (index: number) => {
+    const url = fields[index]?.url;
+    if (typeof url === "string" && isPendingUrl(url)) {
+      const tempId = pendingTempId(url);
+      const entry = pendingImages.get(tempId);
+      if (entry) {
+        URL.revokeObjectURL(entry.previewUrl);
+        pendingImages.delete(tempId);
       }
     }
-    if (failures.length > 0) {
-      setPickerError(`No se pudieron agregar: ${failures.join("; ")}`);
+    remove(index);
+  };
+
+  const previewSrc = (url: string): string => {
+    if (isPendingUrl(url)) {
+      return pendingImages.get(pendingTempId(url))?.previewUrl ?? "";
     }
+    return url;
   };
 
   return (
@@ -91,19 +98,17 @@ export function ProductImageEditor({ fieldErrors, rootError }: Props) {
         accept="image/*"
         multiple
         className={styles.fileInputHidden}
-        onChange={(event) => {
-          void handlePick(event.target.files);
-        }}
+        onChange={(event) => handlePick(event.target.files)}
       />
       <div className={styles.actions}>
         <Button
           type="button"
           variant="ghost"
           size="sm"
-          disabled={atCap || uploading}
+          disabled={atCap}
           onClick={() => fileInputRef.current?.click()}
         >
-          {uploading ? "Subiendo…" : "Agregar imagen"}
+          Agregar imagen
         </Button>
       </div>
 
@@ -140,7 +145,7 @@ export function ProductImageEditor({ fieldErrors, rootError }: Props) {
             return (
               <li key={field.id} className={styles.row}>
                 <img
-                  src={field.url}
+                  src={previewSrc(field.url)}
                   alt=""
                   className={styles.thumb}
                   loading="lazy"
@@ -181,7 +186,7 @@ export function ProductImageEditor({ fieldErrors, rootError }: Props) {
                   <button
                     type="button"
                     className={`${styles.iconButton} ${styles.iconButtonDanger}`}
-                    onClick={() => remove(index)}
+                    onClick={() => handleRemove(index)}
                     aria-label="Quitar imagen"
                   >
                     ×

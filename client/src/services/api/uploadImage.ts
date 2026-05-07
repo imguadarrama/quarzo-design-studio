@@ -32,3 +32,22 @@ export async function uploadImage(file: File): Promise<UploadImageResponse> {
 
   return (await response.json()) as UploadImageResponse;
 }
+
+// Best-effort cleanup of objects that landed in R2 during a submit that
+// later failed. Fire-and-forget from the caller's perspective: we never
+// throw, because the caller is already in a failure path and an extra
+// error here just confuses the operator. Server-side
+// `extractKeyFromUrl` filters URLs that aren't ours, so a buggy caller
+// can't instruct R2 to delete keys we don't own.
+export async function deleteUploadedImages(urls: string[]): Promise<void> {
+  if (urls.length === 0) return;
+  try {
+    await apiFetch("/api/admin/images", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls }),
+    });
+  } catch {
+    /* logged on the server; nothing actionable client-side */
+  }
+}
