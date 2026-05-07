@@ -159,6 +159,14 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
   2. Staging: open a PR, get the per-PR API URL, exec the script in the per-PR Fly app: `flyctl ssh console -a $FLY_APP_STAGING-pr-<N> -C "node scripts/migrate-base64-to-r2.mjs"`. Confirm the PR's Postman test of `/api/products` returns CDN URLs.
   3. Prod: after merge to `main`, run via `flyctl ssh console -a $FLY_APP_PROD -C "node scripts/migrate-base64-to-r2.mjs"`. **Take a Neon prod backup first.**
 
+### 3.7 Delete-time R2 purge
+
+- [x] Extend `DELETE /api/admin/products/:id` (in `server/src/routes/admin-products.ts`) to remove the product's R2 keys after the DB row is gone. Helpers added in `server/src/lib/storage.ts`:
+  - `extractKeyFromUrl(url)` — returns the R2 key when `url` is prefixed by `R2_PUBLIC_BASE_URL`, otherwise `null` (so legacy `picsum.photos` seed URLs and any future custom-domain values are skipped instead of sent to R2 as bogus keys).
+  - `deleteImageKeys(keys)` — single `DeleteObjectsCommand` (batch API, up to 1000 keys, idempotent), returns the list of keys that errored so the caller can log them; never throws.
+- [x] Order of operations: DB delete first, R2 purge after. R2 failures are logged (`[r2] orphaned keys after product delete`) and **never** propagate — a transient R2 outage must not block the operator from removing a product. Orphaned keys remain a future-janitor concern, mirroring the swap-time tradeoff already documented in §7.1.
+- [x] Admin client (`AdminProductsPage` + new `ConfirmDialog` component) replaces the inline two-click confirm with an `role="alertdialog"` modal that announces the image count (`Esto eliminará el producto "X" y sus 3 imágenes del almacenamiento. Esta acción no se puede deshacer.`). Built on `@radix-ui/react-dialog` so focus trap, focus restoration, Esc, scroll lock, body inert, and ARIA wiring (`aria-labelledby` / `aria-describedby` via `Dialog.Title` / `Dialog.Description`) come from a vetted primitive instead of ~100 lines of hand-rolled code. The component renders Cancel before the destructive Confirm so Radix's default-focus-on-first-focusable still lands on the safe action. Esc + outside-click are blocked while `isConfirming` so the operator cannot bail mid-delete. Public API stays the same; `client/src/components/ConfirmDialog/` is the canonical home for any future destructive-confirm needs.
+
 ### 3.6 Cleanup workflow
 
 - [x] Update `.github/workflows/cleanup-staging.yml`: on PR close, delete every R2 key under prefix `pr-<N>/` from the staging bucket. Use `aws s3 rm` against the R2 endpoint or a small Node script. `continue-on-error: true` so it doesn't fail closed PRs that never deployed.
@@ -188,6 +196,8 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
   Lives in `services/api/` (not `lib/`) — it's HTTP-bearing.
 
 ### 4.2 ProductImageEditor swap
+
+> **Update — deferred upload.** The pick handler no longer hits `/api/admin/images` on every file. Picked files live in a `Map<tempId, { file, previewUrl }>` (see `pending-images.ts` + `usePendingImages`) and the form row stores a `pending:<tempId>` URL sentinel so the schema is happy. The actual upload happens in `AdminProductFormPage`'s submit handler in two phases: (1) `Promise.allSettled` over each pending row, (2) submit the product with the resolved CDN URLs. On any partial failure the orchestrator best-effort-deletes the keys that _did_ land in R2 via `DELETE /api/admin/images` so the bucket stays tidy. This mirrors the §3.7 delete-time tradeoff: DB-first → storage-after, log + continue. Server-side `imageUrlSchema` stays strict (`^https?://`) so a stray `pending:` sentinel that escaped the orchestrator is rejected loudly.
 
 - [x] In `client/src/pages/admin/AdminProductForm/components/ProductImageEditor.tsx`:
   - Drop `readFileAsDataUrl` and `isOverSize`. Drop the `MAX_IMAGE_BYTES` import.
@@ -246,6 +256,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
   - Upload a `.txt` file → 415.
   - Save the product → list page shows it; the new product's image renders from the CDN URL.
   - Edit the product, swap an image, save → old R2 key is **not** orphaned-cleanup'd here (that's a future janitor); the row points at the new URL. Acceptable for v1.
+  - Delete a product from `/admin/productos` → confirmation dialog announces the image count; on confirm, the product disappears from the list **and** its R2 keys are purged from the bucket (verify in the Cloudflare R2 dashboard). If R2 cleanup fails the API still returns 204; orphans surface in server logs as `[r2] orphaned keys after product delete`.
 
 ### 7.2 Staging
 
