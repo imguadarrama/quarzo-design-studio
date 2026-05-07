@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { ButtonLink } from "@/components/Button/ButtonLink";
+import { ConfirmDialog } from "@/components/ConfirmDialog/ConfirmDialog";
 import {
   PageEmpty,
   PageError,
@@ -42,24 +43,29 @@ export function AdminProductsPage() {
     });
   }, []);
 
-  const handleConfirmDelete = useCallback(
-    async (id: string) => {
-      setDeletingId(id);
-      clearRowError(id);
-      try {
-        await deleteProduct(id);
-        setProducts((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
-        setConfirmingId(null);
-      } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "No se pudo eliminar";
-        setRowErrors((prev) => ({ ...prev, [id]: message }));
-      } finally {
-        setDeletingId(null);
-      }
-    },
-    [clearRowError],
+  const confirming = useMemo(
+    () => products?.find((p) => p.id === confirmingId) ?? null,
+    [products, confirmingId],
   );
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!confirmingId) return;
+    const id = confirmingId;
+    setDeletingId(id);
+    clearRowError(id);
+    try {
+      await deleteProduct(id);
+      setProducts((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
+      setConfirmingId(null);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo eliminar";
+      setRowErrors((prev) => ({ ...prev, [id]: message }));
+      setConfirmingId(null);
+    } finally {
+      setDeletingId(null);
+    }
+  }, [confirmingId, clearRowError]);
 
   let body: ReactNode;
   if (error) {
@@ -97,19 +103,11 @@ export function AdminProductsPage() {
               <AdminProductRow
                 key={product.id}
                 product={product}
-                isConfirming={confirmingId === product.id}
                 isDeleting={deletingId === product.id}
                 errorMessage={rowErrors[product.id] ?? null}
-                onStartConfirm={() => {
+                onRequestDelete={() => {
+                  clearRowError(product.id);
                   setConfirmingId(product.id);
-                  clearRowError(product.id);
-                }}
-                onCancelConfirm={() => {
-                  setConfirmingId(null);
-                  clearRowError(product.id);
-                }}
-                onConfirmDelete={() => {
-                  void handleConfirmDelete(product.id);
                 }}
               />
             ))}
@@ -120,6 +118,10 @@ export function AdminProductsPage() {
   }
 
   const count = products?.length ?? 0;
+  const imageCount = confirming?.images.length ?? 0;
+  const hasImages = imageCount > 0;
+  const imageText = imageCount === 1 ? "imagen" : "imágenes";
+  const connectorText = imageCount === 1 ? "y" : "y sus";
 
   return (
     <section className={styles.wrapper}>
@@ -141,6 +143,39 @@ export function AdminProductsPage() {
         </ButtonLink>
       </header>
       {body}
+      <ConfirmDialog
+        isOpen={confirming !== null}
+        title="Eliminar producto"
+        description={
+          confirming ? (
+            <>
+              <p>
+                Esto eliminará el producto <strong>{confirming.name}</strong>
+                {hasImages ? (
+                  <>
+                    {" "}
+                    {connectorText}{" "}
+                    <strong>
+                      {imageCount} {imageText}
+                    </strong>{" "}
+                    del almacenamiento.
+                  </>
+                ) : (
+                  "."
+                )}
+              </p>
+
+              <p>Esta acción no se puede deshacer.</p>
+            </>
+          ) : null
+        }
+        confirmLabel="Eliminar definitivamente"
+        isConfirming={deletingId !== null}
+        onConfirm={() => {
+          void handleConfirmDelete();
+        }}
+        onCancel={() => setConfirmingId(null)}
+      />
     </section>
   );
 }

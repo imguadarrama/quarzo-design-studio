@@ -1,0 +1,50 @@
+@use "../../styles/tokens" as t;
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+}
+
+.dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1001;
+  background-color: t.$color-bg;
+  border-radius: t.$radius-lg;
+  box-shadow: t.$shadow-card;
+  width: calc(100% - #{t.$space-8});
+  max-width: 28rem;
+  max-height: calc(100vh - #{t.$space-8});
+  overflow-y: auto;
+  padding: t.$space-6;
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-4;
+}
+
+.title {
+  font-family: t.$font-primary;
+  font-size: t.$font-size-lg;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+  margin: 0;
+}
+
+.description {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xs;
+  line-height: 1.5;
+  color: t.$color-ink;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: t.$space-2;
+  margin-top: t.$space-2;
+}
