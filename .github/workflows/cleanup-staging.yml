@@ -81,3 +81,22 @@ jobs:
             curl -fsS -X DELETE -H "Authorization: Bearer $CF_API_TOKEN" \
               "$api/$id?force=true" >/dev/null
           done
+
+      # Delete every R2 key uploaded by this PR's per-PR Fly app. Staging
+      # uploads land at `<R2_KEY_PREFIX>/<prefix>/<uuid>.jpg` where
+      # R2_KEY_PREFIX is set to `pr-<N>` in deploy-staging.yml — so wiping
+      # everything under `pr-<N>/` is sufficient. The staging R2 token is
+      # bucket-scoped to quarzo-media-staging, so this can never touch prod.
+      # `aws` v2 ships preinstalled on ubuntu-latest.
+      - name: Delete per-PR R2 keys (staging bucket)
+        continue-on-error: true
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID_STAGING }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY_STAGING }}
+          AWS_DEFAULT_REGION: auto
+          R2_BUCKET: ${{ secrets.R2_BUCKET_STAGING }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR_PREFIX: pr-${{ github.event.number }}
+        run: |
+          aws s3 rm "s3://$R2_BUCKET/$PR_PREFIX/" --recursive \
+            --endpoint-url "https://$CF_ACCOUNT_ID.r2.cloudflarestorage.com"
