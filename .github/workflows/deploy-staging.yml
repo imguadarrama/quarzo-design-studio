@@ -87,7 +87,8 @@ jobs:
             R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_STAGING }}" \
             R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_STAGING }}" \
             R2_BUCKET="${{ secrets.R2_BUCKET_STAGING }}" \
-            R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_STAGING }}"
+            R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_STAGING }}" \
+            R2_KEY_PREFIX="pr-${{ github.event.number }}"
           flyctl deploy -a ${{ steps.fly.outputs.app }} -c fly.staging.toml --remote-only
 
       - name: Generate Cloudflare Pages _worker.js (api proxy + SPA fallback)

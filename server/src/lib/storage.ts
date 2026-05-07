@@ -27,7 +27,9 @@ export async function uploadImage({
   contentType,
   prefix,
 }: UploadImageInput): Promise<UploadImageResult> {
-  const key = `${prefix}/${randomUUID()}.jpg`;
+  const key = env.R2_KEY_PREFIX
+    ? `${env.R2_KEY_PREFIX}/${prefix}/${randomUUID()}.jpg`
+    : `${prefix}/${randomUUID()}.jpg`;
   await s3.send(
     new PutObjectCommand({
       Bucket: env.R2_BUCKET,
