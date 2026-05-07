@@ -2,24 +2,8 @@ import { z } from "zod";
 
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export const MAX_IMAGE_BYTES = 500_000;
-
-const dataUrlOrHttp = z
-  .string()
-  .min(1, "URL inválida")
-  .refine(
-    (v) => v.startsWith("data:image/") || /^https?:\/\//.test(v),
-    "URL inválida",
-  );
-
-const dataUrlSizeOk = (v: string): boolean => {
-  if (!v.startsWith("data:image/")) return true;
-  const b64 = v.split(",", 2)[1] ?? "";
-  return Math.floor(b64.length * 0.75) <= MAX_IMAGE_BYTES;
-};
-
 const imageSchema = z.object({
-  url: dataUrlOrHttp.refine(dataUrlSizeOk, "Máximo 500 KB"),
+  url: z.string().url("URL inválida"),
   alt: z
     .string()
     .trim()
