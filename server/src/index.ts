@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { adminProductsRouter } from "./routes/admin-products.js";
 import { env } from "./config/env.js";
 import { adminAuthRouter } from "./routes/admin-auth.js";
+import { adminImagesRouter } from "./routes/admin-images.js";
 import { healthRouter } from "./routes/health.js";
 import { productsRouter } from "./routes/products.js";
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -34,6 +35,7 @@ app.use("/api", healthRouter);
 app.use("/api", productsRouter);
 app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin", adminProductsRouter);
+app.use("/api/admin", adminImagesRouter);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });

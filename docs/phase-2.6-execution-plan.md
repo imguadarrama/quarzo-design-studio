@@ -85,33 +85,33 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
    - `R2_BUCKET_STAGING` (= `quarzo-media-staging`) / `R2_BUCKET_PROD` (= `quarzo-media`)
    - `R2_PUBLIC_BASE_URL_STAGING` / `R2_PUBLIC_BASE_URL_PROD` — from step 5 (one `pub-<hash>.r2.dev` URL per bucket; the hashes differ)
 
-   **Fly app env vars (unsuffixed — what app code reads):** `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`. The deploy workflows map suffixed GitHub secrets → unsuffixed Fly env vars exactly the way they already do for `JWT_SECRET="${{ secrets.JWT_SECRET_STAGING }}"`. See §3.1 for the snippet.
+   **Fly app env vars (unsuffixed — what app code reads):** `CLOUDFLARE_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_BASE_URL`. The Cloudflare account ID flows through with the same name on every layer (GitHub secret → Fly env → `env.ts`); the four R2 vars are renamed from their `_STAGING`/`_PROD`-suffixed GitHub form, exactly the way `JWT_SECRET="${{ secrets.JWT_SECRET_STAGING }}"` already does. See §3.1 for the snippet.
 
 ### 3.1 Bucket + secrets
 
 - [x] Provision R2 per **§3.0**: two buckets (`quarzo-media` + `quarzo-media-staging`) + two API tokens (`quarzo-r2-rw-prod` scoped to `quarzo-media`, `quarzo-r2-rw-staging` scoped to `quarzo-media-staging`).
 - [x] Add to `.env.example` (unsuffixed — these are the in-app names, matching the Fly env var shape and `server/src/config/env.ts`):
   ```
-  R2_ACCOUNT_ID=
+  CLOUDFLARE_ACCOUNT_ID=
   R2_ACCESS_KEY_ID=
   R2_SECRET_ACCESS_KEY=
   R2_BUCKET=
   R2_PUBLIC_BASE_URL=
   ```
-  Local dev leaves these blank — the upload route only runs against R2 in deployed envs. (To smoke-test uploads locally, paste the staging values; not required for normal local dev.)
+  Local dev requires the staging values pasted in — `env.ts` validates these as `min(1)` so the API will not boot with empty R2 vars. The staging token (`quarzo-r2-rw-staging`) is bucket-scoped to `quarzo-media-staging`, so a local mistake cannot touch prod. Use `prefix: "dev"` when smoke-testing so test uploads land under `dev/` and don't pollute `products/` or `pr-<N>/`.
 - [x] Extend `server/src/config/env.ts` to validate the five unsuffixed names (`min(1)` strings; `R2_PUBLIC_BASE_URL` must be a URL). Boot fails fast on misconfigured env.
 - [x] **Add the eight new secrets to GitHub** (Repo → Settings → Secrets and variables → Actions → Environments). Add to the `staging` environment: `R2_ACCESS_KEY_ID_STAGING`, `R2_SECRET_ACCESS_KEY_STAGING`, `R2_BUCKET_STAGING`, `R2_PUBLIC_BASE_URL_STAGING`. Add to the `production` environment: `R2_ACCESS_KEY_ID_PROD`, `R2_SECRET_ACCESS_KEY_PROD`, `R2_BUCKET_PROD`, `R2_PUBLIC_BASE_URL_PROD`. **Do not** add `R2_ACCOUNT_ID` — the workflows reference the existing `CLOUDFLARE_ACCOUNT_ID` instead.
-- [ ] **Update `.github/workflows/deploy-staging.yml`** — extend the existing `flyctl secrets set` block (the one that already sets `JWT_SECRET`, `ADMIN_EMAIL`, etc.) with five more lines:
+- [x] **Update `.github/workflows/deploy-staging.yml`** — extend the existing `flyctl secrets set` block (the one that already sets `JWT_SECRET`, `ADMIN_EMAIL`, etc.) with five more lines:
   ```yaml
-  R2_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
+  CLOUDFLARE_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
   R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_STAGING }}" \
   R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_STAGING }}" \
   R2_BUCKET="${{ secrets.R2_BUCKET_STAGING }}" \
   R2_PUBLIC_BASE_URL="${{ secrets.R2_PUBLIC_BASE_URL_STAGING }}" \
   ```
-- [ ] **Update `.github/workflows/deploy-production.yml`** — same shape, prod-suffixed:
+- [x] **Update `.github/workflows/deploy-production.yml`** — same shape, prod-suffixed:
   ```yaml
-  R2_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
+  CLOUDFLARE_ACCOUNT_ID="${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" \
   R2_ACCESS_KEY_ID="${{ secrets.R2_ACCESS_KEY_ID_PROD }}" \
   R2_SECRET_ACCESS_KEY="${{ secrets.R2_SECRET_ACCESS_KEY_PROD }}" \
   R2_BUCKET="${{ secrets.R2_BUCKET_PROD }}" \
@@ -121,30 +121,30 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 3.2 Upload library + endpoint
 
-- [ ] Add deps to `server/package.json`: `@aws-sdk/client-s3` (R2 is S3-compatible), `multer` (multipart parser), `sharp` (image processing). `pnpm dev:rebuild` to pull native bindings into the container.
-- [ ] **NEW** `server/src/lib/storage.ts` — thin wrapper around the S3 client targeting R2. Exports `uploadImage({ buffer, contentType, prefix }): Promise<{ url: string; key: string }>`. Generates a CSPRNG-random key (`<prefix>/<cuid>.jpg`) and returns `${R2_PUBLIC_BASE_URL}/${key}` as the `url`.
-- [ ] **NEW** `server/src/routes/admin-images.ts` — `POST /api/admin/images`, gated by `authenticateAdmin` + `requireAdmin`. Accepts a single file under field name `image`. Uses `multer` with an in-memory store and a 10 MB limit. Pipeline:
+- [x] Add deps to `server/package.json`: `@aws-sdk/client-s3` (R2 is S3-compatible), `multer` (multipart parser), `sharp` (image processing). `pnpm dev:rebuild` to pull native bindings into the container.
+- [x] **NEW** `server/src/lib/storage.ts` — thin wrapper around the S3 client targeting R2. Exports `uploadImage({ buffer, contentType, prefix }): Promise<{ url: string; key: string }>`. Generates a CSPRNG-random key (`<prefix>/<cuid>.jpg`) and returns `${R2_PUBLIC_BASE_URL}/${key}` as the `url`.
+- [x] **NEW** `server/src/routes/admin-images.ts` — `POST /api/admin/images`, gated by `authenticateAdmin` + `requireAdmin`. Accepts a single file under field name `image`. Uses `multer` with an in-memory store and a 10 MB limit. Pipeline:
   1. `sharp(buffer).rotate().resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 82, mozjpeg: true }).toBuffer()` — `.rotate()` honors EXIF orientation; the re-encode strips EXIF.
   2. `uploadImage({ buffer: processed, contentType: "image/jpeg", prefix: req.body.prefix ?? "products" })`.
   3. Return `{ url, width, height, bytes }`.
      Errors: oversized → 413; non-image content type → 415; sharp decode failure → 422 with `code: "INVALID_IMAGE"`.
-- [ ] Mount under `app.use("/api/admin", adminImagesRouter)` in `server/src/index.ts`, after `authenticateAdmin` but in the same admin block.
+- [x] Mount under `app.use("/api/admin", adminImagesRouter)` in `server/src/index.ts`, after `authenticateAdmin` but in the same admin block.
 
 ### 3.3 Validation schema
 
-- [ ] In `server/src/lib/validation-schemas.ts`:
-  - `imageUrlSchema` accepts only `^https?:\/\/`. Drop the `data:image/` branch and the `MAX_DATA_URL_BYTES` refinement.
+- [x] In `server/src/lib/validation-schemas.ts`:
+  - `imageUrlSchema` accepts only `^https:\/\/`. Drop the `data:image/` branch and the `MAX_DATA_URL_BYTES` refinement.
   - Keep `imageSchema = z.object({ url: imageUrlSchema, alt: z.string().trim().max(160).optional().or(z.literal("")) })`.
   - Keep the array-level cap `z.array(imageSchema).max(8, "Máximo 8 imágenes por producto")` for now — the cap is a UX choice, not a storage one. Revisit if the wife asks for more.
-- [ ] Drop `MAX_DATA_URL_BYTES` constant + export. Grep the codebase to confirm nothing else imports it.
+- [x] Drop `MAX_DATA_URL_BYTES` constant + export. Grep the codebase to confirm nothing else imports it.
 
 ### 3.4 Express body limit
 
-- [ ] In `server/src/index.ts`: keep `express.json({ limit: "1mb" })` for non-image JSON bodies. The new image upload endpoint uses `multer`, not `express.json`, so the body parser is bypassed for that route.
+- [x] In `server/src/index.ts`: keep `express.json({ limit: "1mb" })` for non-image JSON bodies. The new image upload endpoint uses `multer`, not `express.json`, so the body parser is bypassed for that route.
 
 ### 3.5 Backfill script
 
-- [ ] **NEW** `server/scripts/migrate-base64-to-r2.mjs`:
+- [x] **NEW** `server/scripts/migrate-base64-to-r2.mjs`:
   ```js
   // For each ProductImage where url LIKE 'data:%':
   //   1. decode base64 → Buffer
@@ -153,14 +153,25 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
   //   4. update ProductImage.url with the new https URL
   // Logs each row's id + before/after URL. Stops on first error.
   ```
-- [ ] Run order:
+  Sharp pipeline extracted to `server/src/lib/image-pipeline.ts` so the route and the script can't drift.
+- [x] Run order:
   1. Local: `pnpm dev:down && pnpm dev:rebuild && pnpm dev`. `pnpm seed` (which already produces `picsum.photos` URLs, so dev backfill is a no-op).
   2. Staging: open a PR, get the per-PR API URL, exec the script in the per-PR Fly app: `flyctl ssh console -a $FLY_APP_STAGING-pr-<N> -C "node scripts/migrate-base64-to-r2.mjs"`. Confirm the PR's Postman test of `/api/products` returns CDN URLs.
   3. Prod: after merge to `main`, run via `flyctl ssh console -a $FLY_APP_PROD -C "node scripts/migrate-base64-to-r2.mjs"`. **Take a Neon prod backup first.**
 
+### 3.7 Delete-time R2 purge
+
+- [x] Extend `DELETE /api/admin/products/:id` (in `server/src/routes/admin-products.ts`) to remove the product's R2 keys after the DB row is gone. Helpers added in `server/src/lib/storage.ts`:
+  - `extractKeyFromUrl(url)` — returns the R2 key when `url` is prefixed by `R2_PUBLIC_BASE_URL`, otherwise `null` (so legacy `picsum.photos` seed URLs and any future custom-domain values are skipped instead of sent to R2 as bogus keys).
+  - `deleteImageKeys(keys)` — single `DeleteObjectsCommand` (batch API, up to 1000 keys, idempotent), returns the list of keys that errored so the caller can log them; never throws.
+- [x] Order of operations: DB delete first, R2 purge after. R2 failures are logged (`[r2] orphaned keys after product delete`) and **never** propagate — a transient R2 outage must not block the operator from removing a product. Orphaned keys remain a future-janitor concern, mirroring the swap-time tradeoff already documented in §7.1.
+- [x] Admin client (`AdminProductsPage` + new `ConfirmDialog` component) replaces the inline two-click confirm with an `role="alertdialog"` modal that announces the image count (`Esto eliminará el producto "X" y sus 3 imágenes del almacenamiento. Esta acción no se puede deshacer.`). Built on `@radix-ui/react-dialog` so focus trap, focus restoration, Esc, scroll lock, body inert, and ARIA wiring (`aria-labelledby` / `aria-describedby` via `Dialog.Title` / `Dialog.Description`) come from a vetted primitive instead of ~100 lines of hand-rolled code. The component renders Cancel before the destructive Confirm so Radix's default-focus-on-first-focusable still lands on the safe action. Esc + outside-click are blocked while `isConfirming` so the operator cannot bail mid-delete. Public API stays the same; `client/src/components/ConfirmDialog/` is the canonical home for any future destructive-confirm needs.
+
 ### 3.6 Cleanup workflow
 
-- [ ] Update `.github/workflows/cleanup-staging.yml`: on PR close, delete every R2 key under prefix `pr-<N>/` from the staging bucket. Use `aws s3 rm` against the R2 endpoint or a small Node script. `continue-on-error: true` so it doesn't fail closed PRs that never deployed.
+- [x] Update `.github/workflows/cleanup-staging.yml`: on PR close, delete every R2 key under prefix `pr-<N>/` from the staging bucket. Use `aws s3 rm` against the R2 endpoint or a small Node script. `continue-on-error: true` so it doesn't fail closed PRs that never deployed.
+
+  **Implementation note — `R2_KEY_PREFIX`:** the staging bucket only sees `pr-<N>/...` keys because `server/src/lib/storage.ts` prepends the optional `R2_KEY_PREFIX` env var, which `deploy-staging.yml` sets to `pr-${{ github.event.number }}` per-PR. Prod leaves `R2_KEY_PREFIX` unset, so prod keys stay at `products/<uuid>.jpg` (no migration of already-uploaded prod images). Without this prefix wiring the cleanup step would be a no-op — staging uploads would have intermingled at `products/<uuid>.jpg` alongside prod-shape paths and accumulated indefinitely. Cleanup uses `aws s3 rm s3://$R2_BUCKET/pr-<N>/ --recursive --endpoint-url https://$CF_ACCOUNT_ID.r2.cloudflarestorage.com`; the AWS CLI v2 ships preinstalled on `ubuntu-latest`, and the staging R2 token is bucket-scoped so it can never touch prod.
 
 ---
 
@@ -168,7 +179,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 4.1 Service helper
 
-- [ ] **NEW** `client/src/services/api/uploadImage.ts`:
+- [x] **NEW** `client/src/services/api/uploadImage.ts`:
   ```ts
   export async function uploadImage(file: File): Promise<{ url: string }> {
     const form = new FormData();
@@ -186,7 +197,9 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 4.2 ProductImageEditor swap
 
-- [ ] In `client/src/pages/admin/AdminProductForm/components/ProductImageEditor.tsx`:
+> **Update — deferred upload.** The pick handler no longer hits `/api/admin/images` on every file. Picked files live in a `Map<tempId, { file, previewUrl }>` (see `pending-images.ts` + `usePendingImages`) and the form row stores a `pending:<tempId>` URL sentinel so the schema is happy. The actual upload happens in `AdminProductFormPage`'s submit handler in two phases: (1) `Promise.allSettled` over each pending row, (2) submit the product with the resolved CDN URLs. On any partial failure the orchestrator best-effort-deletes the keys that _did_ land in R2 via `DELETE /api/admin/images` so the bucket stays tidy. This mirrors the §3.7 delete-time tradeoff: DB-first → storage-after, log + continue. Server-side `imageUrlSchema` stays strict (`^https?://`) so a stray `pending:` sentinel that escaped the orchestrator is rejected loudly.
+
+- [x] In `client/src/pages/admin/AdminProductForm/components/ProductImageEditor.tsx`:
   - Drop `readFileAsDataUrl` and `isOverSize`. Drop the `MAX_IMAGE_BYTES` import.
   - `handlePick` now: `for (const file of files) { try { const { url } = await uploadImage(file); append({ url, alt: "" }); } catch (e) { /* surface inline */ } }`. Keep the "X / 8" counter and disable-at-cap logic.
   - Show "Subiendo…" state on the picker button while requests are in flight.
@@ -194,7 +207,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 4.3 Schema relaxation
 
-- [ ] In `client/src/pages/admin/AdminProductForm/schema.ts`:
+- [x] In `client/src/pages/admin/AdminProductForm/schema.ts`:
   - `imageSchema.url` becomes `z.string().url("URL inválida")`. Drop `MAX_IMAGE_BYTES`, `dataUrlOrHttp`, `dataUrlSizeOk`.
   - Same `images.max(8)` array cap stays.
 
@@ -228,6 +241,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 - Per-image admin replace UI ("change just this image without re-saving the whole product") — current PATCH still does delete-recreate of the whole product; the upload endpoint just produces URLs. The form keeps its existing batch-save flow.
 - A media library / asset browser — every upload is product-scoped via the form. We're not building a CMS.
 - Image cropping — the wife crops in Photos before uploading. Re-eval if real customers complain.
+- Storage SDK weight — `@aws-sdk/client-s3` is heavyweight (~6 MB + a long transitive tail) for the two operations we use (PutObject, DeleteObjects). Pragmatic for v1; revisit if Fly cold start or runtime image size becomes a concern. `aws4fetch` is a <100 KB drop-in candidate.
 
 ---
 
@@ -235,14 +249,15 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 7.1 Local
 
-- [ ] `pnpm dev:rebuild` completes (Sharp native bindings install cleanly).
-- [ ] `pnpm preflight` green.
-- [ ] Browser smoke at `/admin/productos/nuevo`:
+- [x] `pnpm dev:rebuild` completes (Sharp native bindings install cleanly).
+- [x] `pnpm preflight` green.
+- [x] Browser smoke at `/admin/productos/nuevo`:
   - Upload a 5 MB iPhone JPEG → succeeds, thumbnail loads from R2 URL, no 413/422.
   - Upload a 12 MB image → 413 with clear inline error.
   - Upload a `.txt` file → 415.
   - Save the product → list page shows it; the new product's image renders from the CDN URL.
   - Edit the product, swap an image, save → old R2 key is **not** orphaned-cleanup'd here (that's a future janitor); the row points at the new URL. Acceptable for v1.
+  - Delete a product from `/admin/productos` → confirmation dialog announces the image count; on confirm, the product disappears from the list **and** its R2 keys are purged from the bucket (verify in the Cloudflare R2 dashboard). If R2 cleanup fails the API still returns 204; orphans surface in server logs as `[r2] orphaned keys after product delete`.
 
 ### 7.2 Staging
 

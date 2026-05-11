@@ -28,22 +28,16 @@ function priceFrom(variants: AdminProductVariant[]): number | null {
 
 interface AdminProductRowProps {
   product: AdminProduct;
-  isConfirming: boolean;
   isDeleting: boolean;
   errorMessage: string | null;
-  onStartConfirm: () => void;
-  onCancelConfirm: () => void;
-  onConfirmDelete: () => void;
+  onRequestDelete: () => void;
 }
 
 export function AdminProductRow({
   product,
-  isConfirming,
   isDeleting,
   errorMessage,
-  onStartConfirm,
-  onCancelConfirm,
-  onConfirmDelete,
+  onRequestDelete,
 }: AdminProductRowProps) {
   const primary = pickPrimaryImage(product.images);
   const variantCount = product.variants.length;
@@ -77,38 +71,17 @@ export function AdminProductRow({
       <td data-label="Estado">{product.active ? "Activo" : "Inactivo"}</td>
       <td className={styles.actionsCell} data-label="Acciones">
         <div className={styles.actions} aria-live="polite">
-          {isConfirming ? (
-            <>
-              <Button
-                size="sm"
-                variant="danger"
-                disabled={isDeleting}
-                onClick={onConfirmDelete}
-              >
-                {isDeleting ? "Eliminando…" : "¿Confirmar?"}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={isDeleting}
-                onClick={onCancelConfirm}
-              >
-                Cancelar
-              </Button>
-            </>
-          ) : (
-            <>
-              <ButtonLink
-                to={`/admin/productos/${product.id}/editar`}
-                size="sm"
-              >
-                Editar
-              </ButtonLink>
-              <Button size="sm" variant="ghost" onClick={onStartConfirm}>
-                Eliminar
-              </Button>
-            </>
-          )}
+          <ButtonLink to={`/admin/productos/${product.id}/editar`} size="sm">
+            Editar
+          </ButtonLink>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onRequestDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "Eliminando…" : "Eliminar"}
+          </Button>
           {errorMessage ? (
             <span role="alert" className={styles.rowError}>
               {errorMessage}

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import {
   useFieldArray,
   useFormContext,
@@ -7,71 +7,76 @@ import {
 import { Button } from "@/components/Button/Button";
 import { FormField } from "@/components/FormField/FormField";
 import { Input } from "@/components/Input/Input";
-import { MAX_IMAGE_BYTES, type ProductFormValues } from "../schema.js";
+import {
+  isPendingUrl,
+  pendingTempId,
+  pendingUrl,
+  type PendingImageMap,
+} from "../pending-images.js";
+import type { ProductFormValues } from "../schema.js";
 import styles from "./ProductImageEditor.module.scss";
 
 const MAX_IMAGES = 8;
 
 type Props = {
+  pendingImages: PendingImageMap;
   fieldErrors?: FieldErrors<ProductFormValues>["images"];
   rootError?: string;
 };
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result);
-      else reject(new Error("No se pudo leer el archivo"));
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("Lectura falló"));
-    reader.readAsDataURL(file);
-  });
+function generateTempId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function isOverSize(dataUrl: string): boolean {
-  if (!dataUrl.startsWith("data:image/")) return false;
-  const b64 = dataUrl.split(",", 2)[1] ?? "";
-  return Math.floor(b64.length * 0.75) > MAX_IMAGE_BYTES;
-}
-
-export function ProductImageEditor({ fieldErrors, rootError }: Props) {
+export function ProductImageEditor({
+  pendingImages,
+  fieldErrors,
+  rootError,
+}: Props) {
   const { control, register } = useFormContext<ProductFormValues>();
   const { fields, append, remove, move } = useFieldArray({
     control,
     name: "images",
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [pickerError, setPickerError] = useState<string | null>(null);
 
   const atCap = fields.length >= MAX_IMAGES;
 
-  const handlePick = async (files: FileList | null) => {
+  const handlePick = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    setPickerError(null);
-    const tooBig: string[] = [];
     const remaining = MAX_IMAGES - fields.length;
     const accepted = Array.from(files).slice(0, remaining);
     for (const file of accepted) {
-      try {
-        const dataUrl = await readFileAsDataUrl(file);
-        if (isOverSize(dataUrl)) {
-          tooBig.push(file.name);
-          continue;
-        }
-        append({ url: dataUrl, alt: "" });
-      } catch {
-        tooBig.push(file.name);
-      }
-    }
-    if (tooBig.length > 0) {
-      setPickerError(
-        `No se pudieron agregar: ${tooBig.join(", ")}. Máx 500 KB por imagen.`,
-      );
+      const tempId = generateTempId();
+      const previewUrl = URL.createObjectURL(file);
+      pendingImages.set(tempId, { file, previewUrl });
+      append({ url: pendingUrl(tempId), alt: "" });
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  const handleRemove = (index: number) => {
+    const url = fields[index]?.url;
+    if (typeof url === "string" && isPendingUrl(url)) {
+      const tempId = pendingTempId(url);
+      const entry = pendingImages.get(tempId);
+      if (entry) {
+        URL.revokeObjectURL(entry.previewUrl);
+        pendingImages.delete(tempId);
+      }
+    }
+    remove(index);
+  };
+
+  const previewSrc = (url: string): string => {
+    if (isPendingUrl(url)) {
+      return pendingImages.get(pendingTempId(url))?.previewUrl ?? "";
+    }
+    return url;
   };
 
   return (
@@ -85,20 +90,13 @@ export function ProductImageEditor({ fieldErrors, rootError }: Props) {
         </span>
       </header>
 
-      <p className={styles.hint}>
-        Sube imágenes ya comprimidas (máx 500 KB por imagen). Puedes usar
-        tinypng.com o exportar desde Photos / Preview en menor calidad.
-      </p>
-
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
         multiple
         className={styles.fileInputHidden}
-        onChange={(event) => {
-          void handlePick(event.target.files);
-        }}
+        onChange={(event) => handlePick(event.target.files)}
       />
       <div className={styles.actions}>
         <Button
@@ -111,12 +109,6 @@ export function ProductImageEditor({ fieldErrors, rootError }: Props) {
           Agregar imagen
         </Button>
       </div>
-
-      {pickerError ? (
-        <p role="alert" className={styles.error}>
-          {pickerError}
-        </p>
-      ) : null}
 
       {rootError ? (
         <p role="alert" className={styles.error}>
@@ -145,7 +137,7 @@ export function ProductImageEditor({ fieldErrors, rootError }: Props) {
             return (
               <li key={field.id} className={styles.row}>
                 <img
-                  src={field.url}
+                  src={previewSrc(field.url)}
                   alt=""
                   className={styles.thumb}
                   loading="lazy"
@@ -186,7 +178,7 @@ export function ProductImageEditor({ fieldErrors, rootError }: Props) {
                   <button
                     type="button"
                     className={`${styles.iconButton} ${styles.iconButtonDanger}`}
-                    onClick={() => remove(index)}
+                    onClick={() => handleRemove(index)}
                     aria-label="Quitar imagen"
                   >
                     ×

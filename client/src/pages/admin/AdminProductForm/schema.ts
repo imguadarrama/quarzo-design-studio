@@ -2,24 +2,25 @@ import { z } from "zod";
 
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export const MAX_IMAGE_BYTES = 500_000;
+// `pending:<tempId>` is the form-only sentinel for an image the operator
+// has picked but not yet uploaded — see ProductImageEditor + the
+// AdminProductFormPage submit phase. The form orchestrator transforms
+// these into real https URLs at submit time before the payload reaches
+// the server. The server's imageUrlSchema stays strict (^https://) so
+// any sentinel that leaks past the orchestrator is rejected with a clear
+// validation error.
+export const PENDING_URL_PREFIX = "pending:";
 
-const dataUrlOrHttp = z
+const imageUrlSchema = z
   .string()
   .min(1, "URL inválida")
   .refine(
-    (v) => v.startsWith("data:image/") || /^https?:\/\//.test(v),
+    (v) => v.startsWith(PENDING_URL_PREFIX) || /^https:\/\//.test(v),
     "URL inválida",
   );
 
-const dataUrlSizeOk = (v: string): boolean => {
-  if (!v.startsWith("data:image/")) return true;
-  const b64 = v.split(",", 2)[1] ?? "";
-  return Math.floor(b64.length * 0.75) <= MAX_IMAGE_BYTES;
-};
-
 const imageSchema = z.object({
-  url: dataUrlOrHttp.refine(dataUrlSizeOk, "Máximo 500 KB"),
+  url: imageUrlSchema,
   alt: z
     .string()
     .trim()
