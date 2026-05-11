@@ -2,7 +2,7 @@ import type { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import multer from "multer";
-import { ImageUploadError, NotFoundError } from "../lib/errors.js";
+import { ConflictError, ImageUploadError, NotFoundError } from "../lib/errors.js";
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof NotFoundError) {
@@ -12,6 +12,11 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 
   if (err instanceof ImageUploadError) {
     res.status(err.status).json({ error: err.message, code: err.code });
+    return;
+  }
+
+  if (err instanceof ConflictError) {
+    res.status(409).json({ error: err.message, code: err.code });
     return;
   }
 

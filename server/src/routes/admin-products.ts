@@ -5,9 +5,10 @@ import { requireAdmin } from "../middleware/requireAdmin.js";
 import { productInclude, serializeProductAdmin } from "../lib/serializers.js";
 import { productSchema } from "../lib/validation-schemas.js";
 import {
+  buildDesignCompatCreate,
   buildImagesCreate,
-  buildProductWriteInput,
-  buildVariantsCreate,
+  buildProductMetadata,
+  buildVariantWriteInput,
 } from "../lib/product-write.js";
 import { NotFoundError } from "../lib/errors.js";
 import { deleteImageKeys, extractKeyFromUrl } from "../lib/storage.js";
@@ -47,9 +48,46 @@ adminProductsRouter.get("/products/:id", async (req, res, next) => {
 adminProductsRouter.post("/products", async (req, res, next) => {
   try {
     const data = productSchema.parse(req.body);
-    const product = await prisma.product.create({
-      data: buildProductWriteInput(data),
-      include: productInclude,
+
+    const product = await prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
+        data: {
+          ...buildProductMetadata(data),
+          images: { create: buildImagesCreate(data.images) },
+        },
+      });
+
+      const createdVariants = await Promise.all(
+        data.variants.map((variant, index) =>
+          tx.productVariant.create({
+            data: { productId: created.id, ...buildVariantWriteInput(variant, index) },
+            select: { id: true },
+          }),
+        ),
+      );
+      const variantIds = createdVariants.map((v) => v.id);
+
+      await Promise.all(
+        data.designs.map((design, index) =>
+          tx.productDesign.create({
+            data: {
+              productId: created.id,
+              name: design.name,
+              imageUrl: design.imageUrl,
+              active: design.active,
+              position: index,
+              variants: {
+                create: buildDesignCompatCreate(design.compatibleVariantIndices, variantIds),
+              },
+            },
+          }),
+        ),
+      );
+
+      return tx.product.findUniqueOrThrow({
+        where: { id: created.id },
+        include: productInclude,
+      });
     });
 
     res.status(201).json({ product: serializeProductAdmin(product) });
@@ -70,24 +108,50 @@ adminProductsRouter.patch("/products/:id", async (req, res, next) => {
     if (!existing) throw new NotFoundError("Product not found");
 
     const product = await prisma.$transaction(async (tx) => {
-      await tx.productVariant.deleteMany({
-        where: { productId: req.params.id },
-      });
-      // PATCH replaces all images; old R2 keys orphan here. Future janitor
-      // (Phase 7) sweeps. See docs/phase-2.6-execution-plan.md §7.1.
+      // PATCH full-replaces variants, images, and designs. Old R2 keys for
+      // images and designs orphan here (future-janitor problem, same swap-time
+      // tradeoff as Phase 2.6 §7.1).
+      await tx.productVariant.deleteMany({ where: { productId: req.params.id } });
       await tx.productImage.deleteMany({ where: { productId: req.params.id } });
+      await tx.productDesign.deleteMany({ where: { productId: req.params.id } });
 
-      return tx.product.update({
+      await tx.product.update({
         where: { id: req.params.id },
         data: {
-          slug: data.slug,
-          name: data.name,
-          description: data.description,
-          category: data.category,
-          active: data.active,
+          ...buildProductMetadata(data),
           images: { create: buildImagesCreate(data.images) },
-          variants: { create: buildVariantsCreate(data.variants) },
         },
+      });
+
+      const createdVariants = await Promise.all(
+        data.variants.map((variant, index) =>
+          tx.productVariant.create({
+            data: { productId: req.params.id, ...buildVariantWriteInput(variant, index) },
+            select: { id: true },
+          }),
+        ),
+      );
+      const variantIds = createdVariants.map((v) => v.id);
+
+      await Promise.all(
+        data.designs.map((design, index) =>
+          tx.productDesign.create({
+            data: {
+              productId: req.params.id,
+              name: design.name,
+              imageUrl: design.imageUrl,
+              active: design.active,
+              position: index,
+              variants: {
+                create: buildDesignCompatCreate(design.compatibleVariantIndices, variantIds),
+              },
+            },
+          }),
+        ),
+      );
+
+      return tx.product.findUniqueOrThrow({
+        where: { id: req.params.id },
         include: productInclude,
       });
     });

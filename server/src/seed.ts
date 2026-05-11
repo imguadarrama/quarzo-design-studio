@@ -214,6 +214,28 @@ async function main() {
 
     console.log(`Seeded product: ${p.slug}`);
   }
+
+  const paletteCount = await prisma.optionPalette.count();
+  if (paletteCount === 0) {
+    await prisma.optionPalette.create({
+      data: {
+        name: "Colores de foil",
+        slug: "colores-foil",
+        position: 0,
+        active: true,
+        swatches: {
+          create: [
+            { name: "Dorado", imageUrl: "https://picsum.photos/seed/foil-dorado/200", position: 0 },
+            { name: "Plata", imageUrl: "https://picsum.photos/seed/foil-plata/200", position: 1 },
+            { name: "Rosa", imageUrl: "https://picsum.photos/seed/foil-rosa/200", position: 2 },
+            { name: "Negro", imageUrl: "https://picsum.photos/seed/foil-negro/200", position: 3 },
+            { name: "Cobre", imageUrl: "https://picsum.photos/seed/foil-cobre/200", position: 4 },
+          ],
+        },
+      },
+    });
+    console.log("Seeded palette: colores-foil");
+  }
 }
 
 main()
