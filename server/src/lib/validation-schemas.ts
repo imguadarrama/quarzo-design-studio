@@ -4,7 +4,7 @@ import { z } from "zod";
 export const imageUrlSchema = z
   .string()
   .trim()
-  .regex(/^https?:\/\//, "Image must be an http or https URL");
+  .regex(/^https:\/\//, "Image must be an https URL");
 
 export const variantOptionSchema = z
   .object({

@@ -1,4 +1,4 @@
-import { Router, json as expressJson } from "express";
+import { Router } from "express";
 import multer from "multer";
 import { z } from "zod";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
@@ -10,6 +10,9 @@ import {
 } from "../lib/storage.js";
 import { processImageBuffer } from "../lib/image-pipeline.js";
 import { ImageUploadError } from "../lib/errors.js";
+
+const UPLOAD_PREFIXES = ["products", "products/migrated"] as const;
+const uploadPrefixSchema = z.enum(UPLOAD_PREFIXES).default("products");
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -41,6 +44,8 @@ adminImagesRouter.post(
         throw new ImageUploadError("MISSING_FILE", 400, "Falta el archivo");
       }
 
+      const prefix = uploadPrefixSchema.parse(req.body?.prefix);
+
       let processed;
       try {
         processed = await processImageBuffer(req.file.buffer);
@@ -51,11 +56,6 @@ adminImagesRouter.post(
           "No se pudo procesar la imagen",
         );
       }
-
-      const prefix =
-        typeof req.body?.prefix === "string" && req.body.prefix.length > 0
-          ? req.body.prefix
-          : "products";
 
       const { url } = await uploadImage({
         buffer: processed.buffer,
@@ -86,7 +86,7 @@ const deleteSchema = z.object({
   urls: z.array(z.string().url()).max(64),
 });
 
-adminImagesRouter.delete("/images", expressJson(), async (req, res, next) => {
+adminImagesRouter.delete("/images", async (req, res, next) => {
   try {
     const body = deleteSchema.parse(req.body);
     const keys = body.urls

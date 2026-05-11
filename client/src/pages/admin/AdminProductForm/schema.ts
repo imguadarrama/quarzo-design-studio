@@ -6,7 +6,7 @@ const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // has picked but not yet uploaded — see ProductImageEditor + the
 // AdminProductFormPage submit phase. The form orchestrator transforms
 // these into real https URLs at submit time before the payload reaches
-// the server. The server's imageUrlSchema stays strict (^https?://) so
+// the server. The server's imageUrlSchema stays strict (^https://) so
 // any sentinel that leaks past the orchestrator is rejected with a clear
 // validation error.
 export const PENDING_URL_PREFIX = "pending:";
@@ -15,7 +15,7 @@ const imageUrlSchema = z
   .string()
   .min(1, "URL inválida")
   .refine(
-    (v) => v.startsWith(PENDING_URL_PREFIX) || /^https?:\/\//.test(v),
+    (v) => v.startsWith(PENDING_URL_PREFIX) || /^https:\/\//.test(v),
     "URL inválida",
   );
 
