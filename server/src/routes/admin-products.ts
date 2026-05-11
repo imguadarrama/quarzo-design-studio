@@ -73,6 +73,8 @@ adminProductsRouter.patch("/products/:id", async (req, res, next) => {
       await tx.productVariant.deleteMany({
         where: { productId: req.params.id },
       });
+      // PATCH replaces all images; old R2 keys orphan here. Future janitor
+      // (Phase 7) sweeps. See docs/phase-2.6-execution-plan.md §7.1.
       await tx.productImage.deleteMany({ where: { productId: req.params.id } });
 
       return tx.product.update({

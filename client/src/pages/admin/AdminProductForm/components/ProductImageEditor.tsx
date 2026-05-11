@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import {
   useFieldArray,
   useFormContext,
@@ -41,13 +41,11 @@ export function ProductImageEditor({
     name: "images",
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [pickerError, setPickerError] = useState<string | null>(null);
 
   const atCap = fields.length >= MAX_IMAGES;
 
   const handlePick = (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    setPickerError(null);
     const remaining = MAX_IMAGES - fields.length;
     const accepted = Array.from(files).slice(0, remaining);
     for (const file of accepted) {
@@ -111,12 +109,6 @@ export function ProductImageEditor({
           Agregar imagen
         </Button>
       </div>
-
-      {pickerError ? (
-        <p role="alert" className={styles.error}>
-          {pickerError}
-        </p>
-      ) : null}
 
       {rootError ? (
         <p role="alert" className={styles.error}>

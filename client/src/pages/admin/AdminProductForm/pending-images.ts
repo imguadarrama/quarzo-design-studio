@@ -23,9 +23,10 @@ export function pendingUrl(tempId: string): string {
 // Owns a stable Map<tempId, { file, previewUrl }> for the lifetime of
 // the form page. The map is intentionally a ref (not state): mutations
 // happen during pick / remove handlers and we don't want every form
-// re-render to walk it. The cleanup effect revokes any preview URL that
-// outlived its row — defends against the operator navigating away
-// mid-edit while pending entries are still around.
+// re-render to walk it. Per-row blob URLs are revoked inline by the
+// editor's remove handler; this effect's cleanup runs on page unmount
+// and revokes any preview URLs still in the map — defends against the
+// operator navigating away mid-edit with pending entries left over.
 export function usePendingImages(): PendingImageMap {
   const ref = useRef<PendingImageMap>(new Map());
   useEffect(() => {

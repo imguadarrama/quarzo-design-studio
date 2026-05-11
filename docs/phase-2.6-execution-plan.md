@@ -133,7 +133,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 ### 3.3 Validation schema
 
 - [x] In `server/src/lib/validation-schemas.ts`:
-  - `imageUrlSchema` accepts only `^https?:\/\/`. Drop the `data:image/` branch and the `MAX_DATA_URL_BYTES` refinement.
+  - `imageUrlSchema` accepts only `^https:\/\/`. Drop the `data:image/` branch and the `MAX_DATA_URL_BYTES` refinement.
   - Keep `imageSchema = z.object({ url: imageUrlSchema, alt: z.string().trim().max(160).optional().or(z.literal("")) })`.
   - Keep the array-level cap `z.array(imageSchema).max(8, "Máximo 8 imágenes por producto")` for now — the cap is a UX choice, not a storage one. Revisit if the wife asks for more.
 - [x] Drop `MAX_DATA_URL_BYTES` constant + export. Grep the codebase to confirm nothing else imports it.
@@ -241,6 +241,7 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 - Per-image admin replace UI ("change just this image without re-saving the whole product") — current PATCH still does delete-recreate of the whole product; the upload endpoint just produces URLs. The form keeps its existing batch-save flow.
 - A media library / asset browser — every upload is product-scoped via the form. We're not building a CMS.
 - Image cropping — the wife crops in Photos before uploading. Re-eval if real customers complain.
+- Storage SDK weight — `@aws-sdk/client-s3` is heavyweight (~6 MB + a long transitive tail) for the two operations we use (PutObject, DeleteObjects). Pragmatic for v1; revisit if Fly cold start or runtime image size becomes a concern. `aws4fetch` is a <100 KB drop-in candidate.
 
 ---
 
@@ -248,9 +249,9 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 7.1 Local
 
-- [ ] `pnpm dev:rebuild` completes (Sharp native bindings install cleanly).
-- [ ] `pnpm preflight` green.
-- [ ] Browser smoke at `/admin/productos/nuevo`:
+- [x] `pnpm dev:rebuild` completes (Sharp native bindings install cleanly).
+- [x] `pnpm preflight` green.
+- [x] Browser smoke at `/admin/productos/nuevo`:
   - Upload a 5 MB iPhone JPEG → succeeds, thumbnail loads from R2 URL, no 413/422.
   - Upload a 12 MB image → 413 with clear inline error.
   - Upload a `.txt` file → 415.
