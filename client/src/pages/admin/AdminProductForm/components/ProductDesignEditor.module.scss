@@ -1,0 +1,152 @@
+@use "../../../../styles/tokens" as t;
+
+.section {
+  margin: t.$space-8 0;
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: t.$space-3;
+  margin-bottom: t.$space-2;
+}
+
+.title {
+  font-family: t.$font-primary;
+  font-size: t.$font-size-md;
+  font-weight: t.$weight-medium;
+  margin: 0;
+  color: t.$color-ink;
+}
+
+.counter {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-text-muted;
+}
+
+.hint {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xs;
+  color: t.$color-text-muted;
+  margin: 0 0 t.$space-3;
+}
+
+.fileInputHidden {
+  display: none;
+}
+
+.actions {
+  display: flex;
+  gap: t.$space-2;
+  margin-bottom: t.$space-3;
+}
+
+.error {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  font-weight: t.$weight-medium;
+  color: t.$color-error;
+  margin: 0 0 t.$space-3;
+}
+
+.emptyState {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xs;
+  color: t.$color-text-muted;
+  background-color: t.$color-surface-light;
+  border: 1px dashed t.$color-line;
+  border-radius: t.$radius-md;
+  padding: t.$space-4;
+  margin: 0;
+  text-align: center;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-3;
+}
+
+.row {
+  display: flex;
+  gap: t.$space-3;
+  align-items: flex-start;
+  padding: t.$space-3;
+  background-color: t.$color-surface;
+  border-radius: t.$radius-md;
+}
+
+.thumb {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: t.$radius-sm;
+  flex-shrink: 0;
+  background-color: t.$color-bg;
+}
+
+.rowBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-2;
+}
+
+.compatGroup {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.compatLegend {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+  margin-bottom: t.$space-1;
+  padding: 0;
+}
+
+.compatList {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-1;
+}
+
+.compatItem {
+  display: inline-flex;
+  align-items: center;
+  gap: t.$space-2;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  color: t.$color-ink;
+  cursor: pointer;
+}
+
+.compatEmpty {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xs;
+  color: t.$color-text-muted;
+  margin: 0;
+}
+
+.activeRow {
+  display: inline-flex;
+  align-items: center;
+  gap: t.$space-2;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  color: t.$color-ink;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+}

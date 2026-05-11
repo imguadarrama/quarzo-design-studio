@@ -10,6 +10,7 @@ import { Button } from "@/components/Button/Button";
 import { Card } from "@/components/Card/Card";
 import { FormField } from "@/components/FormField/FormField";
 import { Input } from "@/components/Input/Input";
+import type { AdminOptionPalette } from "@/lib/types";
 import type { ProductFormValues } from "../schema.js";
 import styles from "./ProductVariantEditor.module.scss";
 
@@ -21,6 +22,7 @@ type VariantErrors = FieldErrors<ProductFormValues>["variants"];
 type Props = {
   fieldErrors?: VariantErrors;
   rootError?: string;
+  palettes: AdminOptionPalette[];
 };
 
 function emptyVariant() {
@@ -32,11 +34,12 @@ function emptyOption() {
     name: "",
     type: "TEXT" as const,
     values: undefined as string[] | undefined,
+    paletteId: undefined as string | undefined,
     required: true,
   };
 }
 
-export function ProductVariantEditor({ fieldErrors, rootError }: Props) {
+export function ProductVariantEditor({ fieldErrors, rootError, palettes }: Props) {
   const { control } = useFormContext<ProductFormValues>();
   const { fields, append, remove, move } = useFieldArray({
     control,
@@ -100,6 +103,7 @@ export function ProductVariantEditor({ fieldErrors, rootError }: Props) {
                 isLast={index === fields.length - 1}
                 duplicate={duplicateSkuIndices.has(index)}
                 errors={fieldErrors?.[index]}
+                palettes={palettes}
                 onMoveUp={() => move(index, index - 1)}
                 onMoveDown={() => move(index, index + 1)}
                 onRemove={() => remove(index)}
@@ -130,6 +134,7 @@ type VariantCardProps = {
   isLast: boolean;
   duplicate: boolean;
   errors: NonNullable<VariantErrors>[number] | undefined;
+  palettes: AdminOptionPalette[];
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
@@ -141,6 +146,7 @@ function VariantCard({
   isLast,
   duplicate,
   errors,
+  palettes,
   onMoveUp,
   onMoveDown,
   onRemove,
@@ -260,6 +266,7 @@ function VariantCard({
                       | OptionRowErrors
                       | undefined
                   }
+                  palettes={palettes}
                   onMoveUp={() =>
                     optionsArray.move(optionIndex, optionIndex - 1)
                   }
@@ -291,6 +298,7 @@ type OptionRowErrors = {
   name?: FieldError;
   type?: FieldError;
   values?: FieldError;
+  paletteId?: FieldError;
   required?: FieldError;
 };
 
@@ -300,6 +308,7 @@ type OptionRowProps = {
   isFirst: boolean;
   isLast: boolean;
   errors: OptionRowErrors | undefined;
+  palettes: AdminOptionPalette[];
   onMoveUp: () => void;
   onMoveDown: () => void;
   onRemove: () => void;
@@ -311,6 +320,7 @@ function OptionRow({
   isFirst,
   isLast,
   errors,
+  palettes,
   onMoveUp,
   onMoveDown,
   onRemove,
@@ -327,6 +337,10 @@ function OptionRow({
   const [valuesText, setValuesText] = useState<string>(() =>
     Array.isArray(values) ? values.join(", ") : "",
   );
+  const activePalettes = useMemo(
+    () => palettes.filter((p) => p.active),
+    [palettes],
+  );
 
   useEffect(() => {
     if (type === "TEXT") {
@@ -335,19 +349,42 @@ function OptionRow({
         undefined,
         { shouldValidate: false },
       );
-      setValuesText("");
-    } else if (type === "SELECT" && !Array.isArray(values)) {
       setValue(
-        `variants.${variantIndex}.options.${index}.values`,
-        [],
+        `variants.${variantIndex}.options.${index}.paletteId`,
+        undefined,
         { shouldValidate: false },
       );
+      setValuesText("");
+    } else if (type === "SELECT") {
+      if (!Array.isArray(values)) {
+        setValue(
+          `variants.${variantIndex}.options.${index}.values`,
+          [],
+          { shouldValidate: false },
+        );
+      }
+      setValue(
+        `variants.${variantIndex}.options.${index}.paletteId`,
+        undefined,
+        { shouldValidate: false },
+      );
+    } else if (type === "SWATCH") {
+      setValue(
+        `variants.${variantIndex}.options.${index}.values`,
+        undefined,
+        { shouldValidate: false },
+      );
+      setValuesText("");
     }
   }, [type, variantIndex, index, setValue, values]);
 
   const valuesError =
     typeof errors?.values?.message === "string"
       ? errors.values.message
+      : undefined;
+  const paletteError =
+    typeof errors?.paletteId?.message === "string"
+      ? errors.paletteId.message
       : undefined;
 
   return (
@@ -372,6 +409,7 @@ function OptionRow({
           >
             <option value="TEXT">Texto libre</option>
             <option value="SELECT">Lista de opciones</option>
+            <option value="SWATCH">Paleta de imágenes</option>
           </select>
         </FormField>
 
@@ -399,6 +437,33 @@ function OptionRow({
                 );
               }}
             />
+          </FormField>
+        ) : null}
+
+        {type === "SWATCH" ? (
+          <FormField
+            label="Paleta"
+            error={paletteError}
+            hint={
+              activePalettes.length === 0
+                ? "Crea una paleta en /admin/paletas antes de usar este tipo."
+                : "El cliente verá una cuadrícula con las muestras activas de esta paleta."
+            }
+          >
+            <select
+              className={styles.select}
+              disabled={activePalettes.length === 0}
+              {...register(
+                `variants.${variantIndex}.options.${index}.paletteId`,
+              )}
+            >
+              <option value="">Selecciona una paleta…</option>
+              {activePalettes.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
           </FormField>
         ) : null}
       </div>
