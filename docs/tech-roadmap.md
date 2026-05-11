@@ -244,16 +244,19 @@ Move product images off base64-in-Postgres to Cloudflare R2 with server-side res
 
 Full plan: [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md).
 
-### Phase 2.7 — Product designs (visual selection)
+### Phase 2.7 — Product designs (visual selection) + global palettes
 
-Add a "design style" axis to the catalog. Surfaced during Slice 7 review when the client clarified that customers pick a design first, then a variant, then options. New `ProductDesign` table sibling of `ProductVariant`, plus a `DesignVariantCompat` join for variant-specific compatibility (some designs render only in foil, etc.). Public API exposes `designs[]` with `compatibleVariantIds`. No customer-facing UX in this phase — Slice 9 (revised) consumes it.
+Add a "design style" axis to the catalog plus global image palettes for SWATCH-type variant options. Surfaced during Slice 7 review when the client clarified that customers pick a design first, then a variant, then options — and that SELECT-type options like "Color del foil" must render image swatches drawn from a global palette shared across products. New `ProductDesign` table sibling of `ProductVariant`, plus a `DesignVariantCompat` join for variant-specific compatibility (some designs render only in foil, etc.) and a generic `OptionPalette` + `OptionSwatch` pair backing a new `SWATCH` value on `VariantOptionType`. Public API exposes `designs[]` with `compatibleVariantIds` and inline `palette.swatches[]` on SWATCH options (active-only). No customer-facing UX in this phase — Slice 9 (revised) consumes it.
 
-- [ ] Migration `add_product_designs`: new `ProductDesign` + `DesignVariantCompat` tables; nullable `OrderItem.{designId, designName, designImageUrl}` snapshot columns added pre-Phase-3.
-- [ ] Admin form gains "Diseños" section between Variants and the active flag; visual upload + name + active flag + per-variant compatibility checkboxes + reorder.
-- [ ] Public `serializeProductPublic` exposes active designs only with `compatibleVariantIds`.
-- [ ] Browser smoke: design upload, variant-specific compatibility, edit round-trip, variant-removal compat sweep.
+- [x] Migration `add_designs_and_palettes`: new `ProductDesign` + `DesignVariantCompat` + `OptionPalette` + `OptionSwatch` tables; nullable `ProductVariantOption.paletteId` FK (`onDelete: Restrict`); new `SWATCH` enum value on `VariantOptionType`; nullable `OrderItem.{designId, designName, designImageUrl}` snapshot columns added pre-Phase-3.
+- [x] Admin form gains "Diseños" section after Variants; visual upload + name + active flag + per-variant compatibility checkboxes + reorder. Variant-removal compat sweep drops stale indices.
+- [x] OptionRow gains "Paleta de imágenes" (SWATCH) type with a palette dropdown populated from a single `listPalettes()` call at form-mount.
+- [x] New `/admin/paletas` admin surface (list + form + swatch editor) for global palette CRUD. DELETE returns 409 `PALETTE_IN_USE` while referenced.
+- [x] Three small client primitives extracted on this second-consumer move: `useAdminListResource`, `useAdminDeleteFlow`, `<ReorderControls>` — products list + image editor migrate to consume them.
+- [x] Public `serializeProductPublic` exposes active designs only with `compatibleVariantIds`, and inline `palette.swatches[]` (active-only) on SWATCH options.
+- [x] Seed creates `Colores de foil` palette with 5 picsum placeholder swatches (real images replace post-deploy).
 
-Full plan: [`phase-2.7-execution-plan.md`](phase-2.7-execution-plan.md). Blocked on Phase 2.6.
+Full plan: [`phase-2.7-execution-plan.md`](phase-2.7-execution-plan.md). Blocked on Phase 2.6 (closed).
 
 ### Phase 3 — Cart + guest checkout foundation
 - [ ] Cart in zustand + `localStorage`

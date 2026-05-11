@@ -604,12 +604,12 @@ The catalog (Slice 8) already exists in plan; it's untouched by this phase. The 
 
 ### 7.1 Schema + migration
 
-- [ ] `pnpm migrate` (in api container) generates `add_designs_and_palettes` migration cleanly. Inspect SQL: four new tables (`ProductDesign`, `DesignVariantCompat`, `OptionPalette`, `OptionSwatch`); three new nullable columns on `OrderItem`; new `paletteId` column on `ProductVariantOption`; new `SWATCH` enum value on `VariantOptionType`. No breaking changes.
-- [ ] `pnpm seed` succeeds. Existing products end up with `designs: []` (seed doesn't populate designs yet — optional follow-up to add 2–3 sample designs to the *sobres* seed entry). Seed creates one palette `Colores de foil` with a handful of starter swatches so dev work doesn't need manual setup.
+- [x] `pnpm migrate` (in api container) generates `add_designs_and_palettes` migration cleanly. Inspect SQL: four new tables (`ProductDesign`, `DesignVariantCompat`, `OptionPalette`, `OptionSwatch`); three new nullable columns on `OrderItem`; new `paletteId` column on `ProductVariantOption`; new `SWATCH` enum value on `VariantOptionType`. No breaking changes.
+- [x] `pnpm seed` succeeds. Existing products end up with `designs: []` (seed doesn't populate designs yet — optional follow-up to add 2–3 sample designs to the *sobres* seed entry). Seed creates one palette `Colores de foil` with 5 picsum placeholder swatches so dev work doesn't need manual setup.
 
 ### 7.2 Type / build gates
 
-- [ ] `pnpm preflight` green.
+- [x] `pnpm preflight` green.
 
 ### 7.3 Browser smoke
 
