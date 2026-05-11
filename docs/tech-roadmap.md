@@ -235,12 +235,12 @@ Exit criteria: every slice merged; `pnpm preflight:full` green; browser smoke co
 
 Move product images off base64-in-Postgres to Cloudflare R2 with server-side resize via Sharp. Slice 7 shipped against the existing 500 KB data-URL pipeline; this phase swaps the backend without changing the customer-facing surface. Without this, Phase 2.7 (designs) would carry 20+ image rows per product as inline base64 in every public response.
 
-- [ ] R2 buckets provisioned (prod + staging); secrets in GitHub Environments + Fly.
-- [ ] `POST /api/admin/images` upload endpoint with Sharp pipeline (max 1600 px, JPEG quality 0.82, EXIF stripped).
-- [ ] `ProductImageEditor` swapped from `FileReader → data URL` to `uploadImage(file) → CDN URL`.
-- [ ] `imageSchema.url` accepts only `https?://` URLs; 500 KB cap dropped.
-- [ ] Backfill script run cleanly on staging + prod; zero `data:` URLs remaining.
-- [ ] `cleanup-staging.yml` extended to delete per-PR R2 keys.
+- [x] R2 buckets provisioned (prod + staging); secrets in GitHub Environments + Fly.
+- [x] `POST /api/admin/images` upload endpoint with Sharp pipeline (max 1600 px, JPEG quality 0.82, EXIF stripped).
+- [x] `ProductImageEditor` swapped from `FileReader → data URL` to `uploadImage(file) → CDN URL`.
+- [x] `imageSchema.url` accepts only `https?://` URLs; 500 KB cap dropped.
+- [x] Backfill script run cleanly on staging + prod; zero `data:` URLs remaining.
+- [x] `cleanup-staging.yml` extended to delete per-PR R2 keys.
 
 Full plan: [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md).
 
