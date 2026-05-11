@@ -72,6 +72,7 @@ export function AdminProductFormPage() {
       active: true,
       images: [],
       variants: [],
+      designs: [],
     },
   });
   const {

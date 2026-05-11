@@ -1,9 +1,17 @@
 import { fetchJson } from "./fetchJson";
-import type { AdminProduct, AdminUser, ProductPayload } from "@/lib/types";
+import type {
+  AdminOptionPalette,
+  AdminProduct,
+  AdminUser,
+  PalettePayload,
+  ProductPayload,
+} from "@/lib/types";
 
 type AdminEnvelope = { admin: AdminUser };
 type ProductEnvelope = { product: AdminProduct };
 type ProductsEnvelope = { products: AdminProduct[] };
+type PaletteEnvelope = { palette: AdminOptionPalette };
+type PalettesEnvelope = { palettes: AdminOptionPalette[] };
 
 export const loginAdmin = (email: string, password: string) =>
   fetchJson<AdminEnvelope>("/api/admin/auth/login", {
@@ -41,3 +49,24 @@ export const updateProduct = (id: string, payload: ProductPayload) =>
 
 export const deleteProduct = (id: string) =>
   fetchJson<void>(`/api/admin/products/${id}`, { method: "DELETE" });
+
+export const listPalettes = () =>
+  fetchJson<PalettesEnvelope>("/api/admin/palettes").then((d) => d.palettes);
+
+export const getPalette = (id: string) =>
+  fetchJson<PaletteEnvelope>(`/api/admin/palettes/${id}`).then((d) => d.palette);
+
+export const createPalette = (payload: PalettePayload) =>
+  fetchJson<PaletteEnvelope>("/api/admin/palettes", {
+    method: "POST",
+    body: payload,
+  }).then((d) => d.palette);
+
+export const updatePalette = (id: string, payload: PalettePayload) =>
+  fetchJson<PaletteEnvelope>(`/api/admin/palettes/${id}`, {
+    method: "PATCH",
+    body: payload,
+  }).then((d) => d.palette);
+
+export const deletePalette = (id: string) =>
+  fetchJson<void>(`/api/admin/palettes/${id}`, { method: "DELETE" });

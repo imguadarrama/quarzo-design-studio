@@ -34,6 +34,40 @@
   letter-spacing: 0.02em;
 }
 
+.links {
+  display: none;
+  align-items: center;
+  gap: t.$space-4;
+  flex: 1;
+  margin-left: t.$space-6;
+
+  @include m.screen-md {
+    display: inline-flex;
+  }
+}
+
+.navLink {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  color: t.$color-text-muted;
+  text-decoration: none;
+  padding: t.$space-2 t.$space-3;
+  border-radius: t.$radius-sm;
+}
+
+.navLink:hover {
+  color: t.$color-ink;
+}
+
+.navLink:focus-visible {
+  @include m.focus-ring;
+}
+
+.navLinkActive {
+  color: t.$color-ink;
+  font-weight: t.$weight-medium;
+}
+
 .right {
   display: inline-flex;
   align-items: center;

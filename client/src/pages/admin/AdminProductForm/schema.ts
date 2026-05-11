@@ -36,11 +36,12 @@ const optionSchema = z
       .trim()
       .min(1, "El nombre es obligatorio")
       .max(80, "Máximo 80 caracteres"),
-    type: z.enum(["SELECT", "TEXT"]),
+    type: z.enum(["SELECT", "SWATCH", "TEXT"]),
     values: z
       .array(z.string().trim().min(1).max(80))
       .max(50, "Máximo 50 valores")
       .optional(),
+    paletteId: z.string().min(1).optional(),
     required: z.boolean(),
   })
   .superRefine((opt, ctx) => {
@@ -49,6 +50,13 @@ const optionSchema = z
         code: z.ZodIssueCode.custom,
         path: ["values"],
         message: "Agrega al menos un valor",
+      });
+    }
+    if (opt.type === "SWATCH" && !opt.paletteId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["paletteId"],
+        message: "Selecciona una paleta",
       });
     }
   });
@@ -69,6 +77,17 @@ const variantSchema = z.object({
     .min(0, "El precio no puede ser negativo")
     .max(999999, "Precio demasiado alto"),
   options: z.array(optionSchema).max(8, "Máximo 8 opciones por variante"),
+});
+
+const designSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "El nombre es obligatorio")
+    .max(120, "Máximo 120 caracteres"),
+  imageUrl: imageUrlSchema,
+  active: z.boolean(),
+  compatibleVariantIndices: z.array(z.number().int().min(0)),
 });
 
 export const productFormSchema = z.object({
@@ -99,22 +118,13 @@ export const productFormSchema = z.object({
     .array(variantSchema)
     .min(1, "Agrega al menos una variante")
     .max(12, "Máximo 12 variantes"),
+  designs: z.array(designSchema).max(50, "Máximo 50 diseños"),
 });
 
 export type ProductFormValues = z.infer<typeof productFormSchema>;
 export type ProductFormImage = ProductFormValues["images"][number];
 export type ProductFormVariant = ProductFormValues["variants"][number];
 export type ProductFormVariantOption = ProductFormVariant["options"][number];
+export type ProductFormDesign = ProductFormValues["designs"][number];
 
-const COMBINING_DIACRITICS = /[̀-ͯ]/g;
-const NON_ALNUM = /[^a-z0-9]+/g;
-const TRIM_DASHES = /^-+|-+$/g;
-
-export function slugify(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(COMBINING_DIACRITICS, "")
-    .toLowerCase()
-    .replace(NON_ALNUM, "-")
-    .replace(TRIM_DASHES, "");
-}
+export { slugify } from "@/lib/slug";
