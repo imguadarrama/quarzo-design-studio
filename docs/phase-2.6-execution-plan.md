@@ -261,23 +261,23 @@ This is a one-time Cloudflare dashboard walkthrough. Outputs: two buckets, **two
 
 ### 7.2 Staging
 
-- [ ] Open the PR. Per-PR Fly app boots; per-PR Neon branch ready; per-PR Pages preview links posted in the comment.
-- [ ] On the per-PR API: run the backfill script. Confirm seeded `picsum.photos` URLs (or any pre-existing data URLs in the staging branch) get rewritten to R2 URLs. `GET /api/products` returns CDN URLs.
-- [ ] Browser smoke on the per-PR Pages URL: upload a real photo from your phone, confirm it round-trips.
-- [ ] Close the PR. `cleanup-staging.yml` deletes the per-PR Neon branch, the per-PR Fly app, the Pages previews, **and** the per-PR R2 keys under `pr-<N>/`.
+- [x] Open the PR. Per-PR Fly app boots; per-PR Neon branch ready; per-PR Pages preview links posted in the comment.
+- [x] On the per-PR API: run the backfill script. Confirm seeded `picsum.photos` URLs (or any pre-existing data URLs in the staging branch) get rewritten to R2 URLs. `GET /api/products` returns CDN URLs.
+- [x] Browser smoke on the per-PR Pages URL: upload a real photo from your phone, confirm it round-trips.
+- [x] Close the PR. `cleanup-staging.yml` deletes the per-PR Neon branch, the per-PR Fly app, the Pages previews, **and** the per-PR R2 keys under `pr-<N>/`.
 
 ### 7.3 Prod
 
-- [ ] Take a Neon prod snapshot.
-- [ ] `flyctl ssh console -a $FLY_APP_PROD -C "node scripts/migrate-base64-to-r2.mjs"`. Watch logs.
-- [ ] Visit prod `/api/products`. Every `images[].url` is a CDN URL.
-- [ ] Visit `/admin/productos/<id>/editar` for one product. Image shows. Save without changes. Reload. Still shows.
+- [x] Take a Neon prod snapshot.
+- [x] `flyctl ssh console -a $FLY_APP_PROD -C "node scripts/migrate-base64-to-r2.mjs"`. Watch logs.
+- [x] Visit prod `/api/products`. Every `images[].url` is a CDN URL.
+- [x] Visit `/admin/productos/<id>/editar` for one product. Image shows. Save without changes. Reload. Still shows.
 
 ### 7.4 Regression
 
-- [ ] Slice 4 admin product list still renders thumbnails (they're now CDN-served).
-- [ ] Slice 6 two-click delete still works.
-- [ ] Slice 7 variant editor untouched. Run a create + edit through to confirm.
+- [x] Slice 4 admin product list still renders thumbnails (they're now CDN-served).
+- [x] Slice 6 two-click delete still works.
+- [x] Slice 7 variant editor untouched. Run a create + edit through to confirm.
 
 ---
 
