@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { adminProductsRouter } from "./routes/admin-products.js";
 import { adminPalettesRouter } from "./routes/admin-palettes.js";
 import { adminDesignsRouter } from "./routes/admin-designs.js";
+import { adminCategoriesRouter } from "./routes/admin-categories.js";
 import { env } from "./config/env.js";
 import { adminAuthRouter } from "./routes/admin-auth.js";
 import { adminImagesRouter } from "./routes/admin-images.js";
@@ -39,6 +40,7 @@ app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin", adminProductsRouter);
 app.use("/api/admin", adminPalettesRouter);
 app.use("/api/admin", adminDesignsRouter);
+app.use("/api/admin", adminCategoriesRouter);
 app.use("/api/admin", adminImagesRouter);
 
 app.use((_req: Request, res: Response) => {

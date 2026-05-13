@@ -11,7 +11,7 @@ productsRouter.get("/products", async (_req, res, next) => {
       prisma.product.findMany({
         where: { active: true },
         include: productInclude,
-        orderBy: [{ category: "asc" }, { createdAt: "desc" }],
+        orderBy: [{ createdAt: "desc" }],
       }),
       loadPaletteMap(prisma),
     ]);
@@ -26,15 +26,28 @@ productsRouter.get("/products", async (_req, res, next) => {
 
 productsRouter.get("/products/:slug", async (req, res, next) => {
   try {
-    const [product, paletteMap] = await Promise.all([
-      prisma.product.findFirst({
-        where: {
-          slug: req.params.slug,
-          active: true,
-        },
-        include: productInclude,
-      }),
+    const requestedSlug = req.params.slug;
+    const [paletteMap, product] = await Promise.all([
       loadPaletteMap(prisma),
+      (async () => {
+        const direct = await prisma.product.findFirst({
+          where: { slug: requestedSlug, active: true },
+          include: productInclude,
+        });
+        if (direct) return direct;
+        // Slug-alias fallback for old URLs after a rename. The serializer
+        // returns the canonical current slug; the SPA reads it from
+        // payload.product.slug and does navigate(canonical, { replace: true }).
+        const alias = await prisma.productSlugAlias.findUnique({
+          where: { slug: requestedSlug },
+          select: { productId: true },
+        });
+        if (!alias) return null;
+        return prisma.product.findFirst({
+          where: { id: alias.productId, active: true },
+          include: productInclude,
+        });
+      })(),
     ]);
 
     if (!product) throw new NotFoundError("Product not found");

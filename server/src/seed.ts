@@ -2,20 +2,21 @@ import { PrismaClient, VariantKind } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import bcrypt from "bcrypt";
 import "dotenv/config";
+import { buildSkuCandidate } from "./lib/sku-generator.js";
 
 const prisma = new PrismaClient();
 
 type VariantPriceSeed = {
   kind: VariantKind;
-  sku: string;
   price: string;
+  offered?: boolean;
 };
 
 type ProductSeed = {
   slug: string;
   name: string;
   description: string;
-  category: string;
+  categorySlug: string;
   imageUrl: string;
   variantPrices: VariantPriceSeed[];
   designSlugs: string[];
@@ -26,7 +27,21 @@ type DesignSeed = {
   name: string;
   imageUrl: string;
   compatibleKinds: VariantKind[];
+  categorySlugs: string[];
 };
+
+type CategorySeed = {
+  slug: string;
+  name: string;
+  position: number;
+};
+
+const categories: CategorySeed[] = [
+  { slug: "sobres", name: "Sobres", position: 0 },
+  { slug: "tarjetas", name: "Tarjetas", position: 1 },
+  { slug: "etiquetas-vino", name: "Etiquetas de vino", position: 2 },
+  { slug: "stickers", name: "Stickers", position: 3 },
+];
 
 const products: ProductSeed[] = [
   {
@@ -34,13 +49,13 @@ const products: ProductSeed[] = [
     name: "Paquete de 10 sobres clásicos",
     description:
       "Sobres personalizados para invitaciones formales. Cuatro acabados disponibles según tu evento.",
-    category: "sobres",
+    categorySlug: "sobres",
     imageUrl: "https://picsum.photos/seed/sobres/800/600",
     variantPrices: [
-      { kind: VariantKind.CON_FOIL, sku: "SOB-FOIL", price: "250.00" },
-      { kind: VariantKind.CON_TINTA_NORMAL, sku: "SOB-TINTA", price: "200.00" },
-      { kind: VariantKind.CON_FOIL_Y_TINTA, sku: "SOB-FOIL-TINTA", price: "290.00" },
-      { kind: VariantKind.PAPEL_TEXTURIZADO, sku: "SOB-TEX", price: "230.00" },
+      { kind: VariantKind.CON_FOIL, price: "250.00" },
+      { kind: VariantKind.CON_TINTA_NORMAL, price: "200.00" },
+      { kind: VariantKind.CON_FOIL_Y_TINTA, price: "290.00" },
+      { kind: VariantKind.PAPEL_TEXTURIZADO, price: "230.00" },
     ],
     designSlugs: ["floral", "minimalista"],
   },
@@ -49,13 +64,13 @@ const products: ProductSeed[] = [
     name: "Tarjetas 4x4 cm (paquete de 50)",
     description:
       "Tarjetas pequeñas para regalos, agradecimientos o detalles. Acabado editorial.",
-    category: "tarjetas",
+    categorySlug: "tarjetas",
     imageUrl: "https://picsum.photos/seed/tarjetas/800/600",
     variantPrices: [
-      { kind: VariantKind.CON_FOIL, sku: "TAR4-FOIL", price: "150.00" },
-      { kind: VariantKind.CON_TINTA_NORMAL, sku: "TAR4-TINTA", price: "100.00" },
-      { kind: VariantKind.CON_FOIL_Y_TINTA, sku: "TAR4-FOIL-TINTA", price: "180.00" },
-      { kind: VariantKind.PAPEL_TEXTURIZADO, sku: "TAR4-TEX", price: "130.00" },
+      { kind: VariantKind.CON_FOIL, price: "150.00" },
+      { kind: VariantKind.CON_TINTA_NORMAL, price: "100.00" },
+      { kind: VariantKind.CON_FOIL_Y_TINTA, price: "180.00" },
+      { kind: VariantKind.PAPEL_TEXTURIZADO, price: "130.00" },
     ],
     designSlugs: ["floral", "minimalista", "botanico"],
   },
@@ -64,13 +79,13 @@ const products: ProductSeed[] = [
     name: "Etiquetas para vino (paquete de 6)",
     description:
       "Etiquetas personalizadas para botellas de vino, ideales para regalos y eventos.",
-    category: "etiquetas-vino",
+    categorySlug: "etiquetas-vino",
     imageUrl: "https://picsum.photos/seed/vino/800/600",
     variantPrices: [
-      { kind: VariantKind.CON_FOIL, sku: "VIN-FOIL", price: "320.00" },
-      { kind: VariantKind.CON_TINTA_NORMAL, sku: "VIN-TINTA", price: "220.00" },
-      { kind: VariantKind.CON_FOIL_Y_TINTA, sku: "VIN-FOIL-TINTA", price: "360.00" },
-      { kind: VariantKind.PAPEL_TEXTURIZADO, sku: "VIN-TEX", price: "260.00" },
+      { kind: VariantKind.CON_FOIL, price: "320.00" },
+      { kind: VariantKind.CON_TINTA_NORMAL, price: "220.00" },
+      { kind: VariantKind.CON_FOIL_Y_TINTA, price: "360.00" },
+      { kind: VariantKind.PAPEL_TEXTURIZADO, price: "260.00" },
     ],
     designSlugs: ["minimalista", "botanico"],
   },
@@ -79,13 +94,15 @@ const products: ProductSeed[] = [
     name: "Stickers redondos (paquete de 24)",
     description:
       "Stickers circulares para branding, empaques o detalles. Corte profesional.",
-    category: "stickers",
+    categorySlug: "stickers",
     imageUrl: "https://picsum.photos/seed/stickers/800/600",
     variantPrices: [
-      { kind: VariantKind.CON_FOIL, sku: "STK-FOIL", price: "140.00" },
-      { kind: VariantKind.CON_TINTA_NORMAL, sku: "STK-TINTA", price: "90.00" },
-      { kind: VariantKind.CON_FOIL_Y_TINTA, sku: "STK-FOIL-TINTA", price: "160.00" },
-      { kind: VariantKind.PAPEL_TEXTURIZADO, sku: "STK-TEX", price: "110.00" },
+      { kind: VariantKind.CON_FOIL, price: "140.00" },
+      { kind: VariantKind.CON_TINTA_NORMAL, price: "90.00" },
+      { kind: VariantKind.CON_FOIL_Y_TINTA, price: "160.00" },
+      // Real-world example of the offered toggle: stickers don't support the
+      // textured paper finish, so this variant is hidden from the storefront.
+      { kind: VariantKind.PAPEL_TEXTURIZADO, price: "0.00", offered: false },
     ],
     designSlugs: ["floral"],
   },
@@ -101,6 +118,7 @@ const designs: DesignSeed[] = [
       VariantKind.CON_TINTA_NORMAL,
       VariantKind.CON_FOIL_Y_TINTA,
     ],
+    categorySlugs: ["sobres", "tarjetas", "stickers"],
   },
   {
     slug: "minimalista",
@@ -110,6 +128,7 @@ const designs: DesignSeed[] = [
       VariantKind.CON_TINTA_NORMAL,
       VariantKind.PAPEL_TEXTURIZADO,
     ],
+    categorySlugs: ["sobres", "tarjetas", "etiquetas-vino"],
   },
   {
     slug: "botanico",
@@ -120,6 +139,7 @@ const designs: DesignSeed[] = [
       VariantKind.CON_FOIL_Y_TINTA,
       VariantKind.PAPEL_TEXTURIZADO,
     ],
+    categorySlugs: ["tarjetas", "etiquetas-vino"],
   },
 ];
 
@@ -140,8 +160,17 @@ async function main() {
   });
   console.log(`Seeded admin: ${adminEmail}`);
 
-  // Idempotency: upserts use `update: {}` so re-runs don't propagate edits.
-  // To apply seed edits locally, drop the DB and re-migrate.
+  // Categories must exist before products and designs reference them.
+  const categoryIdBySlug = new Map<string, string>();
+  for (const c of categories) {
+    const upserted = await prisma.category.upsert({
+      where: { slug: c.slug },
+      update: {},
+      create: { name: c.name, slug: c.slug, position: c.position, active: true },
+    });
+    categoryIdBySlug.set(c.slug, upserted.id);
+    console.log(`Seeded category: ${c.slug}`);
+  }
 
   await prisma.optionPalette.upsert({
     where: { slug: "colores-foil" },
@@ -164,13 +193,12 @@ async function main() {
   });
   console.log("Seeded palette: colores-foil");
 
-  // Designs are global. We use name as the natural key for upsert lookup
-  // since slug isn't a column — name is unique by convention in this seed.
-  const designsBySlug = new Map<string, string>();
+  // Designs are global. Name is unique enough for the seed's idempotency key.
+  const designIdBySlug = new Map<string, string>();
   for (const [index, d] of designs.entries()) {
     const existing = await prisma.design.findFirst({ where: { name: d.name } });
     if (existing) {
-      designsBySlug.set(d.slug, existing.id);
+      designIdBySlug.set(d.slug, existing.id);
       continue;
     }
     const created = await prisma.design.create({
@@ -180,13 +208,23 @@ async function main() {
         position: index,
         active: true,
         compat: { create: d.compatibleKinds.map((kind) => ({ kind })) },
+        categories: {
+          create: d.categorySlugs
+            .map((slug) => categoryIdBySlug.get(slug))
+            .filter((id): id is string => Boolean(id))
+            .map((categoryId) => ({ categoryId })),
+        },
       },
     });
-    designsBySlug.set(d.slug, created.id);
+    designIdBySlug.set(d.slug, created.id);
     console.log(`Seeded design: ${d.slug}`);
   }
 
   for (const p of products) {
+    const categoryId = categoryIdBySlug.get(p.categorySlug);
+    if (!categoryId) {
+      throw new Error(`Seed: missing category ${p.categorySlug} for product ${p.slug}`);
+    }
     const product = await prisma.product.upsert({
       where: { slug: p.slug },
       update: {},
@@ -194,12 +232,16 @@ async function main() {
         slug: p.slug,
         name: p.name,
         description: p.description,
-        category: p.category,
+        categoryId,
         variants: {
           create: p.variantPrices.map((vp) => ({
             kind: vp.kind,
-            sku: vp.sku,
+            // Deterministic suffix keeps the seed reproducible across re-runs
+            // and across local/staging/prod. Real products use random suffixes
+            // via ensureUniqueSku.
+            sku: buildSkuCandidate(p.slug, vp.kind, "seed"),
             price: new Decimal(vp.price),
+            offered: vp.offered ?? true,
           })),
         },
         images: {
@@ -207,7 +249,7 @@ async function main() {
         },
         designs: {
           create: p.designSlugs
-            .map((slug) => designsBySlug.get(slug))
+            .map((slug) => designIdBySlug.get(slug))
             .filter((id): id is string => Boolean(id))
             .map((designId) => ({ designId })),
         },

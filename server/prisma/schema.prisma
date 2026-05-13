@@ -24,19 +24,34 @@ model AdminUser {
   createdAt    DateTime @default(now())
 }
 
+model Category {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  slug      String           @unique
+  position  Int              @default(0)
+  active    Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  products  Product[]
+  designs   DesignCategory[]
+
+  @@index([active])
+}
+
 model Product {
   id          String                @id @default(cuid())
   slug        String                @unique
   name        String
   description String
-  category    String
+  categoryId  String
+  category    Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   images      ProductImage[]
   variants    ProductVariantPrice[]
   designs     ProductDesign[]
+  slugAliases ProductSlugAlias[]
   active      Boolean               @default(true)
   createdAt   DateTime              @default(now())
 
-  @@index([category])
+  @@index([categoryId])
   @@index([active])
 }
 
@@ -46,20 +61,22 @@ model ProductVariantPrice {
   kind      VariantKind
   price     Decimal     @db.Decimal(10, 2)
   sku       String      @unique
+  offered   Boolean     @default(true)
 
   @@id([productId, kind])
   @@index([productId])
 }
 
 model Design {
-  id        String                @id @default(cuid())
-  name      String
-  imageUrl  String
-  position  Int                   @default(0)
-  active    Boolean               @default(true)
-  createdAt DateTime              @default(now())
-  compat    DesignVariantCompat[]
-  products  ProductDesign[]
+  id         String                @id @default(cuid())
+  name       String
+  imageUrl   String
+  position   Int                   @default(0)
+  active     Boolean               @default(true)
+  createdAt  DateTime              @default(now())
+  compat     DesignVariantCompat[]
+  products   ProductDesign[]
+  categories DesignCategory[]
 
   @@index([active])
 }
@@ -72,6 +89,16 @@ model DesignVariantCompat {
   @@id([designId, kind])
 }
 
+model DesignCategory {
+  designId   String
+  categoryId String
+  design     Design   @relation(fields: [designId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([designId, categoryId])
+  @@index([categoryId])
+}
+
 model ProductDesign {
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -80,6 +107,16 @@ model ProductDesign {
 
   @@id([productId, designId])
   @@index([designId])
+}
+
+model ProductSlugAlias {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  @@index([productId])
 }
 
 model OptionPalette {
@@ -151,6 +188,7 @@ model OrderItem {
   order               Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId           String
   variantKind         VariantKind
+  sku                 String
   productName         String
   variantName         String
   unitPrice           Decimal     @db.Decimal(10, 2)

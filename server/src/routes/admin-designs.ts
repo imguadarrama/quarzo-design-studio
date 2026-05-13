@@ -8,6 +8,7 @@ import {
 } from "../lib/serializers.js";
 import { designSchema } from "../lib/validation-schemas.js";
 import {
+  buildDesignCategoriesCreate,
   buildDesignCompatRows,
   buildDesignMetadata,
 } from "../lib/design-write.js";
@@ -51,6 +52,7 @@ adminDesignsRouter.post("/designs", async (req, res, next) => {
       data: {
         ...buildDesignMetadata(data),
         compat: { create: buildDesignCompatRows(data.compatibleKinds) },
+        categories: { create: buildDesignCategoriesCreate(data.categoryIds) },
       },
       include: designInclude,
     });
@@ -73,11 +75,13 @@ adminDesignsRouter.patch("/designs/:id", async (req, res, next) => {
 
     const design = await prisma.$transaction(async (tx) => {
       await tx.designVariantCompat.deleteMany({ where: { designId: req.params.id } });
+      await tx.designCategory.deleteMany({ where: { designId: req.params.id } });
       return tx.design.update({
         where: { id: req.params.id },
         data: {
           ...buildDesignMetadata(data),
           compat: { create: buildDesignCompatRows(data.compatibleKinds) },
+          categories: { create: buildDesignCategoriesCreate(data.categoryIds) },
         },
         include: designInclude,
       });

@@ -6,7 +6,9 @@ import { VARIANT_PALETTE_SLUG } from "./variant-palettes.js";
 export const productInclude = {
   images: true,
   variants: true,
-  designs: { include: { design: { include: { compat: true } } } },
+  category: true,
+  slugAliases: true,
+  designs: { include: { design: { include: { compat: true, categories: true } } } },
 } satisfies Prisma.ProductInclude;
 
 export type ProductWithRelations = Prisma.ProductGetPayload<{
@@ -28,10 +30,17 @@ type SwatchRecord = PaletteWithRelations["swatches"][number];
 
 export const designInclude = {
   compat: true,
+  categories: true,
 } satisfies Prisma.DesignInclude;
 
 export type DesignWithRelations = Prisma.DesignGetPayload<{
   include: typeof designInclude;
+}>;
+
+export const categoryInclude = {} satisfies Prisma.CategoryInclude;
+
+export type CategoryWithRelations = Prisma.CategoryGetPayload<{
+  include: typeof categoryInclude;
 }>;
 
 const moneyToNumber = (value: Prisma.Decimal): number => Number(value);
@@ -85,27 +94,25 @@ export const loadPaletteMap = async (prisma: PrismaClient): Promise<PaletteMap> 
 };
 
 const serializeVariantPricePublic = (
-  price: VariantPriceRecord | undefined,
-  kind: VariantKind,
+  price: VariantPriceRecord,
   paletteMap: PaletteMap,
 ) => ({
-  kind,
-  displayName: VARIANT_KIND_NAMES[kind],
-  sku: price?.sku ?? null,
-  price: price ? moneyToNumber(price.price) : null,
-  palette: paletteMap.get(kind) ?? null,
+  kind: price.kind,
+  displayName: VARIANT_KIND_NAMES[price.kind],
+  sku: price.sku,
+  price: moneyToNumber(price.price),
+  palette: paletteMap.get(price.kind) ?? null,
 });
 
-const designFromJoin = (pd: ProductDesignRecord) => pd.design;
-
 const serializeDesignPublicFromProduct = (pd: ProductDesignRecord) => {
-  const d = designFromJoin(pd);
+  const d = pd.design;
   return {
     id: d.id,
     name: d.name,
     imageUrl: d.imageUrl,
     position: d.position,
     compatibleKinds: d.compat.map((c) => c.kind),
+    categoryIds: d.categories.map((dc) => dc.categoryId),
   };
 };
 
@@ -120,15 +127,20 @@ export const serializeProductPublic = (
     slug: product.slug,
     name: product.name,
     description: product.description,
-    category: product.category,
+    category: {
+      id: product.category.id,
+      name: product.category.name,
+      slug: product.category.slug,
+    },
     images: sortByPosition(product.images).map((image) => ({
       id: image.id,
       url: image.url,
       alt: image.alt,
     })),
-    variants: VARIANT_KIND_ORDER.map((kind) =>
-      serializeVariantPricePublic(byKind.get(kind), kind, paletteMap),
-    ),
+    variants: VARIANT_KIND_ORDER
+      .map((kind) => byKind.get(kind))
+      .filter((v): v is VariantPriceRecord => Boolean(v && v.offered))
+      .map((v) => serializeVariantPricePublic(v, paletteMap)),
     designs: product.designs
       .filter((pd) => pd.design.active)
       .map(serializeDesignPublicFromProduct)
@@ -144,6 +156,7 @@ const serializeVariantPriceAdmin = (
   displayName: VARIANT_KIND_NAMES[kind],
   sku: price?.sku ?? "",
   price: price ? moneyToNumber(price.price) : 0,
+  offered: price?.offered ?? true,
 });
 
 export const serializeProductAdmin = (product: ProductWithRelations) => {
@@ -154,7 +167,12 @@ export const serializeProductAdmin = (product: ProductWithRelations) => {
     slug: product.slug,
     name: product.name,
     description: product.description,
-    category: product.category,
+    categoryId: product.categoryId,
+    category: {
+      id: product.category.id,
+      name: product.category.name,
+      slug: product.category.slug,
+    },
     active: product.active,
     createdAt: product.createdAt.toISOString(),
     images: sortByPosition(product.images).map((image) => ({
@@ -167,6 +185,10 @@ export const serializeProductAdmin = (product: ProductWithRelations) => {
       serializeVariantPriceAdmin(byKind.get(kind), kind),
     ),
     designIds: product.designs.map((pd) => pd.designId),
+    slugAliases: product.slugAliases
+      .slice()
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .map((sa) => ({ slug: sa.slug, createdAt: sa.createdAt.toISOString() })),
   };
 };
 
@@ -195,6 +217,7 @@ export const serializeDesignAdmin = (design: DesignWithRelations) => ({
   active: design.active,
   createdAt: design.createdAt.toISOString(),
   compatibleKinds: design.compat.map((c) => c.kind),
+  categoryIds: design.categories.map((dc) => dc.categoryId),
 });
 
 export const serializeDesignPublic = (design: DesignWithRelations) => ({
@@ -203,4 +226,20 @@ export const serializeDesignPublic = (design: DesignWithRelations) => ({
   imageUrl: design.imageUrl,
   position: design.position,
   compatibleKinds: design.compat.map((c) => c.kind),
+  categoryIds: design.categories.map((dc) => dc.categoryId),
+});
+
+export const serializeCategoryAdmin = (category: CategoryWithRelations) => ({
+  id: category.id,
+  name: category.name,
+  slug: category.slug,
+  position: category.position,
+  active: category.active,
+  createdAt: category.createdAt.toISOString(),
+});
+
+export const serializeCategoryPublic = (category: CategoryWithRelations) => ({
+  id: category.id,
+  name: category.name,
+  slug: category.slug,
 });

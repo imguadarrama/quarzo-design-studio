@@ -9,3 +9,6 @@ export const buildDesignMetadata = (input: DesignInput) => ({
 
 export const buildDesignCompatRows = (kinds: DesignInput["compatibleKinds"]) =>
   kinds.map((kind) => ({ kind }));
+
+export const buildDesignCategoriesCreate = (categoryIds: DesignInput["categoryIds"]) =>
+  categoryIds.map((categoryId) => ({ categoryId }));
