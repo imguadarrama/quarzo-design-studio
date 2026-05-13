@@ -1,12 +1,30 @@
-# Phase 2.7 Execution Plan — Product designs (visual selection)
+# Phase 2.7 Execution Plan — Fixed variant kinds + global designs + global palettes
 
-> **Purpose:** add a "design style" axis to the catalog so customers can browse 20+ visual designs per product (currently scoped to *sobres*) before picking a variant. Surfaced during Slice 7 review when the wife clarified that the real customer flow is **design → variant → options**, not **variant → options** as originally modeled.
+> **Rework note (2026-05-13):** This plan was rewritten mid-PR after the client locked the customer-flow contract more tightly. The original Phase 2.7 modeled variants as freeform per-product rows and designs as per-product; the client clarified that **(a)** all products have the same four variants (`Con foil`, `Con tinta normal`, `Con foil y tinta normal`, `Papel texturizado`) with only price + sku varying per product; **(b)** designs are global — the same 30+ designs apply to every product; **(c)** every product/variant always shows a required "Nombre y apellido" text input (non-configurable). Since the PR was unmerged we squashed the in-flight migration instead of chaining a corrective one. The original phase plan below describes the pre-rework design and is retained as historical context — read the rework summary in this section first; the legacy slice plan that follows describes the model we *didn't* ship.
+>
+> **What we actually shipped on this branch:**
+>
+> 1. **Variants as a fixed enum.** `enum VariantKind { CON_FOIL | CON_TINTA_NORMAL | CON_FOIL_Y_TINTA | PAPEL_TEXTURIZADO }`. Pricing lives on `ProductVariantPrice(productId, kind, price, sku)` with composite PK `[productId, kind]`. Server `productSchema` enforces `.length(4).superRefine(...)` so every product has exactly one row per kind. Spanish display names live in `server/src/lib/variant-kinds.ts`.
+> 2. **Global designs.** `Design` (no `productId`) + `ProductDesign(productId, designId)` join + `DesignVariantCompat(designId, kind)`. New admin surface at `/admin/disenos` mirrors the palettes pattern. Product form picks designs via `<ProductDesignsSelector>` checkbox grid.
+> 3. **Hardcoded personalization.** `ProductVariantOption` table and `VariantOptionType` enum removed entirely. Storefront always renders one required "Nombre y apellido" text input; `OrderItem.personalizationText` (already NOT NULL) carries it.
+> 4. **Hardcoded variant → palette mapping.** `server/src/lib/variant-palettes.ts` exports `VARIANT_PALETTE_SLUG` mapping `CON_FOIL` and `CON_FOIL_Y_TINTA` to palette slug `colores-foil`. The public serializer inlines `palette.swatches[]` on those variant rows via `loadPaletteMap(prisma)` (one query per request). `admin-palettes.ts` DELETE rejects with `code: "PALETTE_PROTECTED"` for any slug in this map.
+> 5. **Migration approach.** Squashed in place. Deleted the unmerged `20260511200808_add_designs_and_palettes/` folder; the consolidated migration is `20260513000000_redesign_variants_designs_palettes/`.
+> 6. **OrderItem reshape.** `variantId` (bare String, no FK) → `variantKind: VariantKind`. The three `designId`/`designName`/`designImageUrl` snapshot columns stay as soft pointers; no FK on the new global `Design.id`. `OrderItem.selections Json` is now the foil-color pick.
+> 7. **Admin UX.** Two separate pages (`/admin/paletas`, `/admin/disenos`) + a shared `<PhaseFlowHint>` "Paso 1 → 2 → 3" breadcrumb at the top of each list page and `/admin/productos`.
+>
+> **Customer-facing UX:** still none in this phase — Slice 9 of the Phase 2.5 plan consumes the new shapes (design picker → variant-kind selector restricted by `compatibleKinds` → foil swatch picker on foil variants → required name/apellido input → cart CTA).
+>
+> **Blocked on:** [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md) (closed). Design images flow through the same R2 + `pending:` two-phase upload pattern Phase 2.6 introduced.
+>
+> ---
+>
+> ### Historical context (pre-rework, retained)
+>
+> **Original purpose:** add a "design style" axis to the catalog so customers can browse 20+ visual designs per product (currently scoped to *sobres*) before picking a variant. Surfaced during Slice 7 review when the wife clarified that the real customer flow is **design → variant → options**, not **variant → options** as originally modeled.
 >
 > This phase also adds **global image palettes** (e.g. foil colors) so SELECT-type options can render visual swatches instead of flat text values. The full customer flow surfaced in Slice 7 review is **design → variant → swatch-picker → personalization**; this phase ships the data + admin layer for the swatch-picker step. Phase 2.7 therefore lands two related axes — `ProductDesign` *and* `OptionPalette` / `OptionSwatch`.
 >
 > **Mindset:** schema + admin UI now, customer-facing UX in Slice 9. This phase ships no public-facing UX — that is intentional. Slice 9 (revised) integrates the design picker into the product detail page once this phase lands.
->
-> **Blocked on:** [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md). Designs add 20+ image-bearing rows per product; doing them on the base64 pipeline would balloon the public payload and require a second migration.
 
 ---
 
