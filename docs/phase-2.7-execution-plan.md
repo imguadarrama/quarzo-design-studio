@@ -1,5 +1,22 @@
 # Phase 2.7 Execution Plan — Fixed variant kinds + global designs + global palettes
 
+> **Follow-up iteration (2026-05-13, same day):** After the rework landed locally, the client reviewed the admin UI and surfaced four UX/data-model issues + a set of "golden rules" any future SKU/slug edit feature must respect. The follow-up commits add:
+>
+> 1. **Auto-generated SKUs.** Server builds `<productSlug>-<KIND_SHORT>-<4charRandom>` in `server/src/lib/sku-generator.ts`. Admin never types a SKU. The 4-char random suffix is **stable across slug edits** so inventory codes don't churn — `buildVariantPricesCreate(tx, slug, prices, existingByKind?)` reuses the prior row's suffix on PATCH via `extractSkuSuffix`. Collision-checked: `ensureUniqueSku` retries on `P2002` up to 8 attempts.
+> 2. **Per-variant `offered` toggle.** `ProductVariantPrice.offered Boolean @default(true)` replaces the brittle "price 0 = hidden" footgun. Storefront filters out `offered: false` rows in `serializeProductPublic`. Admin form disables the price input on the toggled-off variant. Validation requires `>=1 offered: true` row per product.
+> 3. **Slug auto-derive in edit mode.** Deleted the `slugDirtyRef.current = true` line in `AdminProductFormPage`'s `load` callback; rename now updates the slug like create mode. The page tracks `originalSlugRef` and shows a warning when the slug differs. **`ProductSlugAlias(productId, slug @unique, createdAt)` table** persists prior slugs on PATCH; public `GET /api/products/:slug` falls back through the alias and returns the canonical current slug; the SPA's `/producto/:slug` page (Slice 9) reads `product.slug` from the payload and `navigate(canonical, { replace: true })` when it differs from the URL — SPA equivalent of an HTTP 301.
+> 4. **First-class `Category`.** `Category(id, name, slug, position, active)` table; `Product.categoryId` FK replaces the legacy String column; `DesignCategory(designId, categoryId)` M2M ties designs to categories. New `/admin/categorias` CRUD page (`CATEGORY_IN_USE` 409 guard on delete). `<ProductDesignsSelector>` filters the visible designs by the product's selected `categoryId`, sweeping stale `designIds` when the admin switches category mid-form.
+>
+> **Golden rules (from the client) folded into the schema:**
+>
+> - **Uniqueness check** at save — enforced via `@unique sku` + `ensureUniqueSku` collision retry.
+> - **Immutability for orders** — new `OrderItem.sku String` snapshot column added pre-Phase-3 (Phase 3 cart will populate it at checkout from `ProductVariantPrice.sku`).
+> - **Slug 301 redirects** — `ProductSlugAlias` + canonical-slug response from the public route; full HTTP-301 emission deferred until SSR (Phase 7 polish).
+>
+> Migration: `20260514000000_categories_slug_aliases_offered_toggle` chained on top of the squashed rework migration. Pure Prisma-generated SQL; the schema.prisma is the source of truth.
+>
+> ---
+>
 > **Rework note (2026-05-13):** This plan was rewritten mid-PR after the client locked the customer-flow contract more tightly. The original Phase 2.7 modeled variants as freeform per-product rows and designs as per-product; the client clarified that **(a)** all products have the same four variants (`Con foil`, `Con tinta normal`, `Con foil y tinta normal`, `Papel texturizado`) with only price + sku varying per product; **(b)** designs are global — the same 30+ designs apply to every product; **(c)** every product/variant always shows a required "Nombre y apellido" text input (non-configurable). Since the PR was unmerged we squashed the in-flight migration instead of chaining a corrective one. The original phase plan below describes the pre-rework design and is retained as historical context — read the rework summary in this section first; the legacy slice plan that follows describes the model we *didn't* ship.
 >
 > **What we actually shipped on this branch:**
