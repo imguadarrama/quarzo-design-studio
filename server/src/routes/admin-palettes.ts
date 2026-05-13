@@ -12,6 +12,7 @@ import {
   buildSwatchesCreate,
 } from "../lib/palette-write.js";
 import { ConflictError, NotFoundError } from "../lib/errors.js";
+import { PROTECTED_PALETTE_SLUGS } from "../lib/variant-palettes.js";
 
 export const adminPalettesRouter = Router();
 
@@ -92,17 +93,14 @@ adminPalettesRouter.delete("/palettes/:id", async (req, res, next) => {
   try {
     const existing = await prisma.optionPalette.findUnique({
       where: { id: req.params.id },
-      select: { id: true },
+      select: { id: true, slug: true },
     });
     if (!existing) throw new NotFoundError("Palette not found");
 
-    const refCount = await prisma.productVariantOption.count({
-      where: { paletteId: req.params.id },
-    });
-    if (refCount > 0) {
+    if (PROTECTED_PALETTE_SLUGS.has(existing.slug)) {
       throw new ConflictError(
-        "PALETTE_IN_USE",
-        "Esta paleta está en uso por uno o más productos. Desactívala o desvincúlala primero.",
+        "PALETTE_PROTECTED",
+        "Esta paleta está vinculada a un tipo de variante y no se puede eliminar.",
       );
     }
 

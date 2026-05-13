@@ -1,28 +1,14 @@
 import { Decimal } from "@prisma/client/runtime/library";
-import { VariantOptionType } from "@prisma/client";
 import type { ProductInput } from "./validation-schemas.js";
 
-export const buildVariantWriteInput = (
-  variant: ProductInput["variants"][number],
-  index: number,
-) => ({
-  name: variant.name,
-  sku: variant.sku,
-  price: new Decimal(variant.price.toFixed(2)),
-  position: index,
-  options: {
-    create: variant.options.map((option, optionIndex) => ({
-      name: option.name,
-      type: option.type,
-      values:
-        option.type === VariantOptionType.SELECT ? (option.values ?? []) : undefined,
-      paletteId:
-        option.type === VariantOptionType.SWATCH ? option.paletteId : undefined,
-      required: option.required,
-      position: optionIndex,
-    })),
-  },
-});
+export const buildVariantPricesCreate = (
+  prices: ProductInput["variants"],
+) =>
+  prices.map((p) => ({
+    kind: p.kind,
+    price: new Decimal(p.price.toFixed(2)),
+    sku: p.sku,
+  }));
 
 export const buildImagesCreate = (images: ProductInput["images"]) =>
   images.map((image, index) => ({
@@ -39,10 +25,5 @@ export const buildProductMetadata = (input: ProductInput) => ({
   active: input.active,
 });
 
-export const buildDesignCompatCreate = (
-  compatibleVariantIndices: number[],
-  createdVariantIds: string[],
-) =>
-  compatibleVariantIndices
-    .filter((idx) => idx >= 0 && idx < createdVariantIds.length)
-    .map((idx) => ({ variantId: createdVariantIds[idx]! }));
+export const buildProductDesignsCreate = (designIds: string[]) =>
+  designIds.map((designId) => ({ designId }));
