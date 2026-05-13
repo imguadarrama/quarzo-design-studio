@@ -3,7 +3,7 @@ import { ButtonLink } from "@/components/Button/ButtonLink";
 import type {
   AdminProduct,
   AdminProductImage,
-  AdminProductVariant,
+  AdminProductVariantPrice,
 } from "@/lib/types";
 import pageStyles from "./AdminProductsPage.module.scss";
 import styles from "./AdminProductRow.module.scss";
@@ -21,9 +21,10 @@ function pickPrimaryImage(
   return images.reduce((a, b) => (b.position < a.position ? b : a));
 }
 
-function priceFrom(variants: AdminProductVariant[]): number | null {
-  if (variants.length === 0) return null;
-  return Math.min(...variants.map((v) => v.price));
+function priceFrom(variants: AdminProductVariantPrice[]): number | null {
+  const priced = variants.filter((v) => v.price > 0).map((v) => v.price);
+  if (priced.length === 0) return null;
+  return Math.min(...priced);
 }
 
 interface AdminProductRowProps {

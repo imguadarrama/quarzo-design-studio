@@ -1,0 +1,48 @@
+@use "../../styles/tokens" as t;
+@use "../../styles/mixins" as m;
+
+.wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: t.$space-2;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  margin-bottom: t.$space-4;
+  padding: t.$space-2 t.$space-3;
+  background-color: t.$color-surface-light;
+  border-radius: t.$radius-sm;
+  border: 1px solid t.$color-line;
+}
+
+.stepWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: t.$space-2;
+}
+
+.step {
+  color: t.$color-text-muted;
+  text-decoration: none;
+  padding: 2px 4px;
+  border-radius: t.$radius-sm;
+}
+
+.step:hover {
+  color: t.$color-ink;
+  text-decoration: underline;
+}
+
+.step:focus-visible {
+  @include m.focus-ring;
+}
+
+.current {
+  color: t.$color-ink;
+  font-weight: t.$weight-medium;
+  cursor: default;
+}
+
+.sep {
+  color: t.$color-text-muted;
+}

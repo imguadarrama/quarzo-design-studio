@@ -8,6 +8,7 @@ import {
   PageError,
   PageLoading,
 } from "@/components/PageState/PageState";
+import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
 import { Typography } from "@/components/Typography/Typography";
 import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
 import { useAdminListResource } from "@/hooks/useAdminListResource";
@@ -16,15 +17,15 @@ import { deletePalette, listPalettes } from "@/services/api/admin";
 import type { AdminOptionPalette } from "@/lib/types";
 import styles from "./AdminPalettesPage.module.scss";
 
-const PALETTE_IN_USE_MESSAGE =
-  "Esta paleta está en uso por uno o más productos. Cambia el tipo de la opción o quítala primero.";
+const PALETTE_PROTECTED_MESSAGE =
+  "Esta paleta está vinculada a un tipo de variante (foil) y no se puede eliminar.";
 
 async function deletePaletteWithFriendlyError(id: string): Promise<void> {
   try {
     await deletePalette(id);
   } catch (err) {
-    if (err instanceof ApiError && err.code === "PALETTE_IN_USE") {
-      throw new Error(PALETTE_IN_USE_MESSAGE);
+    if (err instanceof ApiError && err.code === "PALETTE_PROTECTED") {
+      throw new Error(PALETTE_PROTECTED_MESSAGE);
     }
     throw err;
   }
@@ -142,14 +143,15 @@ export function AdminPalettesPage() {
 
   return (
     <section className={styles.wrapper}>
+      <PhaseFlowHint current="paletas" />
       <header className={styles.header}>
         <div className={styles.headerText}>
           <Typography as="h1" size="xxl" className={styles.title}>
             Paletas
           </Typography>
           <Typography as="p" className={styles.lede}>
-            {count} {count === 1 ? "paleta" : "paletas"} disponibles para
-            opciones SWATCH.
+            {count} {count === 1 ? "paleta" : "paletas"} de imágenes globales,
+            vinculadas a tipos de variante.
           </Typography>
         </div>
         <ButtonLink
@@ -167,6 +169,7 @@ export function AdminPalettesPage() {
         description={
           confirming ? (
             <>
+              {/* TODO: Whenever only 1 pallette exists, i get a wierd spanish sentence `y sus 1 muestra` when it should be like `y 1 muestra (imagen)` add this UX, also this logic is repeated in AdminProductsPage.tsx. We can create a reusable component and adapt it to each view */}
               <p>
                 Esto eliminará la paleta <strong>{confirming.name}</strong>
                 {swatchCount > 0 ? (

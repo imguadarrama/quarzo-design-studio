@@ -87,12 +87,18 @@
 }
 
 .cardLabel {
+  font-family: t.$font-primary;
+  font-size: t.$font-size-sm;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+}
+
+.variantHint {
   font-family: t.$font-secondary;
   font-size: t.$font-size-xxs;
-  font-weight: t.$weight-medium;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: t.$color-text-muted;
+  margin: 0 0 t.$space-3;
+  line-height: 1.4;
 }
 
 .cardControls {
@@ -106,7 +112,7 @@
   gap: t.$space-3;
 
   @include m.screen-md {
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
 

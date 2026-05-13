@@ -7,6 +7,7 @@ import {
   PageError,
   PageLoading,
 } from "@/components/PageState/PageState";
+import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
 import { Typography } from "@/components/Typography/Typography";
 import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
 import { useAdminListResource } from "@/hooks/useAdminListResource";
@@ -98,6 +99,7 @@ export function AdminProductsPage() {
 
   return (
     <section className={styles.wrapper}>
+      <PhaseFlowHint current="productos" />
       <header className={styles.header}>
         <div className={styles.headerText}>
           <Typography as="h1" size="xxl" className={styles.title}>

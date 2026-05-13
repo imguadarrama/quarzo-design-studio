@@ -3,7 +3,11 @@ export type AdminUser = {
   email: string;
 };
 
-export type VariantOptionType = "SELECT" | "SWATCH" | "TEXT";
+export type VariantKind =
+  | "CON_FOIL"
+  | "CON_TINTA_NORMAL"
+  | "CON_FOIL_Y_TINTA"
+  | "PAPEL_TEXTURIZADO";
 
 export type ProductImage = {
   id: string;
@@ -25,25 +29,20 @@ export type OptionPalette = {
   swatches: OptionSwatch[];
 };
 
-export type ProductVariantOption =
-  | { id: string; name: string; required: boolean; type: "TEXT" }
-  | { id: string; name: string; required: boolean; type: "SELECT"; values: string[] }
-  | { id: string; name: string; required: boolean; type: "SWATCH"; palette: OptionPalette };
-
-export type ProductVariant = {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-  options: ProductVariantOption[];
+export type ProductVariantPrice = {
+  kind: VariantKind;
+  displayName: string;
+  sku: string | null;
+  price: number | null;
+  palette: OptionPalette | null;
 };
 
-export type ProductDesign = {
+export type Design = {
   id: string;
   name: string;
   imageUrl: string;
   position: number;
-  compatibleVariantIds: string[];
+  compatibleKinds: VariantKind[];
 };
 
 export type Product = {
@@ -53,41 +52,42 @@ export type Product = {
   description: string;
   category: string;
   images: ProductImage[];
-  variants: ProductVariant[];
-  designs: ProductDesign[];
+  variants: ProductVariantPrice[];
+  designs: Design[];
 };
 
 export type AdminProductImage = ProductImage & {
   position: number;
 };
 
-type AdminProductVariantOptionBase = {
+export type AdminProductVariantPrice = {
+  kind: VariantKind;
+  displayName: string;
+  sku: string;
+  price: number;
+};
+
+export type AdminProduct = {
   id: string;
+  slug: string;
   name: string;
-  required: boolean;
-  position: number;
-};
-
-export type AdminProductVariantOption =
-  | (AdminProductVariantOptionBase & { type: "TEXT"; values: null; paletteId: null })
-  | (AdminProductVariantOptionBase & { type: "SELECT"; values: string[]; paletteId: null })
-  | (AdminProductVariantOptionBase & { type: "SWATCH"; values: null; paletteId: string });
-
-export type AdminProductVariant = Omit<ProductVariant, "options"> & {
-  position: number;
-  options: AdminProductVariantOption[];
-};
-
-export type AdminProductDesign = ProductDesign & {
-  active: boolean;
-};
-
-export type AdminProduct = Omit<Product, "images" | "variants" | "designs"> & {
+  description: string;
+  category: string;
   active: boolean;
   createdAt: string;
   images: AdminProductImage[];
-  variants: AdminProductVariant[];
-  designs: AdminProductDesign[];
+  variants: AdminProductVariantPrice[];
+  designIds: string[];
+};
+
+export type AdminDesign = {
+  id: string;
+  name: string;
+  imageUrl: string;
+  position: number;
+  active: boolean;
+  createdAt: string;
+  compatibleKinds: VariantKind[];
 };
 
 export type ProductImagePayload = {
@@ -95,23 +95,10 @@ export type ProductImagePayload = {
   alt?: string;
 };
 
-export type ProductVariantOptionPayload =
-  | { name: string; required?: boolean; type: "TEXT" }
-  | { name: string; required?: boolean; type: "SELECT"; values: string[] }
-  | { name: string; required?: boolean; type: "SWATCH"; paletteId: string };
-
-export type ProductVariantPayload = {
-  name: string;
+export type ProductVariantPricePayload = {
+  kind: VariantKind;
   sku: string;
   price: number;
-  options: ProductVariantOptionPayload[];
-};
-
-export type ProductDesignPayload = {
-  name: string;
-  imageUrl: string;
-  active: boolean;
-  compatibleVariantIndices: number[];
 };
 
 export type ProductPayload = {
@@ -121,8 +108,15 @@ export type ProductPayload = {
   category: string;
   active: boolean;
   images: ProductImagePayload[];
-  variants: ProductVariantPayload[];
-  designs: ProductDesignPayload[];
+  variants: ProductVariantPricePayload[];
+  designIds: string[];
+};
+
+export type DesignPayload = {
+  name: string;
+  imageUrl: string;
+  active: boolean;
+  compatibleKinds: VariantKind[];
 };
 
 export type AdminOptionSwatch = OptionSwatch & {

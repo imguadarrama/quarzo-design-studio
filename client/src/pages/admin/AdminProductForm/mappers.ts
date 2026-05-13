@@ -1,37 +1,27 @@
 import type {
   AdminProduct,
-  AdminProductDesign,
-  AdminProductVariant,
-  ProductDesignPayload,
   ProductImagePayload,
   ProductPayload,
-  ProductVariantOptionPayload,
-  ProductVariantPayload,
+  VariantKind,
 } from "@/lib/types";
 import type {
-  ProductFormDesign,
   ProductFormImage,
   ProductFormValues,
-  ProductFormVariant,
+  ProductFormVariantPrice,
 } from "./schema.js";
 
-function designToFormValue(
-  design: AdminProductDesign,
-  variants: AdminProductVariant[],
-): ProductFormDesign {
-  const indexById = new Map(variants.map((v, i) => [v.id, i] as const));
-  const compatibleVariantIndices = design.compatibleVariantIds
-    .map((id) => indexById.get(id))
-    .filter((idx): idx is number => idx !== undefined);
-  return {
-    name: design.name,
-    imageUrl: design.imageUrl,
-    active: design.active,
-    compatibleVariantIndices,
-  };
-}
+const VARIANT_KIND_ORDER: VariantKind[] = [
+  "CON_FOIL",
+  "CON_TINTA_NORMAL",
+  "CON_FOIL_Y_TINTA",
+  "PAPEL_TEXTURIZADO",
+];
+
+export const emptyVariantPrices = (): ProductFormVariantPrice[] =>
+  VARIANT_KIND_ORDER.map((kind) => ({ kind, sku: "", price: 0 }));
 
 export function productToFormValues(product: AdminProduct): ProductFormValues {
+  const byKind = new Map(product.variants.map((v) => [v.kind, v]));
   return {
     name: product.name,
     slug: product.slug,
@@ -42,61 +32,19 @@ export function productToFormValues(product: AdminProduct): ProductFormValues {
       url: img.url,
       alt: img.alt ?? "",
     })),
-    variants: product.variants.map((variant) => ({
-      name: variant.name,
-      sku: variant.sku,
-      price: variant.price,
-      options: variant.options.map((option) => ({
-        name: option.name,
-        type: option.type,
-        values: option.type === "SELECT" ? option.values : undefined,
-        paletteId: option.type === "SWATCH" ? option.paletteId : undefined,
-        required: option.required,
-      })),
-    })),
-    designs: product.designs.map((d) => designToFormValue(d, product.variants)),
+    variants: VARIANT_KIND_ORDER.map((kind) => {
+      const v = byKind.get(kind);
+      return v
+        ? { kind, sku: v.sku, price: v.price }
+        : { kind, sku: "", price: 0 };
+    }),
+    designIds: product.designIds,
   };
 }
 
 function imageToPayload(image: ProductFormImage): ProductImagePayload {
   const alt = image.alt?.trim();
   return alt ? { url: image.url, alt } : { url: image.url };
-}
-
-function variantToPayload(variant: ProductFormVariant): ProductVariantPayload {
-  return {
-    name: variant.name,
-    sku: variant.sku,
-    price: variant.price,
-    options: variant.options.map((option): ProductVariantOptionPayload => {
-      if (option.type === "SELECT") {
-        return {
-          name: option.name,
-          type: "SELECT",
-          values: option.values ?? [],
-          required: option.required,
-        };
-      }
-      if (option.type === "SWATCH") {
-        return {
-          name: option.name,
-          type: "SWATCH",
-          paletteId: option.paletteId!,
-          required: option.required,
-        };
-      }
-      return { name: option.name, type: "TEXT", required: option.required };
-    }),
-  };
-}
-
-function designToPayload(design: ProductFormDesign): ProductDesignPayload {
-  return {
-    name: design.name,
-    imageUrl: design.imageUrl,
-    active: design.active,
-    compatibleVariantIndices: design.compatibleVariantIndices,
-  };
 }
 
 export function formValuesToPayload(values: ProductFormValues): ProductPayload {
@@ -107,7 +55,11 @@ export function formValuesToPayload(values: ProductFormValues): ProductPayload {
     category: values.category,
     active: values.active,
     images: values.images.map(imageToPayload),
-    variants: values.variants.map(variantToPayload),
-    designs: values.designs.map(designToPayload),
+    variants: values.variants.map((v) => ({
+      kind: v.kind,
+      sku: v.sku,
+      price: v.price,
+    })),
+    designIds: values.designIds,
   };
 }

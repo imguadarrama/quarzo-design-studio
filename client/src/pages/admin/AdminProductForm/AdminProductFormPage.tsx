@@ -6,22 +6,26 @@ import { Button } from "@/components/Button/Button";
 import { FormField } from "@/components/FormField/FormField";
 import { Input } from "@/components/Input/Input";
 import { PageError, PageLoading } from "@/components/PageState/PageState";
+import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
 import { Textarea } from "@/components/Textarea/Textarea";
 import { Typography } from "@/components/Typography/Typography";
 import {
   createProduct,
   fetchAdminProduct,
-  listPalettes,
   updateProduct,
 } from "@/services/api/admin";
 import { ApiError } from "@/services/api/fetchJson";
 import { deleteUploadedImages, uploadImage } from "@/services/api/uploadImage";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
-import type { AdminOptionPalette, AdminProduct } from "@/lib/types";
-import { ProductDesignEditor } from "./components/ProductDesignEditor.js";
+import type { AdminProduct } from "@/lib/types";
+import { ProductDesignsSelector } from "./components/ProductDesignsSelector.js";
 import { ProductImageEditor } from "./components/ProductImageEditor.js";
 import { ProductVariantEditor } from "./components/ProductVariantEditor.js";
-import { formValuesToPayload, productToFormValues } from "./mappers.js";
+import {
+  emptyVariantPrices,
+  formValuesToPayload,
+  productToFormValues,
+} from "./mappers.js";
 import {
   isPendingUrl,
   pendingTempId,
@@ -30,7 +34,6 @@ import {
 import {
   productFormSchema,
   slugify,
-  type ProductFormDesign,
   type ProductFormImage,
   type ProductFormValues,
 } from "./schema.js";
@@ -64,7 +67,6 @@ export function AdminProductFormPage() {
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<boolean>(mode === "create");
-  const [palettes, setPalettes] = useState<AdminOptionPalette[]>([]);
 
   const formMethods = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -75,8 +77,8 @@ export function AdminProductFormPage() {
       description: "",
       active: true,
       images: [],
-      variants: [],
-      designs: [],
+      variants: emptyVariantPrices(),
+      designIds: [],
     },
   });
   const {
@@ -113,21 +115,6 @@ export function AdminProductFormPage() {
     }
   }, [mode, load]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void listPalettes()
-      .then((p) => {
-        if (!cancelled) setPalettes(p);
-      })
-      .catch(() => {
-        // Palette fetch is best-effort; SWATCH-option dropdown shows a hint
-        // when the list is empty so the operator knows to create one first.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const slugRegistration = register("slug");
   const name = watch("name");
 
@@ -151,20 +138,7 @@ export function AdminProductFormPage() {
         }),
       );
 
-      const designUploads = await Promise.allSettled(
-        values.designs.map(async (d): Promise<ProductFormDesign> => {
-          if (!isPendingUrl(d.imageUrl)) return d;
-          const entry = pendingImages.get(pendingTempId(d.imageUrl));
-          if (!entry) {
-            throw new Error("Pending design entry not found");
-          }
-          const { url } = await uploadImage(entry.file, { prefix: "designs" });
-          return { ...d, imageUrl: url };
-        }),
-      );
-
       const resolvedImages: ProductFormImage[] = [];
-      const resolvedDesigns: ProductFormDesign[] = [];
       const failures: string[] = [];
       const newlyUploadedUrls: string[] = [];
 
@@ -189,27 +163,6 @@ export function AdminProductFormPage() {
         }
       });
 
-      designUploads.forEach((result, i) => {
-        const original = values.designs[i]!;
-        if (result.status === "fulfilled") {
-          resolvedDesigns.push(result.value);
-          if (isPendingUrl(original.imageUrl)) {
-            newlyUploadedUrls.push(result.value.imageUrl);
-          }
-        } else {
-          const entry = isPendingUrl(original.imageUrl)
-            ? pendingImages.get(pendingTempId(original.imageUrl))
-            : undefined;
-          const fallbackName = entry?.file.name ?? "diseño";
-          failures.push(
-            describeUploadError(
-              entry?.file ?? new File([], fallbackName),
-              result.reason,
-            ),
-          );
-        }
-      });
-
       if (failures.length > 0) {
         if (newlyUploadedUrls.length > 0) {
           void deleteUploadedImages(newlyUploadedUrls);
@@ -222,7 +175,6 @@ export function AdminProductFormPage() {
       const payload = formValuesToPayload({
         ...values,
         images: resolvedImages,
-        designs: resolvedDesigns,
       });
       try {
         if (editId) {
@@ -273,8 +225,8 @@ export function AdminProductFormPage() {
   const heading = mode === "edit" ? "Editar producto" : "Nuevo producto";
   const lede =
     mode === "edit"
-      ? "Actualiza los datos, imágenes y variantes del producto."
-      : "Crea el producto con sus imágenes y variantes en una sola pantalla.";
+      ? "Actualiza los datos, imágenes, precios y diseños del producto."
+      : "Crea el producto con sus imágenes, precios por variante y diseños disponibles.";
   const submitLabel = mode === "edit" ? "Guardar cambios" : "Crear producto";
   const submittingLabel = mode === "edit" ? "Guardando…" : "Creando…";
 
@@ -286,13 +238,10 @@ export function AdminProductFormPage() {
     typeof errors.images?.message === "string"
       ? errors.images.message
       : undefined;
-  const designsRootError =
-    typeof errors.designs?.message === "string"
-      ? errors.designs.message
-      : undefined;
 
   return (
     <section className={styles.wrapper}>
+      <PhaseFlowHint current="productos" />
       <header className={styles.header}>
         <Typography as="h1" size="xxl" className={styles.title}>
           {heading}
@@ -356,14 +305,9 @@ export function AdminProductFormPage() {
           <ProductVariantEditor
             fieldErrors={errors.variants}
             rootError={variantsRootError}
-            palettes={palettes}
           />
 
-          <ProductDesignEditor
-            pendingImages={pendingImages}
-            fieldErrors={errors.designs}
-            rootError={designsRootError}
-          />
+          <ProductDesignsSelector />
 
           {mode === "edit" ? (
             <label className={styles.activeRow}>

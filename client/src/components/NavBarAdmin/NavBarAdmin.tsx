@@ -42,6 +42,9 @@ export function NavBarAdmin() {
         <NavLink to="/admin/productos" className={navLinkClass}>
           Productos
         </NavLink>
+        <NavLink to="/admin/disenos" className={navLinkClass}>
+          Diseños
+        </NavLink>
         <NavLink to="/admin/paletas" className={navLinkClass}>
           Paletas
         </NavLink>

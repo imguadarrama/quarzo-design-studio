@@ -6,9 +6,7 @@ const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // has picked but not yet uploaded — see ProductImageEditor + the
 // AdminProductFormPage submit phase. The form orchestrator transforms
 // these into real https URLs at submit time before the payload reaches
-// the server. The server's imageUrlSchema stays strict (^https://) so
-// any sentinel that leaks past the orchestrator is rejected with a clear
-// validation error.
+// the server.
 export const PENDING_URL_PREFIX = "pending:";
 
 const imageUrlSchema = z
@@ -29,44 +27,15 @@ const imageSchema = z.object({
     .or(z.literal("")),
 });
 
-const optionSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(1, "El nombre es obligatorio")
-      .max(80, "Máximo 80 caracteres"),
-    type: z.enum(["SELECT", "SWATCH", "TEXT"]),
-    values: z
-      .array(z.string().trim().min(1).max(80))
-      .max(50, "Máximo 50 valores")
-      .optional(),
-    paletteId: z.string().min(1).optional(),
-    required: z.boolean(),
-  })
-  .superRefine((opt, ctx) => {
-    if (opt.type === "SELECT" && (!opt.values || opt.values.length === 0)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["values"],
-        message: "Agrega al menos un valor",
-      });
-    }
-    if (opt.type === "SWATCH" && !opt.paletteId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["paletteId"],
-        message: "Selecciona una paleta",
-      });
-    }
-  });
+const variantKindSchema = z.enum([
+  "CON_FOIL",
+  "CON_TINTA_NORMAL",
+  "CON_FOIL_Y_TINTA",
+  "PAPEL_TEXTURIZADO",
+]);
 
-const variantSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, "El nombre es obligatorio")
-    .max(80, "Máximo 80 caracteres"),
+const variantPriceSchema = z.object({
+  kind: variantKindSchema,
   sku: z
     .string()
     .trim()
@@ -76,18 +45,6 @@ const variantSchema = z.object({
     .number({ invalid_type_error: "Precio inválido" })
     .min(0, "El precio no puede ser negativo")
     .max(999999, "Precio demasiado alto"),
-  options: z.array(optionSchema).max(8, "Máximo 8 opciones por variante"),
-});
-
-const designSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, "El nombre es obligatorio")
-    .max(120, "Máximo 120 caracteres"),
-  imageUrl: imageUrlSchema,
-  active: z.boolean(),
-  compatibleVariantIndices: z.array(z.number().int().min(0)),
 });
 
 export const productFormSchema = z.object({
@@ -115,16 +72,13 @@ export const productFormSchema = z.object({
   active: z.boolean(),
   images: z.array(imageSchema).max(8, "Máximo 8 imágenes"),
   variants: z
-    .array(variantSchema)
-    .min(1, "Agrega al menos una variante")
-    .max(12, "Máximo 12 variantes"),
-  designs: z.array(designSchema).max(50, "Máximo 50 diseños"),
+    .array(variantPriceSchema)
+    .length(4, "El producto requiere los 4 tipos de variante"),
+  designIds: z.array(z.string().min(1)).max(200, "Demasiados diseños seleccionados"),
 });
 
 export type ProductFormValues = z.infer<typeof productFormSchema>;
 export type ProductFormImage = ProductFormValues["images"][number];
-export type ProductFormVariant = ProductFormValues["variants"][number];
-export type ProductFormVariantOption = ProductFormVariant["options"][number];
-export type ProductFormDesign = ProductFormValues["designs"][number];
+export type ProductFormVariantPrice = ProductFormValues["variants"][number];
 
 export { slugify } from "@/lib/slug";
