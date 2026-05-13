@@ -39,14 +39,17 @@ export function NavBarAdmin() {
         </Typography>
       </Link>
       <div className={styles.links}>
-        <NavLink to="/admin/productos" className={navLinkClass}>
-          Productos
+        <NavLink to="/admin/categorias" className={navLinkClass}>
+          Categorías
+        </NavLink>
+        <NavLink to="/admin/paletas" className={navLinkClass}>
+          Paletas
         </NavLink>
         <NavLink to="/admin/disenos" className={navLinkClass}>
           Diseños
         </NavLink>
-        <NavLink to="/admin/paletas" className={navLinkClass}>
-          Paletas
+        <NavLink to="/admin/productos" className={navLinkClass}>
+          Productos
         </NavLink>
       </div>
       <div className={styles.right}>

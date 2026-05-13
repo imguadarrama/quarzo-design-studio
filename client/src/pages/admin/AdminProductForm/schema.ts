@@ -34,18 +34,24 @@ const variantKindSchema = z.enum([
   "PAPEL_TEXTURIZADO",
 ]);
 
-const variantPriceSchema = z.object({
-  kind: variantKindSchema,
-  sku: z
-    .string()
-    .trim()
-    .min(1, "El SKU es obligatorio")
-    .max(80, "Máximo 80 caracteres"),
-  price: z.coerce
-    .number({ invalid_type_error: "Precio inválido" })
-    .min(0, "El precio no puede ser negativo")
-    .max(999999, "Precio demasiado alto"),
-});
+const variantPriceSchema = z
+  .object({
+    kind: variantKindSchema,
+    price: z.coerce
+      .number({ invalid_type_error: "Precio inválido" })
+      .min(0, "El precio no puede ser negativo")
+      .max(999999, "Precio demasiado alto"),
+    offered: z.boolean(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.offered && v.price <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["price"],
+        message: "El precio debe ser mayor a 0 si la variante se ofrece",
+      });
+    }
+  });
 
 export const productFormSchema = z.object({
   name: z
@@ -59,11 +65,7 @@ export const productFormSchema = z.object({
     .min(3, "Mínimo 3 caracteres")
     .max(80, "Máximo 80 caracteres")
     .regex(slugRegex, "Solo minúsculas, números y guiones"),
-  category: z
-    .string()
-    .trim()
-    .min(1, "La categoría es obligatoria")
-    .max(80, "Máximo 80 caracteres"),
+  categoryId: z.string().min(1, "Selecciona una categoría"),
   description: z
     .string()
     .trim()
@@ -73,7 +75,16 @@ export const productFormSchema = z.object({
   images: z.array(imageSchema).max(8, "Máximo 8 imágenes"),
   variants: z
     .array(variantPriceSchema)
-    .length(4, "El producto requiere los 4 tipos de variante"),
+    .length(4, "El producto requiere los 4 tipos de variante")
+    .superRefine((variants, ctx) => {
+      if (!variants.some((v) => v.offered)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["variants"],
+          message: "Al menos una variante debe estar marcada como ofrecida",
+        });
+      }
+    }),
   designIds: z.array(z.string().min(1)).max(200, "Demasiados diseños seleccionados"),
 });
 

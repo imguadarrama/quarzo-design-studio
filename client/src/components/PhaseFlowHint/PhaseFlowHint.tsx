@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 import styles from "./PhaseFlowHint.module.scss";
 
-type Step = "paletas" | "disenos" | "productos";
+type Step = "categorias" | "paletas" | "disenos" | "productos";
 
 const STEPS: { key: Step; label: string; to: string }[] = [
-  { key: "paletas", label: "Paso 1: Paletas", to: "/admin/paletas" },
-  { key: "disenos", label: "Paso 2: Diseños", to: "/admin/disenos" },
-  { key: "productos", label: "Paso 3: Productos", to: "/admin/productos" },
+  { key: "categorias", label: "Paso 1: Categorías", to: "/admin/categorias" },
+  { key: "paletas", label: "Paso 2: Paletas", to: "/admin/paletas" },
+  { key: "disenos", label: "Paso 3: Diseños", to: "/admin/disenos" },
+  { key: "productos", label: "Paso 4: Productos", to: "/admin/productos" },
 ];
 
 type Props = {

@@ -1,6 +1,8 @@
 import { Navigate, Route } from "react-router-dom";
 import { AdminLayout } from "../layouts/AdminLayout.js";
 import { AuthLayout } from "../layouts/AuthLayout.js";
+import { AdminCategoriesPage } from "../pages/admin/AdminCategoriesPage/AdminCategoriesPage.js";
+import { AdminCategoryFormPage } from "../pages/admin/AdminCategoryForm/AdminCategoryFormPage.js";
 import { AdminDesignFormPage } from "../pages/admin/AdminDesignForm/AdminDesignFormPage.js";
 import { AdminDesignsPage } from "../pages/admin/AdminDesignsPage/AdminDesignsPage.js";
 import { AdminLoginPage } from "../pages/admin/AdminLoginPage/AdminLoginPage.js";
@@ -36,6 +38,15 @@ export const adminRoutes = (
       <Route
         path="/admin/disenos/:id/editar"
         element={<AdminDesignFormPage />}
+      />
+      <Route path="/admin/categorias" element={<AdminCategoriesPage />} />
+      <Route
+        path="/admin/categorias/nuevo"
+        element={<AdminCategoryFormPage />}
+      />
+      <Route
+        path="/admin/categorias/:id/editar"
+        element={<AdminCategoryFormPage />}
       />
     </Route>
 

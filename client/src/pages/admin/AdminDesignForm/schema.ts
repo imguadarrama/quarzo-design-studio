@@ -27,6 +27,7 @@ export const designFormSchema = z.object({
       ]),
     )
     .max(4),
+  categoryIds: z.array(z.string().min(1)).max(20),
 });
 
 export type DesignFormValues = z.infer<typeof designFormSchema>;

@@ -1,9 +1,11 @@
 import { fetchJson } from "./fetchJson";
 import type {
+  AdminCategory,
   AdminDesign,
   AdminOptionPalette,
   AdminProduct,
   AdminUser,
+  CategoryPayload,
   DesignPayload,
   PalettePayload,
   ProductPayload,
@@ -16,6 +18,8 @@ type PaletteEnvelope = { palette: AdminOptionPalette };
 type PalettesEnvelope = { palettes: AdminOptionPalette[] };
 type DesignEnvelope = { design: AdminDesign };
 type DesignsEnvelope = { designs: AdminDesign[] };
+type CategoryEnvelope = { category: AdminCategory };
+type CategoriesEnvelope = { categories: AdminCategory[] };
 
 export const loginAdmin = (email: string, password: string) =>
   fetchJson<AdminEnvelope>("/api/admin/auth/login", {
@@ -95,3 +99,24 @@ export const updateDesign = (id: string, payload: DesignPayload) =>
 
 export const deleteDesign = (id: string) =>
   fetchJson<void>(`/api/admin/designs/${id}`, { method: "DELETE" });
+
+export const listCategories = () =>
+  fetchJson<CategoriesEnvelope>("/api/admin/categories").then((d) => d.categories);
+
+export const getCategory = (id: string) =>
+  fetchJson<CategoryEnvelope>(`/api/admin/categories/${id}`).then((d) => d.category);
+
+export const createCategory = (payload: CategoryPayload) =>
+  fetchJson<CategoryEnvelope>("/api/admin/categories", {
+    method: "POST",
+    body: payload,
+  }).then((d) => d.category);
+
+export const updateCategory = (id: string, payload: CategoryPayload) =>
+  fetchJson<CategoryEnvelope>(`/api/admin/categories/${id}`, {
+    method: "PATCH",
+    body: payload,
+  }).then((d) => d.category);
+
+export const deleteCategory = (id: string) =>
+  fetchJson<void>(`/api/admin/categories/${id}`, { method: "DELETE" });

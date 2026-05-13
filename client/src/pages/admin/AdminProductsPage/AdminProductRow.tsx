@@ -62,7 +62,7 @@ export function AdminProductRow({
         <span className={pageStyles.name}>{product.name}</span>
         <span className={pageStyles.slug}>/{product.slug}</span>
       </td>
-      <td data-label="Categoría">{product.category}</td>
+      <td data-label="Categoría">{product.category.name}</td>
       <td className={pageStyles.numeric} data-label="Desde">
         {minPrice == null ? "—" : currencyFormatter.format(minPrice)}
       </td>

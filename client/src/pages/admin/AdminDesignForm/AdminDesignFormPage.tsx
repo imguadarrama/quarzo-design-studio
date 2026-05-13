@@ -9,10 +9,11 @@ import { PageError, PageLoading } from "@/components/PageState/PageState";
 import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
 import { Typography } from "@/components/Typography/Typography";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
-import type { AdminDesign, VariantKind } from "@/lib/types";
+import type { AdminCategory, AdminDesign, VariantKind } from "@/lib/types";
 import {
   createDesign,
   getDesign,
+  listCategories,
   updateDesign,
 } from "@/services/api/admin";
 import { ApiError } from "@/services/api/fetchJson";
@@ -57,6 +58,8 @@ export function AdminDesignFormPage() {
   const [loaded, setLoaded] = useState<boolean>(mode === "create");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [categories, setCategories] = useState<AdminCategory[] | null>(null);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
 
   const formMethods = useForm<DesignFormValues>({
     resolver: zodResolver(designFormSchema),
@@ -65,6 +68,7 @@ export function AdminDesignFormPage() {
       imageUrl: "",
       active: true,
       compatibleKinds: [],
+      categoryIds: [],
     },
   });
   const {
@@ -90,6 +94,7 @@ export function AdminDesignFormPage() {
         imageUrl: design.imageUrl,
         active: design.active,
         compatibleKinds: design.compatibleKinds,
+        categoryIds: design.categoryIds,
       });
       setLoaded(true);
     } catch (err) {
@@ -105,6 +110,24 @@ export function AdminDesignFormPage() {
   }, [mode, load]);
 
   useEffect(() => {
+    let cancelled = false;
+    listCategories()
+      .then((cats) => {
+        if (cancelled) return;
+        setCategories(cats);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setCategoriesError(
+          err instanceof Error ? err.message : "Error al cargar categorías",
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
@@ -112,6 +135,7 @@ export function AdminDesignFormPage() {
 
   const imageUrl = watch("imageUrl");
   const compatibleKinds = watch("compatibleKinds") ?? [];
+  const categoryIds = watch("categoryIds") ?? [];
 
   const handleFilePick = (file: File | null) => {
     if (!file) return;
@@ -127,6 +151,13 @@ export function AdminDesignFormPage() {
       ? compatibleKinds.filter((k) => k !== kind)
       : [...compatibleKinds, kind];
     setValue("compatibleKinds", next, { shouldDirty: true, shouldValidate: true });
+  };
+
+  const toggleCategory = (id: string) => {
+    const next = categoryIds.includes(id)
+      ? categoryIds.filter((x) => x !== id)
+      : [...categoryIds, id];
+    setValue("categoryIds", next, { shouldDirty: true, shouldValidate: true });
   };
 
   const { submit, submitError } = useFormSubmit<DesignFormValues>(
@@ -153,6 +184,7 @@ export function AdminDesignFormPage() {
           imageUrl: finalUrl,
           active: values.active,
           compatibleKinds: values.compatibleKinds,
+          categoryIds: values.categoryIds,
         };
         if (editId) {
           await updateDesign(editId, payload);
@@ -241,6 +273,50 @@ export function AdminDesignFormPage() {
               />
             </div>
           </FormField>
+
+          <fieldset className={styles.kindsFieldset}>
+            <legend className={styles.kindsLegend}>Categorías</legend>
+            <p className={styles.kindsHint}>
+              {categoriesError
+                ? `No pudimos cargar las categorías (${categoriesError}).`
+                : "Marca las categorías de productos donde aplica este diseño. Solo se mostrará en productos cuya categoría coincida."}
+            </p>
+            {!categories ? (
+              <p className={styles.kindsHint}>Cargando categorías…</p>
+            ) : categories.length === 0 ? (
+              <p className={styles.kindsHint}>
+                Aún no hay categorías. Crea una en{" "}
+                <Link to="/admin/categorias" className={styles.cancelLink}>
+                  /admin/categorías
+                </Link>
+                .
+              </p>
+            ) : (
+              <ul className={styles.kindsList}>
+                {categories
+                  .filter((c) => c.active)
+                  .map((c) => {
+                    const checked = categoryIds.includes(c.id);
+                    return (
+                      <li key={c.id} className={styles.kindItem}>
+                        <label className={styles.kindLabel}>
+                          <input
+                            type="checkbox"
+                            className={styles.checkbox}
+                            checked={checked}
+                            onChange={() => toggleCategory(c.id)}
+                          />
+                          <span>
+                            <span className={styles.kindName}>{c.name}</span>
+                            <span className={styles.kindHintInline}>/{c.slug}</span>
+                          </span>
+                        </label>
+                      </li>
+                    );
+                  })}
+              </ul>
+            )}
+          </fieldset>
 
           <fieldset className={styles.kindsFieldset}>
             <legend className={styles.kindsLegend}>Variantes compatibles</legend>

@@ -29,11 +29,30 @@ export type OptionPalette = {
   swatches: OptionSwatch[];
 };
 
+export type Category = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+export type AdminCategory = Category & {
+  position: number;
+  active: boolean;
+  createdAt: string;
+};
+
+export type CategoryPayload = {
+  name: string;
+  slug: string;
+  active: boolean;
+  position?: number;
+};
+
 export type ProductVariantPrice = {
   kind: VariantKind;
   displayName: string;
-  sku: string | null;
-  price: number | null;
+  sku: string;
+  price: number;
   palette: OptionPalette | null;
 };
 
@@ -43,6 +62,7 @@ export type Design = {
   imageUrl: string;
   position: number;
   compatibleKinds: VariantKind[];
+  categoryIds: string[];
 };
 
 export type Product = {
@@ -50,7 +70,7 @@ export type Product = {
   slug: string;
   name: string;
   description: string;
-  category: string;
+  category: Category;
   images: ProductImage[];
   variants: ProductVariantPrice[];
   designs: Design[];
@@ -65,6 +85,12 @@ export type AdminProductVariantPrice = {
   displayName: string;
   sku: string;
   price: number;
+  offered: boolean;
+};
+
+export type ProductSlugAlias = {
+  slug: string;
+  createdAt: string;
 };
 
 export type AdminProduct = {
@@ -72,12 +98,14 @@ export type AdminProduct = {
   slug: string;
   name: string;
   description: string;
-  category: string;
+  categoryId: string;
+  category: Category;
   active: boolean;
   createdAt: string;
   images: AdminProductImage[];
   variants: AdminProductVariantPrice[];
   designIds: string[];
+  slugAliases: ProductSlugAlias[];
 };
 
 export type AdminDesign = {
@@ -88,6 +116,7 @@ export type AdminDesign = {
   active: boolean;
   createdAt: string;
   compatibleKinds: VariantKind[];
+  categoryIds: string[];
 };
 
 export type ProductImagePayload = {
@@ -97,15 +126,15 @@ export type ProductImagePayload = {
 
 export type ProductVariantPricePayload = {
   kind: VariantKind;
-  sku: string;
   price: number;
+  offered: boolean;
 };
 
 export type ProductPayload = {
   slug: string;
   name: string;
   description: string;
-  category: string;
+  categoryId: string;
   active: boolean;
   images: ProductImagePayload[];
   variants: ProductVariantPricePayload[];
@@ -117,6 +146,7 @@ export type DesignPayload = {
   imageUrl: string;
   active: boolean;
   compatibleKinds: VariantKind[];
+  categoryIds: string[];
 };
 
 export type AdminOptionSwatch = OptionSwatch & {

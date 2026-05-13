@@ -18,14 +18,14 @@ const VARIANT_KIND_ORDER: VariantKind[] = [
 ];
 
 export const emptyVariantPrices = (): ProductFormVariantPrice[] =>
-  VARIANT_KIND_ORDER.map((kind) => ({ kind, sku: "", price: 0 }));
+  VARIANT_KIND_ORDER.map((kind) => ({ kind, price: 0, offered: true }));
 
 export function productToFormValues(product: AdminProduct): ProductFormValues {
   const byKind = new Map(product.variants.map((v) => [v.kind, v]));
   return {
     name: product.name,
     slug: product.slug,
-    category: product.category,
+    categoryId: product.categoryId,
     description: product.description,
     active: product.active,
     images: product.images.map((img) => ({
@@ -35,8 +35,8 @@ export function productToFormValues(product: AdminProduct): ProductFormValues {
     variants: VARIANT_KIND_ORDER.map((kind) => {
       const v = byKind.get(kind);
       return v
-        ? { kind, sku: v.sku, price: v.price }
-        : { kind, sku: "", price: 0 };
+        ? { kind, price: v.price, offered: v.offered }
+        : { kind, price: 0, offered: true };
     }),
     designIds: product.designIds,
   };
@@ -52,13 +52,13 @@ export function formValuesToPayload(values: ProductFormValues): ProductPayload {
     slug: values.slug,
     name: values.name,
     description: values.description,
-    category: values.category,
+    categoryId: values.categoryId,
     active: values.active,
     images: values.images.map(imageToPayload),
     variants: values.variants.map((v) => ({
       kind: v.kind,
-      sku: v.sku,
       price: v.price,
+      offered: v.offered,
     })),
     designIds: values.designIds,
   };

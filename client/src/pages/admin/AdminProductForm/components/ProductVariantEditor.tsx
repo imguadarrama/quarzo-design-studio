@@ -1,4 +1,4 @@
-import { useFormContext, type FieldErrors } from "react-hook-form";
+import { useFormContext, useWatch, type FieldErrors } from "react-hook-form";
 import { Card } from "@/components/Card/Card";
 import { FormField } from "@/components/FormField/FormField";
 import { Input } from "@/components/Input/Input";
@@ -28,8 +28,10 @@ const VARIANT_HINTS: Record<VariantKind, string> = {
 };
 
 export function ProductVariantEditor({ fieldErrors, rootError }: Props) {
-  const { register, getValues } = useFormContext<ProductFormValues>();
+  const { register, control, getValues } = useFormContext<ProductFormValues>();
   const variants = getValues("variants");
+  // Watch offered flags so price input disables reactively.
+  const watchedOffered = useWatch({ control, name: "variants" });
 
   return (
     <section className={styles.section} aria-labelledby="variants-heading">
@@ -40,9 +42,10 @@ export function ProductVariantEditor({ fieldErrors, rootError }: Props) {
       </header>
 
       <p className={styles.hint}>
-        Las 4 variantes son fijas para todos los productos. Solo el precio y el
-        SKU cambian. Si una variante no se ofrece, déjala con SKU
-        descriptivo y precio 0.
+        Las 4 variantes son fijas para todos los productos. Desmarca
+        <strong> "Ofrecer en este producto"</strong> si esta configuración no
+        aplica — la variante no aparecerá al cliente y no tendrás que poner un
+        precio.
       </p>
 
       {rootError ? (
@@ -54,13 +57,26 @@ export function ProductVariantEditor({ fieldErrors, rootError }: Props) {
       <ul className={styles.list}>
         {variants.map((variant, index) => {
           const errors = fieldErrors?.[index];
+          const offered = watchedOffered?.[index]?.offered ?? variant.offered;
           return (
             <li key={variant.kind} className={styles.listItem}>
-              <Card className={styles.card}>
+              <Card
+                className={
+                  offered ? styles.card : `${styles.card} ${styles.cardDisabled}`
+                }
+              >
                 <div className={styles.cardHeader}>
                   <span className={styles.cardLabel}>
                     {VARIANT_LABELS[variant.kind]}
                   </span>
+                  <label className={styles.offeredLabel}>
+                    <input
+                      type="checkbox"
+                      className={styles.offeredCheckbox}
+                      {...register(`variants.${index}.offered`)}
+                    />
+                    <span>Ofrecer en este producto</span>
+                  </label>
                 </div>
                 <p className={styles.variantHint}>{VARIANT_HINTS[variant.kind]}</p>
 
@@ -71,20 +87,12 @@ export function ProductVariantEditor({ fieldErrors, rootError }: Props) {
                 />
 
                 <div className={styles.row}>
-                  <FormField label="SKU" error={errors?.sku?.message}>
-                    <Input
-                      type="text"
-                      autoComplete="off"
-                      maxLength={80}
-                      {...register(`variants.${index}.sku`)}
-                    />
-                  </FormField>
-
                   <FormField label="Precio (MXN)" error={errors?.price?.message}>
                     <Input
                       type="number"
                       step="0.01"
                       min={0}
+                      disabled={!offered}
                       {...register(`variants.${index}.price`, { valueAsNumber: true })}
                     />
                   </FormField>
