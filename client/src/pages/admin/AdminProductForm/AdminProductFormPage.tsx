@@ -6,20 +6,28 @@ import { Button } from "@/components/Button/Button";
 import { FormField } from "@/components/FormField/FormField";
 import { Input } from "@/components/Input/Input";
 import { PageError, PageLoading } from "@/components/PageState/PageState";
+import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
 import { Textarea } from "@/components/Textarea/Textarea";
 import { Typography } from "@/components/Typography/Typography";
 import {
   createProduct,
   fetchAdminProduct,
+  listCategories,
   updateProduct,
 } from "@/services/api/admin";
 import { ApiError } from "@/services/api/fetchJson";
 import { deleteUploadedImages, uploadImage } from "@/services/api/uploadImage";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
-import type { AdminProduct } from "@/lib/types";
+import { applyServerFieldError } from "@/lib/serverFieldErrors";
+import type { AdminCategory, AdminProduct } from "@/lib/types";
+import { ProductDesignsSelector } from "./components/ProductDesignsSelector.js";
 import { ProductImageEditor } from "./components/ProductImageEditor.js";
 import { ProductVariantEditor } from "./components/ProductVariantEditor.js";
-import { formValuesToPayload, productToFormValues } from "./mappers.js";
+import {
+  emptyVariantPrices,
+  formValuesToPayload,
+  productToFormValues,
+} from "./mappers.js";
 import {
   isPendingUrl,
   pendingTempId,
@@ -32,8 +40,6 @@ import {
   type ProductFormValues,
 } from "./schema.js";
 import styles from "./AdminProductFormPage.module.scss";
-
-const SLUG_CONFLICT_MESSAGE = "Ese slug ya existe";
 
 function describeUploadError(file: File, err: unknown): string {
   if (err instanceof ApiError) {
@@ -56,22 +62,26 @@ export function AdminProductFormPage() {
   const mode: "create" | "edit" = editId ? "edit" : "create";
   const navigate = useNavigate();
   const slugDirtyRef = useRef(false);
+  const originalSlugRef = useRef<string | null>(null);
   const loadIdRef = useRef<string | null>(null);
   const pendingImages = usePendingImages();
 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<boolean>(mode === "create");
+  const [categories, setCategories] = useState<AdminCategory[] | null>(null);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
 
   const formMethods = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       name: "",
       slug: "",
-      category: "",
+      categoryId: "",
       description: "",
       active: true,
       images: [],
-      variants: [],
+      variants: emptyVariantPrices(),
+      designIds: [],
     },
   });
   const {
@@ -79,6 +89,7 @@ export function AdminProductFormPage() {
     handleSubmit,
     setValue,
     setError,
+    setFocus,
     watch,
     reset,
     formState: { errors, isSubmitting },
@@ -93,8 +104,12 @@ export function AdminProductFormPage() {
     try {
       const product: AdminProduct = await fetchAdminProduct(requestedId);
       if (loadIdRef.current !== requestedId) return;
+      originalSlugRef.current = product.slug;
+      // Reset slug-dirty tracker on load so renaming the product in edit mode
+      // auto-derives the slug (matching create-mode behavior). Admin can still
+      // override the slug manually — first manual edit re-arms slugDirtyRef.
+      slugDirtyRef.current = false;
       reset(productToFormValues(product));
-      slugDirtyRef.current = true;
       setLoaded(true);
     } catch (err) {
       if (loadIdRef.current !== requestedId) return;
@@ -108,8 +123,28 @@ export function AdminProductFormPage() {
     }
   }, [mode, load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    listCategories()
+      .then((cats) => {
+        if (cancelled) return;
+        setCategories(cats);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setCategoriesError(
+          err instanceof Error ? err.message : "Error al cargar categorías",
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const slugRegistration = register("slug");
   const name = watch("name");
+  const currentSlug = watch("slug");
+  const currentCategoryId = watch("categoryId");
 
   useEffect(() => {
     if (!slugDirtyRef.current) {
@@ -119,7 +154,7 @@ export function AdminProductFormPage() {
 
   const { submit, submitError } = useFormSubmit<ProductFormValues>(
     async (values) => {
-      const uploads = await Promise.allSettled(
+      const imageUploads = await Promise.allSettled(
         values.images.map(async (img): Promise<ProductFormImage> => {
           if (!isPendingUrl(img.url)) return img;
           const entry = pendingImages.get(pendingTempId(img.url));
@@ -131,13 +166,14 @@ export function AdminProductFormPage() {
         }),
       );
 
-      const resolved: ProductFormImage[] = [];
+      const resolvedImages: ProductFormImage[] = [];
       const failures: string[] = [];
       const newlyUploadedUrls: string[] = [];
-      uploads.forEach((result, i) => {
+
+      imageUploads.forEach((result, i) => {
         const original = values.images[i]!;
         if (result.status === "fulfilled") {
-          resolved.push(result.value);
+          resolvedImages.push(result.value);
           if (isPendingUrl(original.url)) {
             newlyUploadedUrls.push(result.value.url);
           }
@@ -164,7 +200,10 @@ export function AdminProductFormPage() {
         );
       }
 
-      const payload = formValuesToPayload({ ...values, images: resolved });
+      const payload = formValuesToPayload({
+        ...values,
+        images: resolvedImages,
+      });
       try {
         if (editId) {
           await updateProduct(editId, payload);
@@ -172,16 +211,18 @@ export function AdminProductFormPage() {
           await createProduct(payload);
         }
       } catch (err) {
-        if (err instanceof ApiError && err.code === "SLUG_CONFLICT") {
-          if (newlyUploadedUrls.length > 0) {
-            void deleteUploadedImages(newlyUploadedUrls);
-          }
-          setError("slug", { type: "server", message: SLUG_CONFLICT_MESSAGE });
-          return;
-        }
         if (newlyUploadedUrls.length > 0) {
           void deleteUploadedImages(newlyUploadedUrls);
         }
+        const handled = applyServerFieldError<ProductFormValues>(
+          err,
+          {
+            SLUG_CONFLICT: { field: "slug" },
+            SLUG_ALIAS_CONFLICT: { field: "slug" },
+          },
+          { setError, setFocus },
+        );
+        if (handled) return;
         throw err;
       }
 
@@ -214,8 +255,8 @@ export function AdminProductFormPage() {
   const heading = mode === "edit" ? "Editar producto" : "Nuevo producto";
   const lede =
     mode === "edit"
-      ? "Actualiza los datos, imágenes y variantes del producto."
-      : "Crea el producto con sus imágenes y variantes en una sola pantalla.";
+      ? "Actualiza los datos, imágenes, precios y diseños del producto."
+      : "Crea el producto con sus imágenes, precios por variante y diseños disponibles.";
   const submitLabel = mode === "edit" ? "Guardar cambios" : "Crear producto";
   const submittingLabel = mode === "edit" ? "Guardando…" : "Creando…";
 
@@ -228,8 +269,20 @@ export function AdminProductFormPage() {
       ? errors.images.message
       : undefined;
 
+  const slugChanged =
+    mode === "edit" &&
+    originalSlugRef.current !== null &&
+    currentSlug !== originalSlugRef.current;
+
+  const slugHint = slugChanged
+    ? "El slug cambió. Los enlaces antiguos al producto seguirán funcionando vía redirección, pero la URL canónica será la nueva."
+    : mode === "edit"
+      ? "Cambiar el slug rompe enlaces antiguos al producto (se conservan vía redirección)."
+      : "Se genera automáticamente desde el nombre. Edítalo si quieres otro.";
+
   return (
     <section className={styles.wrapper}>
+      <PhaseFlowHint current="productos" />
       <header className={styles.header}>
         <Typography as="h1" size="xxl" className={styles.title}>
           {heading}
@@ -250,15 +303,7 @@ export function AdminProductFormPage() {
             />
           </FormField>
 
-          <FormField
-            label="Slug"
-            error={errors.slug?.message}
-            hint={
-              mode === "edit"
-                ? "Cambiar el slug rompe enlaces antiguos al producto."
-                : "Se genera automáticamente desde el nombre. Edítalo si quieres otro."
-            }
-          >
+          <FormField label="Slug" error={errors.slug?.message} hint={slugHint}>
             <Input
               type="text"
               autoComplete="off"
@@ -271,13 +316,27 @@ export function AdminProductFormPage() {
             />
           </FormField>
 
-          <FormField label="Categoría" error={errors.category?.message}>
-            <Input
-              type="text"
-              autoComplete="off"
-              maxLength={80}
-              {...register("category")}
-            />
+          <FormField
+            label="Categoría"
+            error={errors.categoryId?.message ?? categoriesError ?? undefined}
+            hint={
+              categories && categories.length === 0
+                ? "Crea una categoría primero en /admin/categorias."
+                : undefined
+            }
+          >
+            <select
+              className={styles.select}
+              {...register("categoryId")}
+              disabled={!categories || categories.length === 0}
+            >
+              <option value="">Selecciona una categoría…</option>
+              {categories?.filter((c) => c.active).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </FormField>
 
           <FormField label="Descripción" error={errors.description?.message}>
@@ -294,6 +353,8 @@ export function AdminProductFormPage() {
             fieldErrors={errors.variants}
             rootError={variantsRootError}
           />
+
+          <ProductDesignsSelector categoryId={currentCategoryId || null} />
 
           {mode === "edit" ? (
             <label className={styles.activeRow}>

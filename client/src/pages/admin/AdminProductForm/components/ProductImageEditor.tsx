@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/Button/Button";
 import { FormField } from "@/components/FormField/FormField";
 import { Input } from "@/components/Input/Input";
+import { ReorderControls } from "@/components/ReorderControls/ReorderControls";
 import {
   isPendingUrl,
   pendingTempId,
@@ -156,34 +157,12 @@ export function ProductImageEditor({
                     />
                   </FormField>
                 </div>
-                <div className={styles.rowControls}>
-                  <button
-                    type="button"
-                    className={styles.iconButton}
-                    onClick={() => move(index, index - 1)}
-                    disabled={isFirst}
-                    aria-label="Mover arriba"
-                  >
-                    ↑
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.iconButton}
-                    onClick={() => move(index, index + 1)}
-                    disabled={isLast}
-                    aria-label="Mover abajo"
-                  >
-                    ↓
-                  </button>
-                  <button
-                    type="button"
-                    className={`${styles.iconButton} ${styles.iconButtonDanger}`}
-                    onClick={() => handleRemove(index)}
-                    aria-label="Quitar imagen"
-                  >
-                    ×
-                  </button>
-                </div>
+                <ReorderControls
+                  onMoveUp={isFirst ? undefined : () => move(index, index - 1)}
+                  onMoveDown={isLast ? undefined : () => move(index, index + 1)}
+                  onRemove={() => handleRemove(index)}
+                  removeLabel="Quitar imagen"
+                />
               </li>
             );
           })}

@@ -222,7 +222,7 @@ Slice 7 added a small server change (`ProductVariant.position`) so variant order
 - [x] **Slice 6 — Admin product edit + delete** (PR #30, commit `3bf65cd`). `/admin/productos/:id/editar` reusing the form, two-click inline delete, hard-delete preserved.
 - [x] **Slice 7 — Admin product images + variants editor.** `useFieldArray` for both, ≤ 8 images at ≤ 500 KB each, ≥ 1 variant required, sub-components for image and variant editors. Adds `ProductVariant.position` (migration `add_variant_position`) so variant order is admin-controlled and persists.
 - [ ] **Slice 8 — Public catalog page (`/catalogo`).** Real catalog under `PublicLayout` with `<ProductCard>` and category filter; UX is your call (the previous version did not satisfy the client).
-- [ ] **Slice 9 — Public product detail page (`/producto/:slug`)** *(revised flow — depends on Phase 2.7).* Visual design picker → variant selector (only compatible variants enabled) → per-variant options → personalization textarea with character counter → quantity → "Agregar al carrito" CTA in disabled state until Phase 3 wires the cart. For products without designs (stickers, etiquetas), the design step is skipped.
+- [ ] **Slice 9 — Public product detail page (`/producto/:slug`)** *(revised flow — depends on Phase 2.7).* Design picker (subset of the global library attached to this product) → variant kind selector (only kinds the design's `compatibleKinds` allows are enabled) → foil-color swatch picker (only for `CON_FOIL` / `CON_FOIL_Y_TINTA` variants, drawn from inline `palette.swatches[]`) → required "Nombre y apellido" text input → quantity → "Agregar al carrito" CTA disabled until Phase 3 wires the cart.
 - [ ] **Slice 10 — Cleanup + accessibility pass.** Lighthouse a11y target, keyboard tab order, screen-reader spot-check on login + detail.
 
 Full execution-level detail (per-slice decisions, files touched, acceptance criteria, PR body skeleton): [`phase-2.5-execution-plan.md`](phase-2.5-execution-plan.md).
@@ -244,16 +244,19 @@ Move product images off base64-in-Postgres to Cloudflare R2 with server-side res
 
 Full plan: [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md).
 
-### Phase 2.7 — Product designs (visual selection)
+### Phase 2.7 — Fixed variant kinds + global designs + global palettes
 
-Add a "design style" axis to the catalog. Surfaced during Slice 7 review when the client clarified that customers pick a design first, then a variant, then options. New `ProductDesign` table sibling of `ProductVariant`, plus a `DesignVariantCompat` join for variant-specific compatibility (some designs render only in foil, etc.). Public API exposes `designs[]` with `compatibleVariantIds`. No customer-facing UX in this phase — Slice 9 (revised) consumes it.
+**Reworked mid-PR** to match the client's locked contract: the catalog has exactly four fixed variant kinds (`Con foil`, `Con tinta normal`, `Con foil y tinta normal`, `Papel texturizado`) that don't change per product — only the price + sku do. Designs are global (same library across all products). Personalization is hardcoded as a required "Nombre y apellido" text input; the per-variant `ProductVariantOption` table is removed. Foil-color swatches stay global via `OptionPalette` / `OptionSwatch`, linked to foil-bearing variants by a server code constant (`VARIANT_PALETTE_SLUG`).
 
-- [ ] Migration `add_product_designs`: new `ProductDesign` + `DesignVariantCompat` tables; nullable `OrderItem.{designId, designName, designImageUrl}` snapshot columns added pre-Phase-3.
-- [ ] Admin form gains "Diseños" section between Variants and the active flag; visual upload + name + active flag + per-variant compatibility checkboxes + reorder.
-- [ ] Public `serializeProductPublic` exposes active designs only with `compatibleVariantIds`.
-- [ ] Browser smoke: design upload, variant-specific compatibility, edit round-trip, variant-removal compat sweep.
+- [x] Migration `redesign_variants_designs_palettes` (squashed in place of the prior in-flight `add_designs_and_palettes` since the PR was unmerged): adds `VariantKind` enum; replaces `ProductVariant` with composite-PK `ProductVariantPrice(productId, kind, price, sku)`; drops `ProductVariantOption` + `VariantOptionType`; introduces global `Design` + `DesignVariantCompat(designId, kind)` + join table `ProductDesign(productId, designId)`; renames `OrderItem.variantId` → `variantKind: VariantKind`; keeps the three nullable `OrderItem.{designId, designName, designImageUrl}` snapshot columns as soft pointers pre-Phase-3.
+- [x] Server: `productSchema` enforces `variants.length(4)` + per-kind uniqueness; new `designSchema` for `/api/admin/designs`; new `loadPaletteMap(prisma)` inlines `palette.swatches[]` on every foil-bearing variant-price row in the public payload; `admin-palettes.ts` DELETE rejects with `PALETTE_PROTECTED` when slug ∈ `VARIANT_PALETTE_SLUG`; new `admin-designs.ts` route with CRUD + R2 cleanup on delete/update.
+- [x] Admin form: variant editor is now 4 fixed read-only-label + offered-toggle + price rows; the per-product `ProductDesignEditor` was deleted and replaced by `<ProductDesignsSelector>` — a checkbox grid fetching `/api/admin/designs` and binding to `designIds[]` on the form, filtered by the product's selected category.
+- [x] New admin surfaces: `/admin/disenos` (list + form, card grid with compat + category badges, single-image upload), `/admin/categorias` (list + form, FK-protected delete), `/admin/paletas` (existing, lightly updated). NavBar gains all three new links.
+- [x] `<PhaseFlowHint>` ("Paso 1: Categorías → Paso 2: Paletas → Paso 3: Diseños → Paso 4: Productos") mounted at the top of every admin list/form page so the dependency order is discoverable.
+- [x] Seed creates 4 categories, 4 products × 4 variant prices (with one realistic `offered: false` example on stickers' textured-paper variant), 3 global designs with category + compat sets, and the `Colores de foil` palette.
+- [x] Follow-up iteration (commits after rework): auto-generated SKUs `<slug>-<KIND_SHORT>-<4charRandom>` via `lib/sku-generator.ts` (stable suffix across slug edits, collision-checked); `ProductVariantPrice.offered` toggle replacing the brittle "price 0 = hidden" footgun; `Product.category String` promoted to `Category` table + FK + M2M with designs; `ProductSlugAlias` table + public-route fallback so slug edits preserve old URLs; `OrderItem.sku` snapshot column added pre-Phase-3; slug auto-derive resumed in edit mode (was frozen by `slugDirtyRef`).
 
-Full plan: [`phase-2.7-execution-plan.md`](phase-2.7-execution-plan.md). Blocked on Phase 2.6.
+Full plan: [`phase-2.7-execution-plan.md`](phase-2.7-execution-plan.md). Blocked on Phase 2.6 (closed).
 
 ### Phase 3 — Cart + guest checkout foundation
 - [ ] Cart in zustand + `localStorage`

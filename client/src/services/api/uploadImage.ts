@@ -8,9 +8,15 @@ export interface UploadImageResponse {
   bytes: number;
 }
 
-export async function uploadImage(file: File): Promise<UploadImageResponse> {
+export type UploadImagePrefix = "products" | "designs" | "swatches";
+
+export async function uploadImage(
+  file: File,
+  opts?: { prefix?: UploadImagePrefix },
+): Promise<UploadImageResponse> {
   const form = new FormData();
   form.append("image", file);
+  if (opts?.prefix) form.append("prefix", opts.prefix);
 
   const response = await apiFetch("/api/admin/images", {
     method: "POST",

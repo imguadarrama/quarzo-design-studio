@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAdminAuthStore } from "@/store/adminAuth";
 import CircularLogo from "@/assets/circular-logo.png";
 import styles from "./NavBarAdmin.module.scss";
@@ -22,6 +22,9 @@ export function NavBarAdmin() {
     }
   };
 
+  const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+    isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink;
+
   return (
     <nav className={styles.nav} aria-label="Panel de administración">
       <Link to="/admin/productos" className={styles.brand}>
@@ -35,6 +38,20 @@ export function NavBarAdmin() {
           Admin
         </Typography>
       </Link>
+      <div className={styles.links}>
+        <NavLink to="/admin/categorias" className={navLinkClass}>
+          Categorías
+        </NavLink>
+        <NavLink to="/admin/paletas" className={navLinkClass}>
+          Paletas
+        </NavLink>
+        <NavLink to="/admin/disenos" className={navLinkClass}>
+          Diseños
+        </NavLink>
+        <NavLink to="/admin/productos" className={navLinkClass}>
+          Productos
+        </NavLink>
+      </div>
       <div className={styles.right}>
         {admin ? (
           <Typography as="span" size="xs" className={styles.email}>

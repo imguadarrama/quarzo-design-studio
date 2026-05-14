@@ -24,45 +24,124 @@ model AdminUser {
   createdAt    DateTime @default(now())
 }
 
-model Product {
-  id          String           @id @default(cuid())
-  slug        String           @unique
-  name        String
-  description String
-  category    String
-  images      ProductImage[]
-  variants    ProductVariant[]
-  active      Boolean          @default(true)
-  createdAt   DateTime         @default(now())
+model Category {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  slug      String           @unique
+  position  Int              @default(0)
+  active    Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  products  Product[]
+  designs   DesignCategory[]
 
-  @@index([category])
   @@index([active])
 }
 
-model ProductVariant {
-  id        String                 @id @default(cuid())
+model Product {
+  id          String                @id @default(cuid())
+  slug        String                @unique
+  name        String
+  description String
+  categoryId  String
+  category    Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images      ProductImage[]
+  variants    ProductVariantPrice[]
+  designs     ProductDesign[]
+  slugAliases ProductSlugAlias[]
+  active      Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+
+  @@index([categoryId])
+  @@index([active])
+}
+
+model ProductVariantPrice {
   productId String
-  product   Product                @relation(fields: [productId], references: [id], onDelete: Cascade)
-  name      String
-  sku       String                 @unique
-  price     Decimal                @db.Decimal(10, 2)
-  position  Int                    @default(0)
-  options   ProductVariantOption[]
+  product   Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  kind      VariantKind
+  price     Decimal     @db.Decimal(10, 2)
+  sku       String      @unique
+  offered   Boolean     @default(true)
+
+  @@id([productId, kind])
+  @@index([productId])
+}
+
+model Design {
+  id         String                @id @default(cuid())
+  name       String
+  imageUrl   String
+  position   Int                   @default(0)
+  active     Boolean               @default(true)
+  createdAt  DateTime              @default(now())
+  compat     DesignVariantCompat[]
+  products   ProductDesign[]
+  categories DesignCategory[]
+
+  @@index([active])
+}
+
+model DesignVariantCompat {
+  designId String
+  design   Design      @relation(fields: [designId], references: [id], onDelete: Cascade)
+  kind     VariantKind
+
+  @@id([designId, kind])
+}
+
+model DesignCategory {
+  designId   String
+  categoryId String
+  design     Design   @relation(fields: [designId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([designId, categoryId])
+  @@index([categoryId])
+}
+
+model ProductDesign {
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  designId  String
+  design    Design  @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  @@id([productId, designId])
+  @@index([designId])
+}
+
+model ProductSlugAlias {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  slug      String   @unique
+  createdAt DateTime @default(now())
 
   @@index([productId])
 }
 
-model ProductVariantOption {
-  id        String            @id @default(cuid())
-  variantId String
-  variant   ProductVariant    @relation(fields: [variantId], references: [id], onDelete: Cascade)
-  name      String
-  type      VariantOptionType
-  values    Json?
-  required  Boolean           @default(true)
-  position  Int               @default(0)
+model OptionPalette {
+  id       String         @id @default(cuid())
+  name     String         @unique
+  slug     String         @unique
+  position Int            @default(0)
+  active   Boolean        @default(true)
+  swatches OptionSwatch[]
 
-  @@index([variantId])
+  @@index([active])
+}
+
+model OptionSwatch {
+  id        String        @id @default(cuid())
+  paletteId String
+  palette   OptionPalette @relation(fields: [paletteId], references: [id], onDelete: Cascade)
+  name      String
+  imageUrl  String
+  position  Int           @default(0)
+  active    Boolean       @default(true)
+
+  @@unique([paletteId, name])
+  @@index([paletteId])
+  @@index([active])
 }
 
 model ProductImage {
@@ -104,17 +183,21 @@ model Order {
 }
 
 model OrderItem {
-  id                  String  @id @default(cuid())
+  id                  String      @id @default(cuid())
   orderId             String
-  order               Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order               Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId           String
-  variantId           String
+  variantKind         VariantKind
+  sku                 String?
   productName         String
   variantName         String
-  unitPrice           Decimal @db.Decimal(10, 2)
+  unitPrice           Decimal     @db.Decimal(10, 2)
   quantity            Int
   personalizationText String
   selections          Json
+  designId            String?
+  designName          String?
+  designImageUrl      String?
 
   @@index([orderId])
 }
@@ -137,7 +220,9 @@ enum OrderStatus {
   CANCELADO
 }
 
-enum VariantOptionType {
-  SELECT
-  TEXT
+enum VariantKind {
+  CON_FOIL
+  CON_TINTA_NORMAL
+  CON_FOIL_Y_TINTA
+  PAPEL_TEXTURIZADO
 }

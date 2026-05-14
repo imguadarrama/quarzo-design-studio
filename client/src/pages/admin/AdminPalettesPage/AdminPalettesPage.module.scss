@@ -1,0 +1,190 @@
+@use "../../../styles/tokens" as t;
+@use "../../../styles/mixins" as m;
+
+.wrapper {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: t.$space-6 t.$space-4;
+
+  @include m.screen-md {
+    padding: t.$space-8;
+  }
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-4;
+  margin-bottom: t.$space-8;
+
+  @include m.screen-md {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: t.$space-6;
+  }
+}
+
+.headerText {
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+}
+
+.newButton {
+  align-self: flex-start;
+  white-space: nowrap;
+}
+
+.lede {
+  color: t.$color-text-muted;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  margin: t.$space-2 0 0;
+}
+
+.tableWrap {
+  width: 100%;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  color: t.$color-ink;
+
+  thead th {
+    text-align: left;
+    background-color: t.$color-surface;
+    color: t.$color-text-muted;
+    font-family: t.$font-secondary;
+    font-size: t.$font-size-xs;
+    font-weight: t.$weight-medium;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: t.$space-3 t.$space-4;
+    border-bottom: 1px solid t.$color-line;
+  }
+
+  tbody td {
+    padding: t.$space-4;
+    border-bottom: 1px solid t.$color-line;
+    vertical-align: middle;
+  }
+
+  tbody tr {
+    transition: background-color 120ms ease;
+  }
+
+  tbody tr:hover {
+    background-color: t.$color-surface-light;
+  }
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row.inactive {
+  opacity: 0.55;
+}
+
+.nameCell {
+  min-width: 0;
+}
+
+.name {
+  display: block;
+  font-family: t.$font-primary;
+  font-weight: t.$weight-medium;
+  font-size: t.$font-size-md;
+  color: t.$color-ink;
+}
+
+.slug {
+  display: block;
+  margin-top: 2px;
+  color: t.$color-text-muted;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xs;
+}
+
+.actionsCell {
+  text-align: right;
+}
+
+.actions {
+  display: inline-flex;
+  align-items: center;
+  gap: t.$space-2;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.rowError {
+  display: block;
+  width: 100%;
+  font-size: t.$font-size-xs;
+  color: t.$color-error;
+}
+
+@include m.screen-below-md {
+  .table {
+    thead {
+      display: none;
+    }
+
+    tbody,
+    tbody tr,
+    tbody td {
+      display: block;
+      width: 100%;
+    }
+
+    tbody tr {
+      padding: t.$space-4 0;
+      border-bottom: 1px solid t.$color-line;
+    }
+
+    tbody tr:hover {
+      background-color: transparent;
+    }
+
+    tbody td {
+      padding: t.$space-2 0;
+      border-bottom: none;
+    }
+
+    tbody td:not(.nameCell):not(.actionsCell) {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: t.$font-size-sm;
+    }
+
+    tbody td:not(.nameCell):not(.actionsCell)::before {
+      content: attr(data-label);
+      color: t.$color-text-muted;
+      font-family: t.$font-secondary;
+      font-size: t.$font-size-xs;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .numeric {
+      text-align: right;
+    }
+
+    .actionsCell {
+      text-align: left;
+    }
+
+    .actions {
+      justify-content: flex-start;
+    }
+  }
+}

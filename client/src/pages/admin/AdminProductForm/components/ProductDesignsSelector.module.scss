@@ -1,0 +1,131 @@
+@use "../../../../styles/tokens" as t;
+@use "../../../../styles/mixins" as m;
+
+.section {
+  margin: t.$space-8 0;
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: t.$space-3;
+  margin-bottom: t.$space-2;
+}
+
+.title {
+  font-family: t.$font-primary;
+  font-size: t.$font-size-md;
+  font-weight: t.$weight-medium;
+  margin: 0;
+  color: t.$color-ink;
+}
+
+.counter {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-text-muted;
+}
+
+.hint {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-text-muted;
+  margin: 0 0 t.$space-3;
+  line-height: 1.4;
+}
+
+.link {
+  color: t.$color-ink;
+  text-decoration: underline;
+}
+
+.empty {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xs;
+  color: t.$color-text-muted;
+  background-color: t.$color-surface-light;
+  border: 1px dashed t.$color-line;
+  border-radius: t.$radius-md;
+  padding: t.$space-4;
+  text-align: center;
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: t.$space-3;
+}
+
+.item {
+  display: block;
+}
+
+.label {
+  display: block;
+  cursor: pointer;
+}
+
+.card {
+  position: relative;
+  padding: t.$space-3;
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-2;
+  border: 2px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.cardSelected {
+  border-color: t.$color-ink;
+}
+
+.checkbox {
+  position: absolute;
+  top: t.$space-2;
+  right: t.$space-2;
+  width: 18px;
+  height: 18px;
+  accent-color: t.$color-ink;
+}
+
+.thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: t.$radius-sm;
+  background-color: t.$color-surface-light;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-1;
+}
+
+.name {
+  font-family: t.$font-primary;
+  font-size: t.$font-size-sm;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+}
+
+.kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.kindBadge {
+  font-family: t.$font-secondary;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: t.$radius-sm;
+  background-color: t.$color-surface-light;
+  color: t.$color-text-muted;
+}

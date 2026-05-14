@@ -1,12 +1,47 @@
-# Phase 2.7 Execution Plan — Product designs (visual selection)
+# Phase 2.7 Execution Plan — Fixed variant kinds + global designs + global palettes
 
-> **Purpose:** add a "design style" axis to the catalog so customers can browse 20+ visual designs per product (currently scoped to *sobres*) before picking a variant. Surfaced during Slice 7 review when the wife clarified that the real customer flow is **design → variant → options**, not **variant → options** as originally modeled.
+> **Follow-up iteration (2026-05-13, same day):** After the rework landed locally, the client reviewed the admin UI and surfaced four UX/data-model issues + a set of "golden rules" any future SKU/slug edit feature must respect. The follow-up commits add:
+>
+> 1. **Auto-generated SKUs.** Server builds `<productSlug>-<KIND_SHORT>-<4charRandom>` in `server/src/lib/sku-generator.ts`. Admin never types a SKU. The 4-char random suffix is **stable across slug edits** so inventory codes don't churn — `buildVariantPricesCreate(tx, slug, prices, existingByKind?)` reuses the prior row's suffix on PATCH via `extractSkuSuffix`. Collision-checked: `ensureUniqueSku` retries on `P2002` up to 8 attempts.
+> 2. **Per-variant `offered` toggle.** `ProductVariantPrice.offered Boolean @default(true)` replaces the brittle "price 0 = hidden" footgun. Storefront filters out `offered: false` rows in `serializeProductPublic`. Admin form disables the price input on the toggled-off variant. Validation requires `>=1 offered: true` row per product.
+> 3. **Slug auto-derive in edit mode.** Deleted the `slugDirtyRef.current = true` line in `AdminProductFormPage`'s `load` callback; rename now updates the slug like create mode. The page tracks `originalSlugRef` and shows a warning when the slug differs. **`ProductSlugAlias(productId, slug @unique, createdAt)` table** persists prior slugs on PATCH; public `GET /api/products/:slug` falls back through the alias and returns the canonical current slug; the SPA's `/producto/:slug` page (Slice 9) reads `product.slug` from the payload and `navigate(canonical, { replace: true })` when it differs from the URL — SPA equivalent of an HTTP 301.
+> 4. **First-class `Category`.** `Category(id, name, slug, position, active)` table; `Product.categoryId` FK replaces the legacy String column; `DesignCategory(designId, categoryId)` M2M ties designs to categories. New `/admin/categorias` CRUD page (`CATEGORY_IN_USE` 409 guard on delete). `<ProductDesignsSelector>` filters the visible designs by the product's selected `categoryId`, sweeping stale `designIds` when the admin switches category mid-form.
+>
+> **Golden rules (from the client) folded into the schema:**
+>
+> - **Uniqueness check** at save — enforced via `@unique sku` + `ensureUniqueSku` collision retry.
+> - **Immutability for orders** — new `OrderItem.sku String` snapshot column added pre-Phase-3 (Phase 3 cart will populate it at checkout from `ProductVariantPrice.sku`).
+> - **Slug 301 redirects** — `ProductSlugAlias` + canonical-slug response from the public route; full HTTP-301 emission deferred until SSR (Phase 7 polish).
+>
+> Migration: `20260514000000_categories_slug_aliases_offered_toggle` chained on top of the squashed rework migration. Pure Prisma-generated SQL; the schema.prisma is the source of truth.
+>
+> ---
+>
+> **Rework note (2026-05-13):** This plan was rewritten mid-PR after the client locked the customer-flow contract more tightly. The original Phase 2.7 modeled variants as freeform per-product rows and designs as per-product; the client clarified that **(a)** all products have the same four variants (`Con foil`, `Con tinta normal`, `Con foil y tinta normal`, `Papel texturizado`) with only price + sku varying per product; **(b)** designs are global — the same 30+ designs apply to every product; **(c)** every product/variant always shows a required "Nombre y apellido" text input (non-configurable). Since the PR was unmerged we squashed the in-flight migration instead of chaining a corrective one. The original phase plan below describes the pre-rework design and is retained as historical context — read the rework summary in this section first; the legacy slice plan that follows describes the model we *didn't* ship.
+>
+> **What we actually shipped on this branch:**
+>
+> 1. **Variants as a fixed enum.** `enum VariantKind { CON_FOIL | CON_TINTA_NORMAL | CON_FOIL_Y_TINTA | PAPEL_TEXTURIZADO }`. Pricing lives on `ProductVariantPrice(productId, kind, price, sku)` with composite PK `[productId, kind]`. Server `productSchema` enforces `.length(4).superRefine(...)` so every product has exactly one row per kind. Spanish display names live in `server/src/lib/variant-kinds.ts`.
+> 2. **Global designs.** `Design` (no `productId`) + `ProductDesign(productId, designId)` join + `DesignVariantCompat(designId, kind)`. New admin surface at `/admin/disenos` mirrors the palettes pattern. Product form picks designs via `<ProductDesignsSelector>` checkbox grid.
+> 3. **Hardcoded personalization.** `ProductVariantOption` table and `VariantOptionType` enum removed entirely. Storefront always renders one required "Nombre y apellido" text input; `OrderItem.personalizationText` (already NOT NULL) carries it.
+> 4. **Hardcoded variant → palette mapping.** `server/src/lib/variant-palettes.ts` exports `VARIANT_PALETTE_SLUG` mapping `CON_FOIL` and `CON_FOIL_Y_TINTA` to palette slug `colores-foil`. The public serializer inlines `palette.swatches[]` on those variant rows via `loadPaletteMap(prisma)` (one query per request). `admin-palettes.ts` DELETE rejects with `code: "PALETTE_PROTECTED"` for any slug in this map.
+> 5. **Migration approach.** Squashed in place. Deleted the unmerged `20260511200808_add_designs_and_palettes/` folder; the consolidated migration is `20260513000000_redesign_variants_designs_palettes/`.
+> 6. **OrderItem reshape.** `variantId` (bare String, no FK) → `variantKind: VariantKind`. The three `designId`/`designName`/`designImageUrl` snapshot columns stay as soft pointers; no FK on the new global `Design.id`. `OrderItem.selections Json` is now the foil-color pick.
+> 7. **Admin UX.** Two separate pages (`/admin/paletas`, `/admin/disenos`) + a shared `<PhaseFlowHint>` "Paso 1 → 2 → 3" breadcrumb at the top of each list page and `/admin/productos`.
+>
+> **Customer-facing UX:** still none in this phase — Slice 9 of the Phase 2.5 plan consumes the new shapes (design picker → variant-kind selector restricted by `compatibleKinds` → foil swatch picker on foil variants → required name/apellido input → cart CTA).
+>
+> **Blocked on:** [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md) (closed). Design images flow through the same R2 + `pending:` two-phase upload pattern Phase 2.6 introduced.
+>
+> ---
+>
+> ### Historical context (pre-rework, retained)
+>
+> **Original purpose:** add a "design style" axis to the catalog so customers can browse 20+ visual designs per product (currently scoped to *sobres*) before picking a variant. Surfaced during Slice 7 review when the wife clarified that the real customer flow is **design → variant → options**, not **variant → options** as originally modeled.
 >
 > This phase also adds **global image palettes** (e.g. foil colors) so SELECT-type options can render visual swatches instead of flat text values. The full customer flow surfaced in Slice 7 review is **design → variant → swatch-picker → personalization**; this phase ships the data + admin layer for the swatch-picker step. Phase 2.7 therefore lands two related axes — `ProductDesign` *and* `OptionPalette` / `OptionSwatch`.
 >
 > **Mindset:** schema + admin UI now, customer-facing UX in Slice 9. This phase ships no public-facing UX — that is intentional. Slice 9 (revised) integrates the design picker into the product detail page once this phase lands.
->
-> **Blocked on:** [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md). Designs add 20+ image-bearing rows per product; doing them on the base64 pipeline would balloon the public payload and require a second migration.
 
 ---
 
@@ -604,12 +639,12 @@ The catalog (Slice 8) already exists in plan; it's untouched by this phase. The 
 
 ### 7.1 Schema + migration
 
-- [ ] `pnpm migrate` (in api container) generates `add_designs_and_palettes` migration cleanly. Inspect SQL: four new tables (`ProductDesign`, `DesignVariantCompat`, `OptionPalette`, `OptionSwatch`); three new nullable columns on `OrderItem`; new `paletteId` column on `ProductVariantOption`; new `SWATCH` enum value on `VariantOptionType`. No breaking changes.
-- [ ] `pnpm seed` succeeds. Existing products end up with `designs: []` (seed doesn't populate designs yet — optional follow-up to add 2–3 sample designs to the *sobres* seed entry). Seed creates one palette `Colores de foil` with a handful of starter swatches so dev work doesn't need manual setup.
+- [x] `pnpm migrate` (in api container) generates `add_designs_and_palettes` migration cleanly. Inspect SQL: four new tables (`ProductDesign`, `DesignVariantCompat`, `OptionPalette`, `OptionSwatch`); three new nullable columns on `OrderItem`; new `paletteId` column on `ProductVariantOption`; new `SWATCH` enum value on `VariantOptionType`. No breaking changes.
+- [x] `pnpm seed` succeeds. Existing products end up with `designs: []` (seed doesn't populate designs yet — optional follow-up to add 2–3 sample designs to the *sobres* seed entry). Seed creates one palette `Colores de foil` with 5 picsum placeholder swatches so dev work doesn't need manual setup.
 
 ### 7.2 Type / build gates
 
-- [ ] `pnpm preflight` green.
+- [x] `pnpm preflight` green.
 
 ### 7.3 Browser smoke
 

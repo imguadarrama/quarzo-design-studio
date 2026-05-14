@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback } from "react";
 import type { ReactNode } from "react";
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { ConfirmDialog } from "@/components/ConfirmDialog/ConfirmDialog";
@@ -7,69 +7,46 @@ import {
   PageError,
   PageLoading,
 } from "@/components/PageState/PageState";
+import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
 import { Typography } from "@/components/Typography/Typography";
+import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
+import { useAdminListResource } from "@/hooks/useAdminListResource";
 import { deleteProduct, fetchAdminProducts } from "@/services/api/admin";
 import type { AdminProduct } from "@/lib/types";
 import { AdminProductRow } from "./AdminProductRow.js";
 import styles from "./AdminProductsPage.module.scss";
 
 export function AdminProductsPage() {
-  const [products, setProducts] = useState<AdminProduct[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+  const {
+    data: products,
+    error,
+    reload,
+    setData: setProducts,
+  } = useAdminListResource<AdminProduct>(fetchAdminProducts);
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const next = await fetchAdminProducts();
-      setProducts(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error desconocido");
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const clearRowError = useCallback((id: string) => {
-    setRowErrors((prev) => {
-      if (!(id in prev)) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  }, []);
-
-  const confirming = useMemo(
-    () => products?.find((p) => p.id === confirmingId) ?? null,
-    [products, confirmingId],
+  const handleDeleted = useCallback(
+    (id: string) => {
+      setProducts((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
+    },
+    [setProducts],
   );
 
-  const handleConfirmDelete = useCallback(async () => {
-    if (!confirmingId) return;
-    const id = confirmingId;
-    setDeletingId(id);
-    clearRowError(id);
-    try {
-      await deleteProduct(id);
-      setProducts((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
-      setConfirmingId(null);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "No se pudo eliminar";
-      setRowErrors((prev) => ({ ...prev, [id]: message }));
-      setConfirmingId(null);
-    } finally {
-      setDeletingId(null);
-    }
-  }, [confirmingId, clearRowError]);
+  const {
+    pendingItem: confirming,
+    isConfirming,
+    isDeleting,
+    rowErrorById,
+    requestDelete,
+    cancelDelete,
+    confirmDelete,
+  } = useAdminDeleteFlow<AdminProduct>({
+    deleteFn: deleteProduct,
+    onDeleted: handleDeleted,
+  });
 
   let body: ReactNode;
   if (error) {
-    body = <PageError message={error} onRetry={load} />;
+    body = <PageError message={error} onRetry={reload} />;
   } else if (products == null) {
     body = <PageLoading />;
   } else if (products.length === 0) {
@@ -103,12 +80,9 @@ export function AdminProductsPage() {
               <AdminProductRow
                 key={product.id}
                 product={product}
-                isDeleting={deletingId === product.id}
-                errorMessage={rowErrors[product.id] ?? null}
-                onRequestDelete={() => {
-                  clearRowError(product.id);
-                  setConfirmingId(product.id);
-                }}
+                isDeleting={isDeleting && confirming?.id === product.id}
+                errorMessage={rowErrorById[product.id] ?? null}
+                onRequestDelete={() => requestDelete(product)}
               />
             ))}
           </tbody>
@@ -125,6 +99,7 @@ export function AdminProductsPage() {
 
   return (
     <section className={styles.wrapper}>
+      <PhaseFlowHint current="productos" />
       <header className={styles.header}>
         <div className={styles.headerText}>
           <Typography as="h1" size="xxl" className={styles.title}>
@@ -144,7 +119,7 @@ export function AdminProductsPage() {
       </header>
       {body}
       <ConfirmDialog
-        isOpen={confirming !== null}
+        isOpen={isConfirming}
         title="Eliminar producto"
         description={
           confirming ? (
@@ -170,11 +145,11 @@ export function AdminProductsPage() {
           ) : null
         }
         confirmLabel="Eliminar definitivamente"
-        isConfirming={deletingId !== null}
+        isConfirming={isDeleting}
         onConfirm={() => {
-          void handleConfirmDelete();
+          void confirmDelete();
         }}
-        onCancel={() => setConfirmingId(null)}
+        onCancel={cancelDelete}
       />
     </section>
   );

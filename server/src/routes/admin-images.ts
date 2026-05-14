@@ -11,7 +11,12 @@ import {
 import { processImageBuffer } from "../lib/image-pipeline.js";
 import { ImageUploadError } from "../lib/errors.js";
 
-const UPLOAD_PREFIXES = ["products", "products/migrated"] as const;
+const UPLOAD_PREFIXES = [
+  "products",
+  "products/migrated",
+  "designs",
+  "swatches",
+] as const;
 const uploadPrefixSchema = z.enum(UPLOAD_PREFIXES).default("products");
 
 const upload = multer({

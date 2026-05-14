@@ -1,0 +1,42 @@
+@use "../../styles/tokens" as t;
+@use "../../styles/mixins" as m;
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-1;
+  flex-shrink: 0;
+}
+
+.iconButton {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid t.$color-line;
+  background-color: t.$color-bg;
+  color: t.$color-ink;
+  border-radius: t.$radius-sm;
+  cursor: pointer;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  line-height: 1;
+}
+
+.iconButton:hover:not(:disabled) {
+  background-color: t.$color-surface-strong;
+}
+
+.iconButton:focus-visible {
+  @include m.focus-ring;
+}
+
+.iconButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.iconButtonDanger {
+  color: t.$color-error;
+}

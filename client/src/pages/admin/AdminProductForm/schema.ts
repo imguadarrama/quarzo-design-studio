@@ -6,9 +6,7 @@ const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 // has picked but not yet uploaded — see ProductImageEditor + the
 // AdminProductFormPage submit phase. The form orchestrator transforms
 // these into real https URLs at submit time before the payload reaches
-// the server. The server's imageUrlSchema stays strict (^https://) so
-// any sentinel that leaks past the orchestrator is rejected with a clear
-// validation error.
+// the server.
 export const PENDING_URL_PREFIX = "pending:";
 
 const imageUrlSchema = z
@@ -29,47 +27,31 @@ const imageSchema = z.object({
     .or(z.literal("")),
 });
 
-const optionSchema = z
+const variantKindSchema = z.enum([
+  "CON_FOIL",
+  "CON_TINTA_NORMAL",
+  "CON_FOIL_Y_TINTA",
+  "PAPEL_TEXTURIZADO",
+]);
+
+const variantPriceSchema = z
   .object({
-    name: z
-      .string()
-      .trim()
-      .min(1, "El nombre es obligatorio")
-      .max(80, "Máximo 80 caracteres"),
-    type: z.enum(["SELECT", "TEXT"]),
-    values: z
-      .array(z.string().trim().min(1).max(80))
-      .max(50, "Máximo 50 valores")
-      .optional(),
-    required: z.boolean(),
+    kind: variantKindSchema,
+    price: z.coerce
+      .number({ invalid_type_error: "Precio inválido" })
+      .min(0, "El precio no puede ser negativo")
+      .max(999999, "Precio demasiado alto"),
+    offered: z.boolean(),
   })
-  .superRefine((opt, ctx) => {
-    if (opt.type === "SELECT" && (!opt.values || opt.values.length === 0)) {
+  .superRefine((v, ctx) => {
+    if (v.offered && v.price <= 0) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["values"],
-        message: "Agrega al menos un valor",
+        path: ["price"],
+        message: "El precio debe ser mayor a 0 si la variante se ofrece",
       });
     }
   });
-
-const variantSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, "El nombre es obligatorio")
-    .max(80, "Máximo 80 caracteres"),
-  sku: z
-    .string()
-    .trim()
-    .min(1, "El SKU es obligatorio")
-    .max(80, "Máximo 80 caracteres"),
-  price: z.coerce
-    .number({ invalid_type_error: "Precio inválido" })
-    .min(0, "El precio no puede ser negativo")
-    .max(999999, "Precio demasiado alto"),
-  options: z.array(optionSchema).max(8, "Máximo 8 opciones por variante"),
-});
 
 export const productFormSchema = z.object({
   name: z
@@ -83,11 +65,7 @@ export const productFormSchema = z.object({
     .min(3, "Mínimo 3 caracteres")
     .max(80, "Máximo 80 caracteres")
     .regex(slugRegex, "Solo minúsculas, números y guiones"),
-  category: z
-    .string()
-    .trim()
-    .min(1, "La categoría es obligatoria")
-    .max(80, "Máximo 80 caracteres"),
+  categoryId: z.string().min(1, "Selecciona una categoría"),
   description: z
     .string()
     .trim()
@@ -96,25 +74,22 @@ export const productFormSchema = z.object({
   active: z.boolean(),
   images: z.array(imageSchema).max(8, "Máximo 8 imágenes"),
   variants: z
-    .array(variantSchema)
-    .min(1, "Agrega al menos una variante")
-    .max(12, "Máximo 12 variantes"),
+    .array(variantPriceSchema)
+    .length(4, "El producto requiere los 4 tipos de variante")
+    .superRefine((variants, ctx) => {
+      if (!variants.some((v) => v.offered)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["variants"],
+          message: "Al menos una variante debe estar marcada como ofrecida",
+        });
+      }
+    }),
+  designIds: z.array(z.string().min(1)).max(200, "Demasiados diseños seleccionados"),
 });
 
 export type ProductFormValues = z.infer<typeof productFormSchema>;
 export type ProductFormImage = ProductFormValues["images"][number];
-export type ProductFormVariant = ProductFormValues["variants"][number];
-export type ProductFormVariantOption = ProductFormVariant["options"][number];
+export type ProductFormVariantPrice = ProductFormValues["variants"][number];
 
-const COMBINING_DIACRITICS = /[̀-ͯ]/g;
-const NON_ALNUM = /[^a-z0-9]+/g;
-const TRIM_DASHES = /^-+|-+$/g;
-
-export function slugify(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(COMBINING_DIACRITICS, "")
-    .toLowerCase()
-    .replace(NON_ALNUM, "-")
-    .replace(TRIM_DASHES, "");
-}
+export { slugify } from "@/lib/slug";
