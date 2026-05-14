@@ -9,6 +9,7 @@ import { PageError, PageLoading } from "@/components/PageState/PageState";
 import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
 import { Typography } from "@/components/Typography/Typography";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
+import { applyServerFieldError } from "@/lib/serverFieldErrors";
 import { slugify } from "@/lib/slug";
 import type { AdminCategory } from "@/lib/types";
 import {
@@ -16,7 +17,6 @@ import {
   getCategory,
   updateCategory,
 } from "@/services/api/admin";
-import { ApiError } from "@/services/api/fetchJson";
 import { categoryFormSchema, type CategoryFormValues } from "./schema.js";
 import styles from "./AdminCategoryFormPage.module.scss";
 
@@ -41,6 +41,7 @@ export function AdminCategoryFormPage() {
     handleSubmit,
     setValue,
     setError,
+    setFocus,
     watch,
     reset,
     formState: { errors, isSubmitting },
@@ -98,10 +99,12 @@ export function AdminCategoryFormPage() {
           await createCategory(payload);
         }
       } catch (err) {
-        if (err instanceof ApiError && err.code === "SLUG_CONFLICT") {
-          setError("slug", { type: "server", message: SLUG_CONFLICT_MESSAGE });
-          return;
-        }
+        const handled = applyServerFieldError<CategoryFormValues>(
+          err,
+          { SLUG_CONFLICT: { field: "slug", message: SLUG_CONFLICT_MESSAGE } },
+          { setError, setFocus },
+        );
+        if (handled) return;
         throw err;
       }
       navigate("/admin/categorias");

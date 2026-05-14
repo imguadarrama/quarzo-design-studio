@@ -18,6 +18,7 @@ import {
 import { ApiError } from "@/services/api/fetchJson";
 import { deleteUploadedImages, uploadImage } from "@/services/api/uploadImage";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
+import { applyServerFieldError } from "@/lib/serverFieldErrors";
 import type { AdminCategory, AdminProduct } from "@/lib/types";
 import { ProductDesignsSelector } from "./components/ProductDesignsSelector.js";
 import { ProductImageEditor } from "./components/ProductImageEditor.js";
@@ -90,6 +91,7 @@ export function AdminProductFormPage() {
     handleSubmit,
     setValue,
     setError,
+    setFocus,
     watch,
     reset,
     formState: { errors, isSubmitting },
@@ -211,16 +213,18 @@ export function AdminProductFormPage() {
           await createProduct(payload);
         }
       } catch (err) {
-        if (err instanceof ApiError && err.code === "SLUG_CONFLICT") {
-          if (newlyUploadedUrls.length > 0) {
-            void deleteUploadedImages(newlyUploadedUrls);
-          }
-          setError("slug", { type: "server", message: SLUG_CONFLICT_MESSAGE });
-          return;
-        }
         if (newlyUploadedUrls.length > 0) {
           void deleteUploadedImages(newlyUploadedUrls);
         }
+        const handled = applyServerFieldError<ProductFormValues>(
+          err,
+          {
+            SLUG_CONFLICT: { field: "slug", message: SLUG_CONFLICT_MESSAGE },
+            SLUG_ALIAS_CONFLICT: { field: "slug" },
+          },
+          { setError, setFocus },
+        );
+        if (handled) return;
         throw err;
       }
 

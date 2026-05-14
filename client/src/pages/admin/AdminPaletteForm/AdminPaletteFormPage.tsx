@@ -8,6 +8,7 @@ import { Input } from "@/components/Input/Input";
 import { PageError, PageLoading } from "@/components/PageState/PageState";
 import { Typography } from "@/components/Typography/Typography";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
+import { applyServerFieldError } from "@/lib/serverFieldErrors";
 import { slugify } from "@/lib/slug";
 import type { AdminOptionPalette } from "@/lib/types";
 import {
@@ -77,6 +78,7 @@ export function AdminPaletteFormPage() {
     handleSubmit,
     setValue,
     setError,
+    setFocus,
     watch,
     reset,
     formState: { errors, isSubmitting },
@@ -170,16 +172,15 @@ export function AdminPaletteFormPage() {
           await createPalette(payload);
         }
       } catch (err) {
-        if (err instanceof ApiError && err.code === "SLUG_CONFLICT") {
-          if (newlyUploadedUrls.length > 0) {
-            void deleteUploadedImages(newlyUploadedUrls);
-          }
-          setError("slug", { type: "server", message: SLUG_CONFLICT_MESSAGE });
-          return;
-        }
         if (newlyUploadedUrls.length > 0) {
           void deleteUploadedImages(newlyUploadedUrls);
         }
+        const handled = applyServerFieldError<PaletteFormValues>(
+          err,
+          { SLUG_CONFLICT: { field: "slug", message: SLUG_CONFLICT_MESSAGE } },
+          { setError, setFocus },
+        );
+        if (handled) return;
         throw err;
       }
 
