@@ -20,7 +20,7 @@ type Props = {
 };
 
 export function ProductDesignsSelector({ categoryId }: Props) {
-  const { setValue, watch } = useFormContext<ProductFormValues>();
+  const { setValue, watch, getValues } = useFormContext<ProductFormValues>();
   const selected = watch("designIds") ?? [];
   const [allDesigns, setAllDesigns] = useState<AdminDesign[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,16 +49,18 @@ export function ProductDesignsSelector({ categoryId }: Props) {
   }, [allDesigns, categoryId]);
 
   // Sweep stale designIds when the visible set changes (category swap or
-  // designs reloaded). Removes selections that no longer match the current
-  // category so the admin doesn't accidentally save a bad join.
+  // designs reloaded). Read via getValues so the effect doesn't depend on the
+  // watched `selected` — otherwise setValue retriggers watch retriggers the
+  // effect, which flickers under StrictMode double-invocation.
   useEffect(() => {
     if (!allDesigns || !categoryId) return;
+    const current = getValues("designIds") ?? [];
     const visibleIdSet = new Set(visibleDesigns.map((d) => d.id));
-    const swept = selected.filter((id) => visibleIdSet.has(id));
-    if (swept.length !== selected.length) {
+    const swept = current.filter((id) => visibleIdSet.has(id));
+    if (swept.length !== current.length) {
       setValue("designIds", swept, { shouldDirty: true, shouldValidate: true });
     }
-  }, [visibleDesigns, allDesigns, categoryId, selected, setValue]);
+  }, [visibleDesigns, allDesigns, categoryId, getValues, setValue]);
 
   const toggle = (id: string) => {
     const next = selected.includes(id)
