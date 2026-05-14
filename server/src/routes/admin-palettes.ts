@@ -12,6 +12,7 @@ import {
   buildSwatchesCreate,
 } from "../lib/palette-write.js";
 import { ConflictError, NotFoundError } from "../lib/errors.js";
+import { deleteImageKeys, extractKeyFromUrl } from "../lib/storage.js";
 import { PROTECTED_PALETTE_SLUGS } from "../lib/variant-palettes.js";
 
 export const adminPalettesRouter = Router();
@@ -67,7 +68,7 @@ adminPalettesRouter.patch("/palettes/:id", async (req, res, next) => {
 
     const existing = await prisma.optionPalette.findUnique({
       where: { id: req.params.id },
-      select: { id: true },
+      select: { id: true, swatches: { select: { imageUrl: true } } },
     });
     if (!existing) throw new NotFoundError("Palette not found");
 
@@ -83,6 +84,24 @@ adminPalettesRouter.patch("/palettes/:id", async (req, res, next) => {
       });
     });
 
+    // Sweep R2 keys for swatch images dropped from this palette. Best-effort:
+    // orphans on failure (same tradeoff as admin-products.ts and admin-designs.ts).
+    const kept = new Set(data.swatches.map((s) => s.imageUrl));
+    const orphanKeys = existing.swatches
+      .map((s) => s.imageUrl)
+      .filter((url) => !kept.has(url))
+      .map(extractKeyFromUrl)
+      .filter((k): k is string => k !== null);
+    if (orphanKeys.length > 0) {
+      const { failed } = await deleteImageKeys(orphanKeys);
+      if (failed.length > 0) {
+        console.warn("[r2] orphaned keys after palette update", {
+          paletteId: existing.id,
+          failed,
+        });
+      }
+    }
+
     res.json({ palette: serializePaletteAdmin(palette) });
   } catch (err) {
     next(err);
@@ -93,7 +112,11 @@ adminPalettesRouter.delete("/palettes/:id", async (req, res, next) => {
   try {
     const existing = await prisma.optionPalette.findUnique({
       where: { id: req.params.id },
-      select: { id: true, slug: true },
+      select: {
+        id: true,
+        slug: true,
+        swatches: { select: { imageUrl: true } },
+      },
     });
     if (!existing) throw new NotFoundError("Palette not found");
 
@@ -105,6 +128,20 @@ adminPalettesRouter.delete("/palettes/:id", async (req, res, next) => {
     }
 
     await prisma.optionPalette.delete({ where: { id: req.params.id } });
+
+    const keys = existing.swatches
+      .map((s) => extractKeyFromUrl(s.imageUrl))
+      .filter((k): k is string => k !== null);
+    if (keys.length > 0) {
+      const { failed } = await deleteImageKeys(keys);
+      if (failed.length > 0) {
+        console.warn("[r2] orphaned keys after palette delete", {
+          paletteId: existing.id,
+          failed,
+        });
+      }
+    }
+
     res.status(204).send();
   } catch (err) {
     next(err);

@@ -6,7 +6,7 @@ import { requireAdmin } from "../middleware/requireAdmin.js";
 import { productInclude, serializeProductAdmin } from "../lib/serializers.js";
 import { productSchema } from "../lib/validation-schemas.js";
 import {
-  assertDesignsCompatibleWithOfferedVariants,
+  assertDesignsCompatibleWithProduct,
   buildImagesCreate,
   buildProductDesignsCreate,
   buildProductMetadata,
@@ -64,9 +64,10 @@ adminProductsRouter.post("/products", async (req, res, next) => {
         );
       }
 
-      await assertDesignsCompatibleWithOfferedVariants(
+      await assertDesignsCompatibleWithProduct(
         tx,
         data.designIds,
+        data.categoryId,
         data.variants,
       );
 
@@ -164,9 +165,10 @@ adminProductsRouter.patch("/products/:id", async (req, res, next) => {
         });
       }
 
-      await assertDesignsCompatibleWithOfferedVariants(
+      await assertDesignsCompatibleWithProduct(
         tx,
         data.designIds,
+        data.categoryId,
         data.variants,
       );
 

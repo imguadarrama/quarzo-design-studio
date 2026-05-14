@@ -6,25 +6,30 @@ import { ConflictError } from "./errors.js";
 
 export type ExistingSkuByKind = Map<VariantKind, string>;
 
-// Reject the write if any picked design lacks a DesignVariantCompat row
-// matching at least one currently-offered variant kind. Catches the case
-// where an admin attaches a design and then unchecks every variant the
-// design supports — otherwise the product would ship referencing a design
-// that no offered variant can render.
-export const assertDesignsCompatibleWithOfferedVariants = async (
+// Reject the write if any picked design (a) lacks a DesignCategory row matching
+// the product's selected category, or (b) lacks a DesignVariantCompat row
+// matching at least one currently-offered variant kind. The admin form's design
+// picker filters by category client-side; this guard is the source-of-truth
+// fallback for direct-API calls or mid-form category switches.
+export const assertDesignsCompatibleWithProduct = async (
   tx: Prisma.TransactionClient,
   designIds: string[],
+  categoryId: string,
   variants: ProductInput["variants"],
 ) => {
   if (designIds.length === 0) return;
   const offeredKinds = new Set<VariantKind>(
     variants.filter((v) => v.offered).map((v) => v.kind),
   );
-  if (offeredKinds.size === 0) return;
 
   const designs = await tx.design.findMany({
     where: { id: { in: designIds } },
-    select: { id: true, name: true, compat: { select: { kind: true } } },
+    select: {
+      id: true,
+      name: true,
+      compat: { select: { kind: true } },
+      categories: { select: { categoryId: true } },
+    },
   });
   const byId = new Map(designs.map((d) => [d.id, d] as const));
 
@@ -36,8 +41,18 @@ export const assertDesignsCompatibleWithOfferedVariants = async (
         "Un diseño seleccionado ya no existe. Recarga la página y vuelve a intentarlo.",
       );
     }
-    const hasMatch = design.compat.some((c) => offeredKinds.has(c.kind));
-    if (!hasMatch) {
+    const hasCategory = design.categories.some(
+      (dc) => dc.categoryId === categoryId,
+    );
+    if (!hasCategory) {
+      throw new ConflictError(
+        "DESIGN_CATEGORY_INCOMPATIBLE",
+        `El diseño "${design.name}" no pertenece a la categoría seleccionada.`,
+      );
+    }
+    if (offeredKinds.size === 0) continue;
+    const hasKind = design.compat.some((c) => offeredKinds.has(c.kind));
+    if (!hasKind) {
       throw new ConflictError(
         "DESIGN_VARIANT_INCOMPATIBLE",
         `El diseño "${design.name}" no es compatible con ninguna de las variantes ofrecidas.`,
