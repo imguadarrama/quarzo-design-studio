@@ -188,7 +188,7 @@ model OrderItem {
   order               Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId           String
   variantKind         VariantKind
-  sku                 String
+  sku                 String?
   productName         String
   variantName         String
   unitPrice           Decimal     @db.Decimal(10, 2)

@@ -117,14 +117,16 @@ adminDesignsRouter.delete("/designs/:id", async (req, res, next) => {
 
     await prisma.design.delete({ where: { id: req.params.id } });
 
-    const key = extractKeyFromUrl(existing.imageUrl);
-    if (key) {
-      const { failed } = await deleteImageKeys([key]);
-      if (failed.length > 0) {
-        console.warn("[r2] orphaned key after design delete", {
-          designId: existing.id,
-          failed,
-        });
+    if (existing.imageUrl) {
+      const key = extractKeyFromUrl(existing.imageUrl);
+      if (key) {
+        const { failed } = await deleteImageKeys([key]);
+        if (failed.length > 0) {
+          console.warn("[r2] orphaned key after design delete", {
+            designId: existing.id,
+            failed,
+          });
+        }
       }
     }
 
