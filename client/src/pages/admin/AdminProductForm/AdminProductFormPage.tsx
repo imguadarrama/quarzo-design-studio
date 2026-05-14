@@ -41,8 +41,6 @@ import {
 } from "./schema.js";
 import styles from "./AdminProductFormPage.module.scss";
 
-const SLUG_CONFLICT_MESSAGE = "Ese slug ya existe";
-
 function describeUploadError(file: File, err: unknown): string {
   if (err instanceof ApiError) {
     switch (err.code) {
@@ -219,7 +217,7 @@ export function AdminProductFormPage() {
         const handled = applyServerFieldError<ProductFormValues>(
           err,
           {
-            SLUG_CONFLICT: { field: "slug", message: SLUG_CONFLICT_MESSAGE },
+            SLUG_CONFLICT: { field: "slug" },
             SLUG_ALIAS_CONFLICT: { field: "slug" },
           },
           { setError, setFocus },

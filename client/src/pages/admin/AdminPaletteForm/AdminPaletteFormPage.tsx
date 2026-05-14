@@ -35,8 +35,6 @@ import {
 } from "./schema.js";
 import styles from "./AdminPaletteFormPage.module.scss";
 
-const SLUG_CONFLICT_MESSAGE = "Ese slug o nombre ya existe";
-
 function describeUploadError(file: File, err: unknown): string {
   if (err instanceof ApiError) {
     switch (err.code) {
@@ -177,7 +175,10 @@ export function AdminPaletteFormPage() {
         }
         const handled = applyServerFieldError<PaletteFormValues>(
           err,
-          { SLUG_CONFLICT: { field: "slug", message: SLUG_CONFLICT_MESSAGE } },
+          {
+            SLUG_CONFLICT: { field: "slug" },
+            NAME_CONFLICT: { field: "name" },
+          },
           { setError, setFocus },
         );
         if (handled) return;

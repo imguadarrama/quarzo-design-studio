@@ -20,8 +20,6 @@ import {
 import { categoryFormSchema, type CategoryFormValues } from "./schema.js";
 import styles from "./AdminCategoryFormPage.module.scss";
 
-const SLUG_CONFLICT_MESSAGE = "Ese slug o nombre ya existe";
-
 export function AdminCategoryFormPage() {
   const { id: editId } = useParams<{ id: string }>();
   const mode: "create" | "edit" = editId ? "edit" : "create";
@@ -101,7 +99,10 @@ export function AdminCategoryFormPage() {
       } catch (err) {
         const handled = applyServerFieldError<CategoryFormValues>(
           err,
-          { SLUG_CONFLICT: { field: "slug", message: SLUG_CONFLICT_MESSAGE } },
+          {
+            SLUG_CONFLICT: { field: "slug" },
+            NAME_CONFLICT: { field: "name" },
+          },
           { setError, setFocus },
         );
         if (handled) return;
