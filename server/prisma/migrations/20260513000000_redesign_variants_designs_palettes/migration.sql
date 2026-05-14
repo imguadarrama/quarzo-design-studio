@@ -7,6 +7,13 @@ ALTER TABLE "ProductVariant" DROP CONSTRAINT "ProductVariant_productId_fkey";
 -- DropForeignKey
 ALTER TABLE "ProductVariantOption" DROP CONSTRAINT "ProductVariantOption_variantId_fkey";
 
+-- PHASE 3 PRECONDITION: this `ADD COLUMN "variantKind" "VariantKind" NOT NULL`
+-- has no DEFAULT and will fail if "OrderItem" has any rows. Safe to run today
+-- because Phase 3 (cart + guest checkout) hasn't started — no checkout flow
+-- writes to OrderItem, so the table is empty in main/staging/per-PR Neon
+-- branches. Before Phase 3 lands (and orders start existing), this migration
+-- must be regenerated as a nullable-add → backfill → SET NOT NULL pair, or
+-- replayed only against an empty OrderItem (whichever the deploy plan picks).
 -- AlterTable
 ALTER TABLE "OrderItem" DROP COLUMN "variantId",
 ADD COLUMN     "designId" TEXT,

@@ -1,5 +1,6 @@
 import { Prisma, VariantKind } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
+import { randomBytes } from "node:crypto";
 
 export const KIND_SHORT: Record<VariantKind, string> = {
   CON_FOIL: "foil",
@@ -14,9 +15,10 @@ const SLUG_PREFIX_MAX = 60;
 const MAX_ATTEMPTS = 8;
 
 export const generateSkuSuffix = (): string => {
+  const bytes = randomBytes(SUFFIX_LEN);
   let out = "";
-  for (let i = 0; i < SUFFIX_LEN; i++) {
-    out += SUFFIX_ALPHABET[Math.floor(Math.random() * SUFFIX_ALPHABET.length)];
+  for (const byte of bytes) {
+    out += SUFFIX_ALPHABET.charAt(byte % SUFFIX_ALPHABET.length);
   }
   return out;
 };

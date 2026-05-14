@@ -6,6 +6,7 @@ import { requireAdmin } from "../middleware/requireAdmin.js";
 import { productInclude, serializeProductAdmin } from "../lib/serializers.js";
 import { productSchema } from "../lib/validation-schemas.js";
 import {
+  assertDesignsCompatibleWithOfferedVariants,
   buildImagesCreate,
   buildProductDesignsCreate,
   buildProductMetadata,
@@ -62,6 +63,12 @@ adminProductsRouter.post("/products", async (req, res, next) => {
           "Este slug pertenece al historial de otro producto. Elige otro.",
         );
       }
+
+      await assertDesignsCompatibleWithOfferedVariants(
+        tx,
+        data.designIds,
+        data.variants,
+      );
 
       const created = await tx.product.create({
         data: {
@@ -156,6 +163,12 @@ adminProductsRouter.patch("/products/:id", async (req, res, next) => {
           where: { productId: req.params.id, slug: data.slug },
         });
       }
+
+      await assertDesignsCompatibleWithOfferedVariants(
+        tx,
+        data.designIds,
+        data.variants,
+      );
 
       // PATCH full-replaces variant prices, images, and design joins. Old
       // image R2 keys orphan here (same swap-time tradeoff as Phase 2.6 §7.1).

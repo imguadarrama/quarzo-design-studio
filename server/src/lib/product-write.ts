@@ -2,8 +2,49 @@ import { Decimal } from "@prisma/client/runtime/library";
 import type { Prisma, VariantKind } from "@prisma/client";
 import type { ProductInput } from "./validation-schemas.js";
 import { ensureUniqueSku, extractSkuSuffix } from "./sku-generator.js";
+import { ConflictError } from "./errors.js";
 
 export type ExistingSkuByKind = Map<VariantKind, string>;
+
+// Reject the write if any picked design lacks a DesignVariantCompat row
+// matching at least one currently-offered variant kind. Catches the case
+// where an admin attaches a design and then unchecks every variant the
+// design supports — otherwise the product would ship referencing a design
+// that no offered variant can render.
+export const assertDesignsCompatibleWithOfferedVariants = async (
+  tx: Prisma.TransactionClient,
+  designIds: string[],
+  variants: ProductInput["variants"],
+) => {
+  if (designIds.length === 0) return;
+  const offeredKinds = new Set<VariantKind>(
+    variants.filter((v) => v.offered).map((v) => v.kind),
+  );
+  if (offeredKinds.size === 0) return;
+
+  const designs = await tx.design.findMany({
+    where: { id: { in: designIds } },
+    select: { id: true, name: true, compat: { select: { kind: true } } },
+  });
+  const byId = new Map(designs.map((d) => [d.id, d] as const));
+
+  for (const designId of designIds) {
+    const design = byId.get(designId);
+    if (!design) {
+      throw new ConflictError(
+        "DESIGN_NOT_FOUND",
+        "Un diseño seleccionado ya no existe. Recarga la página y vuelve a intentarlo.",
+      );
+    }
+    const hasMatch = design.compat.some((c) => offeredKinds.has(c.kind));
+    if (!hasMatch) {
+      throw new ConflictError(
+        "DESIGN_VARIANT_INCOMPATIBLE",
+        `El diseño "${design.name}" no es compatible con ninguna de las variantes ofrecidas.`,
+      );
+    }
+  }
+};
 
 // Generates rows ready for `tx.productVariantPrice.createMany`. The SKU is
 // auto-derived from the product slug; on PATCH, callers pass `existingByKind`
