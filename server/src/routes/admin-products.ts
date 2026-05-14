@@ -1,4 +1,4 @@
-import { Prisma, type VariantKind } from "@prisma/client";
+import type { VariantKind } from "@prisma/client";
 import { Router } from "express";
 import { prisma } from "../db/prisma.js";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
@@ -12,7 +12,7 @@ import {
   buildVariantPricesCreate,
   type ExistingSkuByKind,
 } from "../lib/product-write.js";
-import { NotFoundError } from "../lib/errors.js";
+import { ConflictError, NotFoundError } from "../lib/errors.js";
 import { deleteImageKeys, extractKeyFromUrl } from "../lib/storage.js";
 
 export const adminProductsRouter = Router();
@@ -52,6 +52,17 @@ adminProductsRouter.post("/products", async (req, res, next) => {
     const data = productSchema.parse(req.body);
 
     const product = await prisma.$transaction(async (tx) => {
+      const aliasConflict = await tx.productSlugAlias.findFirst({
+        where: { slug: data.slug },
+        select: { productId: true },
+      });
+      if (aliasConflict) {
+        throw new ConflictError(
+          "SLUG_ALIAS_CONFLICT",
+          "Este slug pertenece al historial de otro producto. Elige otro.",
+        );
+      }
+
       const created = await tx.product.create({
         data: {
           ...buildProductMetadata(data),
@@ -101,34 +112,57 @@ adminProductsRouter.patch("/products/:id", async (req, res, next) => {
     );
 
     const product = await prisma.$transaction(async (tx) => {
+      // All slug-alias machinery runs first: (1) Postgres aborts the whole
+      // transaction on any constraint failure, so we have to detect collisions
+      // up front rather than try/catch around a Prisma create; (2) failing
+      // here costs nothing — running it after the destructive deletes would
+      // still roll back, but burns writes.
+      if (data.slug !== existing.slug) {
+        const newSlugConflict = await tx.productSlugAlias.findFirst({
+          where: { slug: data.slug, productId: { not: req.params.id } },
+          select: { productId: true },
+        });
+        if (newSlugConflict) {
+          throw new ConflictError(
+            "SLUG_ALIAS_CONFLICT",
+            "Este slug pertenece al historial de otro producto. Elige otro.",
+          );
+        }
+
+        const ownerOfOldSlugAlias = await tx.productSlugAlias.findUnique({
+          where: { slug: existing.slug },
+          select: { productId: true },
+        });
+        if (
+          ownerOfOldSlugAlias &&
+          ownerOfOldSlugAlias.productId !== req.params.id
+        ) {
+          // Inconsistent legacy data: another product already aliased to our
+          // current slug. Unreachable once newSlugConflict is in place, but
+          // refuse loudly rather than corrupt the chain further.
+          throw new ConflictError(
+            "SLUG_ALIAS_CONFLICT",
+            "Conflicto con el historial de otro producto. Contacta al administrador.",
+          );
+        }
+        if (!ownerOfOldSlugAlias) {
+          await tx.productSlugAlias.create({
+            data: { productId: req.params.id, slug: existing.slug },
+          });
+        }
+        // Recycle: if reverting to a slug we previously aliased, free our row
+        // so the Product can take the slug back.
+        await tx.productSlugAlias.deleteMany({
+          where: { productId: req.params.id, slug: data.slug },
+        });
+      }
+
       // PATCH full-replaces variant prices, images, and design joins. Old
       // image R2 keys orphan here (same swap-time tradeoff as Phase 2.6 §7.1).
       // Designs are global; their images stay.
       await tx.productVariantPrice.deleteMany({ where: { productId: req.params.id } });
       await tx.productImage.deleteMany({ where: { productId: req.params.id } });
       await tx.productDesign.deleteMany({ where: { productId: req.params.id } });
-
-      // If the slug changed, snapshot the prior value as a ProductSlugAlias so
-      // old URLs keep resolving to this product. Tolerate the case where the
-      // same alias was created in a previous edit cycle.
-      if (data.slug !== existing.slug) {
-        try {
-          await tx.productSlugAlias.create({
-            data: { productId: req.params.id, slug: existing.slug },
-          });
-        } catch (e) {
-          if (
-            !(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
-          ) {
-            throw e;
-          }
-        }
-        // If reverting to a slug previously seen as an alias of this product,
-        // remove that alias row so we can take the slug back on the Product.
-        await tx.productSlugAlias.deleteMany({
-          where: { productId: req.params.id, slug: data.slug },
-        });
-      }
 
       await tx.product.update({
         where: { id: req.params.id },
