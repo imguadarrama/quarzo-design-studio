@@ -1,0 +1,63 @@
+@use "../../styles/tokens" as t;
+@use "../../styles/mixins" as m;
+
+.card {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  border-radius: t.$radius-md;
+  background-color: t.$color-bg;
+  transition: transform 160ms ease;
+}
+
+.card:hover .image {
+  transform: scale(1.02);
+}
+
+.card:focus-visible {
+  @include m.focus-ring;
+}
+
+.imageWrap {
+  width: 100%;
+  aspect-ratio: t.$ratio-card;
+  overflow: hidden;
+  border-radius: t.$radius-md;
+  background-color: t.$color-surface;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 240ms ease;
+}
+
+.imagePlaceholder {
+  width: 100%;
+  height: 100%;
+  background-color: t.$color-surface;
+}
+
+.body {
+  padding: t.$space-3 t.$space-1 0;
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-1;
+}
+
+.name {
+  margin: 0;
+  font-family: t.$font-primary;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+}
+
+.priceFrom {
+  margin: 0;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  color: t.$color-text-muted;
+}
