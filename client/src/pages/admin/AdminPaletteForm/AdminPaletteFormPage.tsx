@@ -6,7 +6,7 @@ import { Button } from "@/components/Button/Button";
 import { FormField } from "@/components/FormField/FormField";
 import { Input } from "@/components/Input/Input";
 import { PageError, PageLoading } from "@/components/PageState/PageState";
-import { Typography } from "@/components/Typography/Typography";
+import { PageSection } from "@/components/PageSection/PageSection";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
 import { applyServerFieldError } from "@/lib/serverFieldErrors";
 import { slugify } from "@/lib/slug";
@@ -195,22 +195,6 @@ export function AdminPaletteFormPage() {
 
   const onSubmit = handleSubmit(submit);
 
-  if (mode === "edit" && loadError) {
-    return (
-      <section className={styles.wrapper}>
-        <PageError message={loadError} onRetry={load} />
-      </section>
-    );
-  }
-
-  if (mode === "edit" && !loaded) {
-    return (
-      <section className={styles.wrapper}>
-        <PageLoading />
-      </section>
-    );
-  }
-
   const heading = mode === "edit" ? "Editar paleta" : "Nueva paleta";
   const lede =
     mode === "edit"
@@ -219,22 +203,29 @@ export function AdminPaletteFormPage() {
   const submitLabel = mode === "edit" ? "Guardar cambios" : "Crear paleta";
   const submittingLabel = mode === "edit" ? "Guardando…" : "Creando…";
 
+  if (mode === "edit" && loadError) {
+    return (
+      <PageSection title={heading} width="narrow">
+        <PageError message={loadError} onRetry={load} />
+      </PageSection>
+    );
+  }
+
+  if (mode === "edit" && !loaded) {
+    return (
+      <PageSection title={heading} width="narrow">
+        <PageLoading />
+      </PageSection>
+    );
+  }
+
   const swatchesRootError =
     typeof errors.swatches?.message === "string"
       ? errors.swatches.message
       : undefined;
 
   return (
-    <section className={styles.wrapper}>
-      <header className={styles.header}>
-        <Typography as="h1" size="xxl" className={styles.title}>
-          {heading}
-        </Typography>
-        <Typography as="p" className={styles.lede}>
-          {lede}
-        </Typography>
-      </header>
-
+    <PageSection title={heading} subtitle={lede} width="narrow">
       <FormProvider {...formMethods}>
         <form onSubmit={onSubmit} noValidate className={styles.form}>
           <FormField label="Nombre" error={errors.name?.message}>
@@ -306,6 +297,6 @@ export function AdminPaletteFormPage() {
           </div>
         </form>
       </FormProvider>
-    </section>
+    </PageSection>
   );
 }

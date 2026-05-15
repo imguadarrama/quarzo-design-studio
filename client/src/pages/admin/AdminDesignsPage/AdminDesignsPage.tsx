@@ -9,8 +9,8 @@ import {
   PageError,
   PageLoading,
 } from "@/components/PageState/PageState";
+import { PageSection } from "@/components/PageSection/PageSection";
 import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
-import { Typography } from "@/components/Typography/Typography";
 import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
 import { useAdminListResource } from "@/hooks/useAdminListResource";
 import { deleteDesign, listDesigns } from "@/services/api/admin";
@@ -143,26 +143,16 @@ export function AdminDesignsPage() {
   const count = designs?.length ?? 0;
 
   return (
-    <section className={styles.wrapper}>
-      <PhaseFlowHint current="disenos" />
-      <header className={styles.header}>
-        <div className={styles.headerText}>
-          <Typography as="h1" size="xxl" className={styles.title}>
-            Diseños
-          </Typography>
-          <Typography as="p" className={styles.lede}>
-            {count} {count === 1 ? "diseño" : "diseños"} disponibles. Aplica a
-            cualquier producto desde la pantalla del producto.
-          </Typography>
-        </div>
-        <ButtonLink
-          to="/admin/disenos/nuevo"
-          size="sm"
-          className={styles.newButton}
-        >
+    <PageSection
+      title="Diseños"
+      subtitle={`${count} ${count === 1 ? "diseño" : "diseños"} disponibles. Aplica a cualquier producto desde la pantalla del producto.`}
+      prefix={<PhaseFlowHint current="disenos" />}
+      actions={
+        <ButtonLink to="/admin/disenos/nuevo" size="sm">
           Nuevo diseño
         </ButtonLink>
-      </header>
+      }
+    >
       {body}
       <ConfirmDialog
         isOpen={isConfirming}
@@ -185,6 +175,6 @@ export function AdminDesignsPage() {
         }}
         onCancel={cancelDelete}
       />
-    </section>
+    </PageSection>
   );
 }

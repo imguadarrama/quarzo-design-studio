@@ -1,48 +1,6 @@
 @use "../../../styles/tokens" as t;
 @use "../../../styles/mixins" as m;
 
-.wrapper {
-  max-width: 72rem;
-  margin: 0 auto;
-  padding: t.$space-6 t.$space-4;
-
-  @include m.screen-md {
-    padding: t.$space-8;
-  }
-}
-
-.header {
-  display: flex;
-  flex-direction: column;
-  gap: t.$space-4;
-  margin-bottom: t.$space-8;
-
-  @include m.screen-md {
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: t.$space-6;
-  }
-}
-
-.headerText {
-  min-width: 0;
-}
-
-.title {
-  margin: 0;
-}
-
-.newButton {
-  align-self: flex-start;
-  white-space: nowrap;
-}
-
-.lede {
-  margin: t.$space-2 0 0;
-  color: t.$color-text-muted;
-}
-
 .grid {
   list-style: none;
   margin: 0;

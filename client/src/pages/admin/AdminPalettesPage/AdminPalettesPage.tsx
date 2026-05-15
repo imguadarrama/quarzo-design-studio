@@ -8,8 +8,8 @@ import {
   PageError,
   PageLoading,
 } from "@/components/PageState/PageState";
+import { PageSection } from "@/components/PageSection/PageSection";
 import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
-import { Typography } from "@/components/Typography/Typography";
 import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
 import { useAdminListResource } from "@/hooks/useAdminListResource";
 import { ApiError } from "@/services/api/fetchJson";
@@ -142,26 +142,16 @@ export function AdminPalettesPage() {
   const swatchText = swatchCount === 1 ? "muestra" : "muestras";
 
   return (
-    <section className={styles.wrapper}>
-      <PhaseFlowHint current="paletas" />
-      <header className={styles.header}>
-        <div className={styles.headerText}>
-          <Typography as="h1" size="xxl" className={styles.title}>
-            Paletas
-          </Typography>
-          <Typography as="p" className={styles.lede}>
-            {count} {count === 1 ? "paleta" : "paletas"} de imágenes globales,
-            vinculadas a tipos de variante.
-          </Typography>
-        </div>
-        <ButtonLink
-          to="/admin/paletas/nuevo"
-          size="sm"
-          className={styles.newButton}
-        >
+    <PageSection
+      title="Paletas"
+      subtitle={`${count} ${count === 1 ? "paleta" : "paletas"} de imágenes globales, vinculadas a tipos de variante.`}
+      prefix={<PhaseFlowHint current="paletas" />}
+      actions={
+        <ButtonLink to="/admin/paletas/nuevo" size="sm">
           Nueva paleta
         </ButtonLink>
-      </header>
+      }
+    >
       {body}
       <ConfirmDialog
         isOpen={isConfirming}
@@ -196,6 +186,6 @@ export function AdminPalettesPage() {
         }}
         onCancel={cancelDelete}
       />
-    </section>
+    </PageSection>
   );
 }

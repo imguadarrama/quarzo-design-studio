@@ -8,8 +8,8 @@ import {
   PageError,
   PageLoading,
 } from "@/components/PageState/PageState";
+import { PageSection } from "@/components/PageSection/PageSection";
 import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
-import { Typography } from "@/components/Typography/Typography";
 import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
 import { useAdminListResource } from "@/hooks/useAdminListResource";
 import { ApiError } from "@/services/api/fetchJson";
@@ -131,26 +131,16 @@ export function AdminCategoriesPage() {
   const count = categories?.length ?? 0;
 
   return (
-    <section className={styles.wrapper}>
-      <PhaseFlowHint current="categorias" />
-      <header className={styles.header}>
-        <div className={styles.headerText}>
-          <Typography as="h1" size="xxl" className={styles.title}>
-            Categorías
-          </Typography>
-          <Typography as="p" className={styles.lede}>
-            {count} {count === 1 ? "categoría" : "categorías"} disponibles. Una
-            categoría agrupa productos y filtra los diseños del editor.
-          </Typography>
-        </div>
-        <ButtonLink
-          to="/admin/categorias/nuevo"
-          size="sm"
-          className={styles.newButton}
-        >
+    <PageSection
+      title="Categorías"
+      subtitle={`${count} ${count === 1 ? "categoría" : "categorías"} disponibles. Una categoría agrupa productos y filtra los diseños del editor.`}
+      prefix={<PhaseFlowHint current="categorias" />}
+      actions={
+        <ButtonLink to="/admin/categorias/nuevo" size="sm">
           Nueva categoría
         </ButtonLink>
-      </header>
+      }
+    >
       {body}
       <ConfirmDialog
         isOpen={isConfirming}
@@ -173,6 +163,6 @@ export function AdminCategoriesPage() {
         }}
         onCancel={cancelDelete}
       />
-    </section>
+    </PageSection>
   );
 }

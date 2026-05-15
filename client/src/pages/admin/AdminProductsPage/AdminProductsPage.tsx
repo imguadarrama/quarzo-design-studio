@@ -7,8 +7,8 @@ import {
   PageError,
   PageLoading,
 } from "@/components/PageState/PageState";
+import { PageSection } from "@/components/PageSection/PageSection";
 import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
-import { Typography } from "@/components/Typography/Typography";
 import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
 import { useAdminListResource } from "@/hooks/useAdminListResource";
 import { deleteProduct, fetchAdminProducts } from "@/services/api/admin";
@@ -98,25 +98,16 @@ export function AdminProductsPage() {
   const connectorText = imageCount === 1 ? "y" : "y sus";
 
   return (
-    <section className={styles.wrapper}>
-      <PhaseFlowHint current="productos" />
-      <header className={styles.header}>
-        <div className={styles.headerText}>
-          <Typography as="h1" size="xxl" className={styles.title}>
-            Productos
-          </Typography>
-          <Typography as="p" className={styles.lede}>
-            {count} {count === 1 ? "producto" : "productos"} en el catálogo.
-          </Typography>
-        </div>
-        <ButtonLink
-          to="/admin/productos/nuevo"
-          size="sm"
-          className={styles.newButton}
-        >
+    <PageSection
+      title="Productos"
+      subtitle={`${count} ${count === 1 ? "producto" : "productos"} en el catálogo.`}
+      prefix={<PhaseFlowHint current="productos" />}
+      actions={
+        <ButtonLink to="/admin/productos/nuevo" size="sm">
           Nuevo producto
         </ButtonLink>
-      </header>
+      }
+    >
       {body}
       <ConfirmDialog
         isOpen={isConfirming}
@@ -151,6 +142,6 @@ export function AdminProductsPage() {
         }}
         onCancel={cancelDelete}
       />
-    </section>
+    </PageSection>
   );
 }
