@@ -229,9 +229,9 @@ Full execution-level detail (per-slice decisions, files touched, acceptance crit
 
 Exit criteria: every slice merged; `pnpm preflight:full` green; browser smoke covers `/catalogo`, `/producto/:slug`, `/admin/login`, `/admin/productos` (full CRUD); Lighthouse mobile a11y ≥ 95 on the public pages; `CLAUDE.md` client section accurately lists the components and pages now in the tree.
 
-> **Slice 8–10 are blocked on Phases 2.6 + 2.7 below.** Slice 7 shipped a working admin product editor on the legacy base64-in-Postgres image pipeline; before the public-facing slices land, image storage moves to Cloudflare R2 (Phase 2.6) and the design-style axis is added to the data model (Phase 2.7). Slice 9 in particular consumes both.
+> **Slice 9 consumes the Phase 2.6 + 2.7 data model that landed in PR #34 and PR #36.** Slice 7 shipped a working admin product editor on the legacy base64-in-Postgres image pipeline; image storage has since moved to Cloudflare R2 (Phase 2.6) and the design-style axis was added to the data model (Phase 2.7). Slice 8 (catalog) is independent and can land in either order.
 
-### Phase 2.6 — Image storage migration
+### Phase 2.6 — Image storage migration ✅
 
 Move product images off base64-in-Postgres to Cloudflare R2 with server-side resize via Sharp. Slice 7 shipped against the existing 500 KB data-URL pipeline; this phase swaps the backend without changing the customer-facing surface. Without this, Phase 2.7 (designs) would carry 20+ image rows per product as inline base64 in every public response.
 
@@ -244,7 +244,7 @@ Move product images off base64-in-Postgres to Cloudflare R2 with server-side res
 
 Full plan: [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md).
 
-### Phase 2.7 — Fixed variant kinds + global designs + global palettes
+### Phase 2.7 — Fixed variant kinds + global designs + global palettes ✅
 
 **Reworked mid-PR** to match the client's locked contract: the catalog has exactly four fixed variant kinds (`Con foil`, `Con tinta normal`, `Con foil y tinta normal`, `Papel texturizado`) that don't change per product — only the price + sku do. Designs are global (same library across all products). Personalization is hardcoded as a required "Nombre y apellido" text input; the per-variant `ProductVariantOption` table is removed. Foil-color swatches stay global via `OptionPalette` / `OptionSwatch`, linked to foil-bearing variants by a server code constant (`VARIANT_PALETTE_SLUG`).
 
@@ -256,7 +256,7 @@ Full plan: [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md).
 - [x] Seed creates 4 categories, 4 products × 4 variant prices (with one realistic `offered: false` example on stickers' textured-paper variant), 3 global designs with category + compat sets, and the `Colores de foil` palette.
 - [x] Follow-up iteration (commits after rework): auto-generated SKUs `<slug>-<KIND_SHORT>-<4charRandom>` via `lib/sku-generator.ts` (stable suffix across slug edits, collision-checked); `ProductVariantPrice.offered` toggle replacing the brittle "price 0 = hidden" footgun; `Product.category String` promoted to `Category` table + FK + M2M with designs; `ProductSlugAlias` table + public-route fallback so slug edits preserve old URLs; `OrderItem.sku` snapshot column added pre-Phase-3; slug auto-derive resumed in edit mode (was frozen by `slugDirtyRef`).
 
-Full plan: [`phase-2.7-execution-plan.md`](phase-2.7-execution-plan.md). Blocked on Phase 2.6 (closed).
+Full plan: [`phase-2.7-execution-plan.md`](phase-2.7-execution-plan.md). Merged in PR #36.
 
 ### Phase 3 — Cart + guest checkout foundation
 - [ ] Cart in zustand + `localStorage`

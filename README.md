@@ -2,7 +2,7 @@
 
 Custom-stationery e-commerce store (Saltillo, Coahuila — Spanish copy, MXN payments) built on a deliberately pedagogical stack: TypeScript monorepo, Express + Prisma, Vite + React, Postgres, all wrapped in Docker Compose.
 
-> **Status:** **Phase 2.5 — Client foundation rebuild (SCSS modules), in progress.** Phase 2 shipped the functional skeleton on `main` (catalog, product detail, admin auth, admin product CRUD — live on staging + prod). PR #15 then pivoted the client off Tailwind onto an SCSS-modules + design-token system with three sibling layouts and a zustand admin auth store; the public catalog, product detail, and admin product CRUD UIs were intentionally stubbed out and will be rebuilt UX-first as one PR per slice. Server cleanup runs in parallel: [`docs/phase-2-execution-plan.md`](docs/phase-2-execution-plan.md) (server) + [`docs/phase-2.5-execution-plan.md`](docs/phase-2.5-execution-plan.md) (client slices).
+> **Status:** **Phase 2.5 — Client foundation rebuild (SCSS modules), in progress (Slices 0–7 done; 8–10 pending).** Phase 2 shipped the functional skeleton on `main` (catalog, product detail, admin auth, admin product CRUD — live on staging + prod), PR #15 then pivoted the client off Tailwind onto an SCSS-modules + design-token system with three sibling layouts and a zustand admin auth store. **Phase 2.6 is merged** (PR #34 — product images on Cloudflare R2 with a server-side Sharp pipeline). **Phase 2.7 is merged** (PR #36 — fixed `VariantKind` enum, global `Design` library, first-class `Category` + `ProductSlugAlias`, server-generated SKUs). Remaining Phase 2.5 slices (public catalog, public product detail with the revised design-first flow, a11y pass) ship one PR per slice. Plans: [`docs/phase-2-execution-plan.md`](docs/phase-2-execution-plan.md) · [`docs/phase-2.5-execution-plan.md`](docs/phase-2.5-execution-plan.md) · [`docs/phase-2.6-execution-plan.md`](docs/phase-2.6-execution-plan.md) · [`docs/phase-2.7-execution-plan.md`](docs/phase-2.7-execution-plan.md).
 >
 > See [`docs/tech-roadmap.md`](docs/tech-roadmap.md) for the phased plan and [`CLAUDE.md`](CLAUDE.md) for architecture conventions and invariants.
 
@@ -77,7 +77,7 @@ Hot reload is already wired: the `api` service runs `tsx watch` and the `web` se
 | Port | Service | Notes |
 |---|---|---|
 | `5173` | Vite dev server (`web`) | Frontend. Proxies `/api/*` → `api:3000` (see `client/vite.config.ts`), so the browser calls same-origin `/api/...` |
-| `3000` | Express API (`api`) | `/api/health`, `/api/products`, `/api/admin/auth/*`, `/api/admin/products/*` are live. Cart/checkout routes land in Phase 3. |
+| `3000` | Express API (`api`) | `/api/health`, `/api/products`, `/api/admin/auth/*`, `/api/admin/products/*`, `/api/admin/categories/*`, `/api/admin/designs/*`, `/api/admin/palettes/*`, `POST /api/admin/images` are live. Cart/checkout routes land in Phase 3. |
 | `5432` | Postgres 16 (`db`) | Exposed on localhost so you can connect with TablePlus / DBeaver / `psql` |
 
 ---
@@ -114,6 +114,11 @@ All variables live in `.env` at the repo root. `docker-compose.yml` reads it and
 | `CUSTOMER_AUTH_COOKIE_NAME` | Customer-session cookie name (default `quarzo_customer_session`; wired in Phase 5) |
 | `AUTH_TOKEN_TTL_HOURS` | Lifetime of admin/customer JWTs in hours (default `12`) |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Seeded admin-user credentials (consumed by `server/src/seed.ts`). There is intentionally no public admin registration endpoint |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID — used by the R2 S3-compatible client. Same value as the GitHub secret of the same name |
+| `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Credentials for the R2 access token. Local dev uses the **staging-only** token (`quarzo-r2-rw-staging`) so a mistake can't touch prod. Captured once on token creation; if lost, delete and recreate the token |
+| `R2_BUCKET` | R2 bucket name (default `quarzo-media-staging` locally; `quarzo-media` in prod) |
+| `R2_PUBLIC_BASE_URL` | Public `pub-<hash>.r2.dev` base URL Cloudflare assigns after enabling public access on the bucket. No trailing slash |
+| `R2_KEY_PREFIX` | Optional segment prefixed to every R2 key. Empty locally and in prod; `deploy-staging.yml` sets it to `pr-<N>` per PR so `cleanup-staging.yml` can purge per-PR uploads on close |
 
 Never read `process.env.*` directly from app code — import `env` from `server/src/config/env.ts`.
 
