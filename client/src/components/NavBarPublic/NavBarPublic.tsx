@@ -1,23 +1,27 @@
 import { Link } from "react-router-dom";
+import { NavBar } from "../NavBar/NavBar";
 import styles from "./NavBarPublic.module.scss";
+
+const links = [
+  { to: "/catalogo", label: "Catálogo" },
+  { to: "/carrito", label: "Carrito" },
+  { to: "/mi-cuenta", label: "Mi cuenta" },
+];
 
 export function NavBarPublic() {
   return (
-    <nav className={styles.nav} aria-label="Navegación principal">
-      <Link to="/" className={styles.brand}>
-        Quarzo
-      </Link>
+    <NavBar
+      ariaLabel="Navegación principal"
+      brandTo="/"
+      wordmark="Quarzo Design Store"
+    >
       <ul className={styles.links}>
-        <li>
-          <Link to="/catalogo">Catálogo</Link>
-        </li>
-        <li>
-          <Link to="/carrito">Carrito</Link>
-        </li>
-        <li>
-          <Link to="/mi-cuenta">Mi cuenta</Link>
-        </li>
+        {links.map(({ to, label }) => (
+          <li key={to}>
+            <Link to={to}>{label}</Link>
+          </li>
+        ))}
       </ul>
-    </nav>
+    </NavBar>
   );
 }

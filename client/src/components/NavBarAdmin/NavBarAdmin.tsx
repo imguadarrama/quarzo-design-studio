@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAdminAuthStore } from "@/store/adminAuth";
-import CircularLogo from "@/assets/circular-logo.png";
+import { NavBar } from "../NavBar/NavBar";
 import styles from "./NavBarAdmin.module.scss";
 import { Button } from "../Button/Button.js";
 import { Typography } from "../Typography/Typography.js";
@@ -25,43 +25,43 @@ export function NavBarAdmin() {
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     isActive ? `${styles.navLink} ${styles.navLinkActive}` : styles.navLink;
 
+  const links = [
+    { to: "/admin/categorias", label: "Categorías" },
+    { to: "/admin/paletas", label: "Paletas" },
+    { to: "/admin/disenos", label: "Diseños" },
+    { to: "/admin/productos", label: "Productos" },
+  ];
+
   return (
-    <nav className={styles.nav} aria-label="Panel de administración">
-      <Link to="/admin/productos" className={styles.brand}>
-        <img src={CircularLogo} className={styles.logo} alt="" loading="lazy" />
-        <Typography
-          as="span"
-          size="md"
-          weight="medium"
-          className={styles.wordmark}
-        >
-          Admin
-        </Typography>
-      </Link>
+    <NavBar
+      ariaLabel="Panel de administración"
+      brandTo="/admin/productos"
+      wordmark="Admin"
+      right={
+        <>
+          {admin ? (
+            <Typography as="span" size="xs" className={styles.email}>
+              {admin.email}
+            </Typography>
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleLogout}
+            disabled={busy}
+          >
+            Cerrar sesión
+          </Button>
+        </>
+      }
+    >
       <div className={styles.links}>
-        <NavLink to="/admin/categorias" className={navLinkClass}>
-          Categorías
-        </NavLink>
-        <NavLink to="/admin/paletas" className={navLinkClass}>
-          Paletas
-        </NavLink>
-        <NavLink to="/admin/disenos" className={navLinkClass}>
-          Diseños
-        </NavLink>
-        <NavLink to="/admin/productos" className={navLinkClass}>
-          Productos
-        </NavLink>
+        {links.map(({ to, label }) => (
+          <NavLink key={to} to={to} className={navLinkClass}>
+            {label}
+          </NavLink>
+        ))}
       </div>
-      <div className={styles.right}>
-        {admin ? (
-          <Typography as="span" size="xs" className={styles.email}>
-            {admin.email}
-          </Typography>
-        ) : null}
-        <Button type="button" size="sm" onClick={handleLogout} disabled={busy}>
-          Cerrar sesión
-        </Button>
-      </div>
-    </nav>
+    </NavBar>
   );
 }
