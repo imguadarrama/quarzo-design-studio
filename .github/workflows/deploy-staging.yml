@@ -58,11 +58,7 @@ jobs:
         continue-on-error: true
         env:
           DATABASE_URL: ${{ env.DATABASE_URL_POOLED }}
-          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL_STAGING }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_STAGING }}
-        run: |
-          pnpm --filter server exec prisma migrate deploy
-          pnpm --filter server seed
+        run: pnpm --filter server exec prisma migrate deploy
 
       # Auto-recover from divergent migration state on per-PR Neon branches.
       # Triggered when a PR rewrites/squashes a migration mid-flight and the
@@ -99,11 +95,14 @@ jobs:
         if: steps.migrate.outcome == 'failure'
         env:
           DATABASE_URL: ${{ env.DATABASE_URL_POOLED }}
+        run: pnpm --filter server exec prisma migrate deploy
+
+      - name: Seed database
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_POOLED }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL_STAGING }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_STAGING }}
-        run: |
-          pnpm --filter server exec prisma migrate deploy
-          pnpm --filter server seed
+        run: pnpm --filter server seed
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
