@@ -204,6 +204,8 @@ Triggered on `pull_request` (opened / synchronize / reopened). Skipped for docs-
 
 This is paired with `cleanup-staging.yml` (§6.4) which destroys the per-PR Fly app on PR close. There is no shared staging API anymore — the original single `quarzo-api-staging` app is decommissioned and can be destroyed manually once the new flow is verified.
 
+**Auto-recovery on migration failure.** If `prisma migrate deploy` fails against the per-PR Neon branch — most commonly P3009 after a PR rewrites/squashes its migration folder mid-flight — the workflow automatically deletes the `pr-<N>` Neon branch, recreates it from the parent, and retries `migrate deploy + seed` once on the fresh branch. The reset path emits a `::warning::` annotation visible in the GH Actions UI; if you see it on a staging run, the previous push left a divergent migration state and the next deploy converged automatically — no operator action needed. The recreated branch's pooled URL is pinned to `$GITHUB_ENV` so the later `flyctl secrets set DATABASE_URL=...` step picks it up. This is **staging-only** — `deploy-production.yml` keeps Prisma's loud-fail-on-P3009 default because prod has real data and silent resets would be unsafe.
+
 ### 6.3 `deploy-production.yml` — manual release
 
 File: [`.github/workflows/deploy-production.yml`](../../.github/workflows/deploy-production.yml).

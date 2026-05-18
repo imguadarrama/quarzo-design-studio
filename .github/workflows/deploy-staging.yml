@@ -40,6 +40,9 @@ jobs:
           branch_name: pr-${{ github.event.number }}
           api_key: ${{ secrets.NEON_API_KEY }}
 
+      - name: Pin DB URL to env
+        run: echo "DATABASE_URL_POOLED=${{ steps.neon.outputs.db_url_pooled }}" >> "$GITHUB_ENV"
+
       - name: Build, typecheck, and smoke-test image
         uses: ./.github/actions/build-and-check
         with:
@@ -51,13 +54,55 @@ jobs:
           vite-api-base-url: ""
 
       - name: Run migrations on PR branch
+        id: migrate
+        continue-on-error: true
         env:
-          DATABASE_URL: ${{ steps.neon.outputs.db_url_pooled }}
+          DATABASE_URL: ${{ env.DATABASE_URL_POOLED }}
+        run: pnpm --filter server exec prisma migrate deploy
+
+      # Auto-recover from divergent migration state on per-PR Neon branches.
+      # Triggered when a PR rewrites/squashes a migration mid-flight and the
+      # previously-applied migration is no longer on disk — Prisma marks the
+      # new migration failed (P3009) and every subsequent push short-circuits.
+      # The per-PR branch holds no real data, so wipe + recreate is safe.
+      # Prod (deploy-production.yml) intentionally keeps Prisma's loud-fail.
+      - name: Announce auto-recovery
+        if: steps.migrate.outcome == 'failure'
+        run: echo "::warning::migrate deploy failed on pr-${{ github.event.number }} Neon branch; resetting and retrying once."
+
+      - name: Reset Neon branch (migrate failed)
+        if: steps.migrate.outcome == 'failure'
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID_STAGING }}
+          branch: pr-${{ github.event.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Recreate Neon branch
+        id: neon_retry
+        if: steps.migrate.outcome == 'failure'
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID_STAGING }}
+          branch_name: pr-${{ github.event.number }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+
+      - name: Pin recreated DB URL to env
+        if: steps.migrate.outcome == 'failure'
+        run: echo "DATABASE_URL_POOLED=${{ steps.neon_retry.outputs.db_url_pooled }}" >> "$GITHUB_ENV"
+
+      - name: Retry migrations on fresh branch
+        if: steps.migrate.outcome == 'failure'
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_POOLED }}
+        run: pnpm --filter server exec prisma migrate deploy
+
+      - name: Seed database
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL_POOLED }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL_STAGING }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_STAGING }}
-        run: |
-          pnpm --filter server exec prisma migrate deploy
-          pnpm --filter server seed
+        run: pnpm --filter server seed
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 
@@ -74,7 +119,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: |
           flyctl secrets set -a ${{ steps.fly.outputs.app }} \
-            DATABASE_URL="${{ steps.neon.outputs.db_url_pooled }}" \
+            DATABASE_URL="${{ env.DATABASE_URL_POOLED }}" \
             JWT_SECRET="${{ secrets.JWT_SECRET_STAGING }}" \
             ADMIN_EMAIL="${{ secrets.ADMIN_EMAIL_STAGING }}" \
             ADMIN_PASSWORD="${{ secrets.ADMIN_PASSWORD_STAGING }}" \
