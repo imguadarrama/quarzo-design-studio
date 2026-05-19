@@ -1,0 +1,41 @@
+@use "../../styles/tokens" as t;
+@use "../../styles/mixins" as m;
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  padding: 0 t.$space-4;
+  background-color: t.$color-bg;
+
+  @include m.screen-md {
+    padding: 0 t.$space-8;
+  }
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: t.$space-3;
+  color: t.$color-ink;
+}
+
+.logo {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0;
+}
+
+.wordmark {
+  font-family: t.$font-primary;
+  color: t.$color-ink;
+  letter-spacing: 0.02em;
+}
+
+.right {
+  display: inline-flex;
+  align-items: center;
+  gap: t.$space-4;
+}

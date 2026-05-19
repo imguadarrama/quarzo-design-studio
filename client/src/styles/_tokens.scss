@@ -1,3 +1,5 @@
+@use "sass:string";
+
 // Brand palette — do not consume directly in components.
 $color-white: rgba(255, 255, 255, 1);
 $color-cream: rgba(245, 238, 230, 1);
@@ -65,6 +67,9 @@ $shadow-card: 0 8px 24px rgba(0, 0, 0, 0.1);
 // Breakpoints
 $bp-md: 768px;
 $bp-lg: 1024px;
+
+// Aspect ratios
+$ratio-card: string.unquote("4 / 5");
 
 // Re-emit semantic tokens as CSS custom properties so they remain
 // available at runtime (media queries, JS-set theme overrides).

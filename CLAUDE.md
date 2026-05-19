@@ -188,6 +188,8 @@ client/src/
 
 **Component file convention.** One folder per component, `<Name>.tsx` + `<Name>.module.scss` co-located (e.g. `Button/Button.tsx` + `Button/Button.module.scss`). The named export matches the folder. Plain `.tsx` files at the top of `components/` (e.g. `RequireAdmin.tsx`) are reserved for components with no styles of their own.
 
+**Shared navbar shell.** All navbar variants must use `<NavBar>` from `components/NavBar/NavBar.tsx` as their outer shell. It owns the `<nav>`, brand link, logo, and wordmark. Pass the links section as `children` and the right cluster via the `right` prop. Never copy `.nav`, `.brand`, `.logo`, or `.wordmark` styles into a new component — extend `NavBar.module.scss` instead.
+
 **Styling.** SCSS modules only — no global utility classes, no Tailwind, no `clsx`. Tokens live in `styles/_tokens.scss`. Components import `_tokens.scss` via `@use "../../styles/tokens" as t;` (or `mixins`) and reference values as `t.$color-accent`. The same semantic tokens are re-emitted as CSS custom properties on `:root` so runtime consumers (media queries, future theme switching, JS-set overrides) can read them as `var(--color-accent)`.
 
 **Stack.** `react-router-dom`, `zustand`, `react-hook-form`, `@hookform/resolvers/zod`, `zod`, native `fetch`. The cart will live in `localStorage` for guests and sync to the DB when a customer logs in (Phase 3+). Mobile-first — primary traffic is Instagram on phones.

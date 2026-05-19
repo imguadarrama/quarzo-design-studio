@@ -1,24 +1,6 @@
 @use "../../../styles/tokens" as t;
 @use "../../../styles/mixins" as m;
 
-.wrapper {
-  max-width: 44rem;
-  margin: 0 auto;
-  padding: t.$space-6 t.$space-4;
-
-  @include m.screen-md {
-    padding: t.$space-8;
-  }
-}
-
-.header {
-  margin-bottom: t.$space-8;
-}
-
-.title {
-  margin: 0;
-}
-
 .select {
   width: 100%;
   padding: t.$space-2 t.$space-3;
@@ -37,14 +19,6 @@
 .select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.lede {
-  color: t.$color-text-muted;
-  font-family: t.$font-secondary;
-  font-size: t.$font-size-sm;
-  margin: t.$space-2 0 0;
-  max-width: 36rem;
 }
 
 .form {

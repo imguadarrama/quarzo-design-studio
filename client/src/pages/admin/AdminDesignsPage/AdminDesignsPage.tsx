@@ -1,16 +1,11 @@
 import { useCallback } from "react";
-import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { AsyncContent } from "@/components/AsyncContent/AsyncContent";
 import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { ConfirmDialog } from "@/components/ConfirmDialog/ConfirmDialog";
-import {
-  PageEmpty,
-  PageError,
-  PageLoading,
-} from "@/components/PageState/PageState";
+import { PageSection } from "@/components/PageSection/PageSection";
 import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
-import { Typography } from "@/components/Typography/Typography";
 import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
 import { useAdminListResource } from "@/hooks/useAdminListResource";
 import { deleteDesign, listDesigns } from "@/services/api/admin";
@@ -52,118 +47,101 @@ export function AdminDesignsPage() {
     onDeleted: handleDeleted,
   });
 
-  let body: ReactNode;
-  if (error) {
-    body = <PageError message={error} onRetry={reload} />;
-  } else if (designs == null) {
-    body = <PageLoading />;
-  } else if (designs.length === 0) {
-    body = (
-      <PageEmpty
-        title="Aún no hay diseños"
-        message="Crea tu primer diseño global para asignarlo a productos."
-      >
-        <p className={styles.emptyHint}>
-          ¿Aún no tienes una paleta?{" "}
-          <Link className={styles.link} to="/admin/paletas">
-            Crea una paleta primero →
-          </Link>
-        </p>
-      </PageEmpty>
-    );
-  } else {
-    body = (
-      <ul className={styles.grid}>
-        {designs.map((design) => {
-          const errorMessage = rowErrorById[design.id] ?? null;
-          const cardClass = design.active
-            ? styles.card
-            : `${styles.card} ${styles.inactive}`;
-          return (
-            <li key={design.id} className={styles.item}>
-              <div className={cardClass}>
-                <img
-                  src={design.imageUrl}
-                  alt={design.name}
-                  className={styles.thumb}
-                  loading="lazy"
-                />
-                <div className={styles.body}>
-                  <div className={styles.titleRow}>
-                    <span className={styles.name}>{design.name}</span>
-                    <span className={styles.status}>
-                      {design.active ? "Activo" : "Inactivo"}
-                    </span>
-                  </div>
-                  <div className={styles.kinds}>
-                    {design.compatibleKinds.length === 0 ? (
-                      <span className={styles.kindBadgeMuted}>
-                        Sin variantes
-                      </span>
-                    ) : (
-                      design.compatibleKinds.map((k) => (
-                        <span key={k} className={styles.kindBadge}>
-                          {KIND_LABELS[k]}
-                        </span>
-                      ))
-                    )}
-                  </div>
-                  <div className={styles.actions}>
-                    <ButtonLink
-                      to={`/admin/disenos/${design.id}/editar`}
-                      size="sm"
-                    >
-                      Editar
-                    </ButtonLink>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => requestDelete(design)}
-                      disabled={isDeleting && confirming?.id === design.id}
-                    >
-                      {isDeleting && confirming?.id === design.id
-                        ? "Eliminando…"
-                        : "Eliminar"}
-                    </Button>
-                  </div>
-                  {errorMessage ? (
-                    <span role="alert" className={styles.rowError}>
-                      {errorMessage}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    );
-  }
-
   const count = designs?.length ?? 0;
 
   return (
-    <section className={styles.wrapper}>
-      <PhaseFlowHint current="disenos" />
-      <header className={styles.header}>
-        <div className={styles.headerText}>
-          <Typography as="h1" size="xxl" className={styles.title}>
-            Diseños
-          </Typography>
-          <Typography as="p" className={styles.lede}>
-            {count} {count === 1 ? "diseño" : "diseños"} disponibles. Aplica a
-            cualquier producto desde la pantalla del producto.
-          </Typography>
-        </div>
-        <ButtonLink
-          to="/admin/disenos/nuevo"
-          size="sm"
-          className={styles.newButton}
-        >
+    <PageSection
+      title="Diseños"
+      subtitle={`${count} ${count === 1 ? "diseño" : "diseños"} disponibles. Aplica a cualquier producto desde la pantalla del producto.`}
+      prefix={<PhaseFlowHint current="disenos" />}
+      actions={
+        <ButtonLink to="/admin/disenos/nuevo" size="sm">
           Nuevo diseño
         </ButtonLink>
-      </header>
-      {body}
+      }
+    >
+      <AsyncContent
+        data={designs}
+        error={error}
+        onRetry={reload}
+        emptyTitle="Aún no hay diseños"
+        emptyMessage="Crea tu primer diseño global para asignarlo a productos."
+        emptyChildren={
+          <p className={styles.emptyHint}>
+            ¿Aún no tienes una paleta?{" "}
+            <Link className={styles.link} to="/admin/paletas">
+              Crea una paleta primero →
+            </Link>
+          </p>
+        }
+      >
+        {(items) => (
+          <ul className={styles.grid}>
+            {items.map((design) => {
+              const errorMessage = rowErrorById[design.id] ?? null;
+              const cardClass = design.active
+                ? styles.card
+                : `${styles.card} ${styles.inactive}`;
+              return (
+                <li key={design.id} className={styles.item}>
+                  <div className={cardClass}>
+                    <img
+                      src={design.imageUrl}
+                      alt={design.name}
+                      className={styles.thumb}
+                      loading="lazy"
+                    />
+                    <div className={styles.body}>
+                      <div className={styles.titleRow}>
+                        <span className={styles.name}>{design.name}</span>
+                        <span className={styles.status}>
+                          {design.active ? "Activo" : "Inactivo"}
+                        </span>
+                      </div>
+                      <div className={styles.kinds}>
+                        {design.compatibleKinds.length === 0 ? (
+                          <span className={styles.kindBadgeMuted}>
+                            Sin variantes
+                          </span>
+                        ) : (
+                          design.compatibleKinds.map((k) => (
+                            <span key={k} className={styles.kindBadge}>
+                              {KIND_LABELS[k]}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                      <div className={styles.actions}>
+                        <ButtonLink
+                          to={`/admin/disenos/${design.id}/editar`}
+                          size="sm"
+                        >
+                          Editar
+                        </ButtonLink>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => requestDelete(design)}
+                          disabled={isDeleting && confirming?.id === design.id}
+                        >
+                          {isDeleting && confirming?.id === design.id
+                            ? "Eliminando…"
+                            : "Eliminar"}
+                        </Button>
+                      </div>
+                      {errorMessage ? (
+                        <span role="alert" className={styles.rowError}>
+                          {errorMessage}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </AsyncContent>
       <ConfirmDialog
         isOpen={isConfirming}
         title="Eliminar diseño"
@@ -171,8 +149,8 @@ export function AdminDesignsPage() {
           confirming ? (
             <>
               <p>
-                Esto eliminará el diseño <strong>{confirming.name}</strong> y
-                lo quitará de todos los productos donde esté asignado.
+                Esto eliminará el diseño <strong>{confirming.name}</strong> y lo
+                quitará de todos los productos donde esté asignado.
               </p>
               <p>Esta acción no se puede deshacer.</p>
             </>
@@ -185,6 +163,6 @@ export function AdminDesignsPage() {
         }}
         onCancel={cancelDelete}
       />
-    </section>
+    </PageSection>
   );
 }
