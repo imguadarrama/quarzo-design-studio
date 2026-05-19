@@ -1,13 +1,8 @@
 import { useCallback } from "react";
-import type { ReactNode } from "react";
+import { AsyncContent } from "@/components/AsyncContent/AsyncContent";
 import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { ConfirmDialog } from "@/components/ConfirmDialog/ConfirmDialog";
-import {
-  PageEmpty,
-  PageError,
-  PageLoading,
-} from "@/components/PageState/PageState";
 import { PageSection } from "@/components/PageSection/PageSection";
 import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
 import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
@@ -56,78 +51,6 @@ export function AdminCategoriesPage() {
     onDeleted: handleDeleted,
   });
 
-  let body: ReactNode;
-  if (error) {
-    body = <PageError message={error} onRetry={reload} />;
-  } else if (categories == null) {
-    body = <PageLoading />;
-  } else if (categories.length === 0) {
-    body = (
-      <PageEmpty
-        title="Aún no hay categorías"
-        message="Crea tu primera categoría (ej. Sobres, Tarjetas, Stickers) para empezar a agrupar tus diseños y productos."
-      />
-    );
-  } else {
-    body = (
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Categoría</th>
-              <th scope="col">Estado</th>
-              <th scope="col" aria-label="Acciones" />
-            </tr>
-          </thead>
-          <tbody>
-            {categories.map((category) => {
-              const errorMessage = rowErrorById[category.id] ?? null;
-              const rowClass = category.active
-                ? styles.row
-                : `${styles.row} ${styles.inactive}`;
-              return (
-                <tr key={category.id} className={rowClass}>
-                  <td className={styles.nameCell} data-label="Categoría">
-                    <span className={styles.name}>{category.name}</span>
-                    <span className={styles.slug}>/{category.slug}</span>
-                  </td>
-                  <td data-label="Estado">
-                    {category.active ? "Activa" : "Inactiva"}
-                  </td>
-                  <td className={styles.actionsCell} data-label="Acciones">
-                    <div className={styles.actions}>
-                      <ButtonLink
-                        to={`/admin/categorias/${category.id}/editar`}
-                        size="sm"
-                      >
-                        Editar
-                      </ButtonLink>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => requestDelete(category)}
-                        disabled={isDeleting && confirming?.id === category.id}
-                      >
-                        {isDeleting && confirming?.id === category.id
-                          ? "Eliminando…"
-                          : "Eliminar"}
-                      </Button>
-                      {errorMessage ? (
-                        <span role="alert" className={styles.rowError}>
-                          {errorMessage}
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
   const count = categories?.length ?? 0;
 
   return (
@@ -141,7 +64,73 @@ export function AdminCategoriesPage() {
         </ButtonLink>
       }
     >
-      {body}
+      <AsyncContent
+        data={categories}
+        error={error}
+        onRetry={reload}
+        emptyTitle="Aún no hay categorías"
+        emptyMessage="Crea tu primera categoría (ej. Sobres, Tarjetas, Stickers) para empezar a agrupar tus diseños y productos."
+      >
+        {(items) => (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">Categoría</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col" aria-label="Acciones" />
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((category) => {
+                  const errorMessage = rowErrorById[category.id] ?? null;
+                  const rowClass = category.active
+                    ? styles.row
+                    : `${styles.row} ${styles.inactive}`;
+                  return (
+                    <tr key={category.id} className={rowClass}>
+                      <td className={styles.nameCell} data-label="Categoría">
+                        <span className={styles.name}>{category.name}</span>
+                        <span className={styles.slug}>/{category.slug}</span>
+                      </td>
+                      <td data-label="Estado">
+                        {category.active ? "Activa" : "Inactiva"}
+                      </td>
+                      <td className={styles.actionsCell} data-label="Acciones">
+                        <div className={styles.actions}>
+                          <ButtonLink
+                            to={`/admin/categorias/${category.id}/editar`}
+                            size="sm"
+                          >
+                            Editar
+                          </ButtonLink>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => requestDelete(category)}
+                            disabled={
+                              isDeleting && confirming?.id === category.id
+                            }
+                          >
+                            {isDeleting && confirming?.id === category.id
+                              ? "Eliminando…"
+                              : "Eliminar"}
+                          </Button>
+                          {errorMessage ? (
+                            <span role="alert" className={styles.rowError}>
+                              {errorMessage}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AsyncContent>
       <ConfirmDialog
         isOpen={isConfirming}
         title="Eliminar categoría"

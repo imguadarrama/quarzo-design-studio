@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import { NavBar } from "../NavBar/NavBar";
 import styles from "./NavBarPublic.module.scss";
 
@@ -7,6 +7,9 @@ const links = [
   { to: "/carrito", label: "Carrito" },
   { to: "/mi-cuenta", label: "Mi cuenta" },
 ];
+
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  isActive ? `${styles.link} ${styles.linkActive}` : styles.link;
 
 export function NavBarPublic() {
   return (
@@ -18,7 +21,9 @@ export function NavBarPublic() {
       <ul className={styles.links}>
         {links.map(({ to, label }) => (
           <li key={to}>
-            <Link to={to}>{label}</Link>
+            <NavLink to={to} className={navLinkClass}>
+              {label}
+            </NavLink>
           </li>
         ))}
       </ul>

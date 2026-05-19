@@ -1,4 +1,5 @@
 @use "../../styles/tokens" as t;
+@use "../../styles/mixins" as m;
 
 .links {
   display: flex;
@@ -7,15 +8,24 @@
   padding: 0;
   list-style: none;
   font-family: t.$font-secondary;
-  font-size: 14px;
+  font-size: t.$font-size-xs;
   font-weight: t.$weight-medium;
 }
 
-.links a {
-  color: t.$color-ink;
+.link {
+  color: t.$color-text-muted;
+  text-decoration: none;
   transition: color 120ms ease;
 }
 
-.links a:hover {
-  color: t.$color-text-muted;
+.link:hover {
+  color: t.$color-ink;
+}
+
+.link:focus-visible {
+  @include m.focus-ring;
+}
+
+.linkActive {
+  color: t.$color-ink;
 }
