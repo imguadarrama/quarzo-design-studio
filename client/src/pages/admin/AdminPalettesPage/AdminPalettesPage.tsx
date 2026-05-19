@@ -1,13 +1,8 @@
 import { useCallback } from "react";
-import type { ReactNode } from "react";
+import { AsyncContent } from "@/components/AsyncContent/AsyncContent";
 import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/Button/ButtonLink";
 import { ConfirmDialog } from "@/components/ConfirmDialog/ConfirmDialog";
-import {
-  PageEmpty,
-  PageError,
-  PageLoading,
-} from "@/components/PageState/PageState";
 import { PageSection } from "@/components/PageSection/PageSection";
 import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
 import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
@@ -59,84 +54,6 @@ export function AdminPalettesPage() {
     onDeleted: handleDeleted,
   });
 
-  let body: ReactNode;
-  if (error) {
-    body = <PageError message={error} onRetry={reload} />;
-  } else if (palettes == null) {
-    body = <PageLoading />;
-  } else if (palettes.length === 0) {
-    body = (
-      <PageEmpty
-        title="Aún no hay paletas"
-        message="Crea tu primera paleta para usarla en opciones tipo SWATCH."
-      />
-    );
-  } else {
-    body = (
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th scope="col">Paleta</th>
-              <th scope="col" className={styles.numeric}>
-                Muestras
-              </th>
-              <th scope="col">Estado</th>
-              <th scope="col" aria-label="Acciones" />
-            </tr>
-          </thead>
-          <tbody>
-            {palettes.map((palette) => {
-              const errorMessage = rowErrorById[palette.id] ?? null;
-              const rowClass = palette.active
-                ? styles.row
-                : `${styles.row} ${styles.inactive}`;
-              return (
-                <tr key={palette.id} className={rowClass}>
-                  <td className={styles.nameCell} data-label="Paleta">
-                    <span className={styles.name}>{palette.name}</span>
-                    <span className={styles.slug}>/{palette.slug}</span>
-                  </td>
-                  <td className={styles.numeric} data-label="Muestras">
-                    {palette.swatches.length}
-                  </td>
-                  <td data-label="Estado">
-                    {palette.active ? "Activa" : "Inactiva"}
-                  </td>
-                  <td className={styles.actionsCell} data-label="Acciones">
-                    <div className={styles.actions}>
-                      <ButtonLink
-                        to={`/admin/paletas/${palette.id}/editar`}
-                        size="sm"
-                      >
-                        Editar
-                      </ButtonLink>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => requestDelete(palette)}
-                        disabled={isDeleting && confirming?.id === palette.id}
-                      >
-                        {isDeleting && confirming?.id === palette.id
-                          ? "Eliminando…"
-                          : "Eliminar"}
-                      </Button>
-                      {errorMessage ? (
-                        <span role="alert" className={styles.rowError}>
-                          {errorMessage}
-                        </span>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
   const count = palettes?.length ?? 0;
   const swatchCount = confirming?.swatches.length ?? 0;
   const swatchText = swatchCount === 1 ? "muestra" : "muestras";
@@ -152,7 +69,79 @@ export function AdminPalettesPage() {
         </ButtonLink>
       }
     >
-      {body}
+      <AsyncContent
+        data={palettes}
+        error={error}
+        onRetry={reload}
+        emptyTitle="Aún no hay paletas"
+        emptyMessage="Crea tu primera paleta para usarla en opciones tipo SWATCH."
+      >
+        {(items) => (
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th scope="col">Paleta</th>
+                  <th scope="col" className={styles.numeric}>
+                    Muestras
+                  </th>
+                  <th scope="col">Estado</th>
+                  <th scope="col" aria-label="Acciones" />
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((palette) => {
+                  const errorMessage = rowErrorById[palette.id] ?? null;
+                  const rowClass = palette.active
+                    ? styles.row
+                    : `${styles.row} ${styles.inactive}`;
+                  return (
+                    <tr key={palette.id} className={rowClass}>
+                      <td className={styles.nameCell} data-label="Paleta">
+                        <span className={styles.name}>{palette.name}</span>
+                        <span className={styles.slug}>/{palette.slug}</span>
+                      </td>
+                      <td className={styles.numeric} data-label="Muestras">
+                        {palette.swatches.length}
+                      </td>
+                      <td data-label="Estado">
+                        {palette.active ? "Activa" : "Inactiva"}
+                      </td>
+                      <td className={styles.actionsCell} data-label="Acciones">
+                        <div className={styles.actions}>
+                          <ButtonLink
+                            to={`/admin/paletas/${palette.id}/editar`}
+                            size="sm"
+                          >
+                            Editar
+                          </ButtonLink>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => requestDelete(palette)}
+                            disabled={
+                              isDeleting && confirming?.id === palette.id
+                            }
+                          >
+                            {isDeleting && confirming?.id === palette.id
+                              ? "Eliminando…"
+                              : "Eliminar"}
+                          </Button>
+                          {errorMessage ? (
+                            <span role="alert" className={styles.rowError}>
+                              {errorMessage}
+                            </span>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </AsyncContent>
       <ConfirmDialog
         isOpen={isConfirming}
         title="Eliminar paleta"

@@ -12,6 +12,7 @@ interface AsyncContentProps<T> {
   onRetry?: () => void;
   emptyTitle?: string;
   emptyMessage?: string;
+  emptyChildren?: ReactNode;
   loadingLabel?: string;
   children: ReactNode | ((data: NonNullable<T>) => ReactNode);
 }
@@ -22,13 +23,18 @@ export function AsyncContent<T>({
   onRetry,
   emptyTitle = "No hay nada por aquí todavía",
   emptyMessage,
+  emptyChildren,
   loadingLabel,
   children,
 }: AsyncContentProps<T>) {
   if (error) return <PageError message={error} onRetry={onRetry} />;
   if (data == null) return <PageLoading label={loadingLabel} />;
   if (Array.isArray(data) && data.length === 0)
-    return <PageEmpty title={emptyTitle} message={emptyMessage} />;
+    return (
+      <PageEmpty title={emptyTitle} message={emptyMessage}>
+        {emptyChildren}
+      </PageEmpty>
+    );
   return (
     <>
       {typeof children === "function"

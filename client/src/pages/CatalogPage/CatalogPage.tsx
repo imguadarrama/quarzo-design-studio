@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  PageEmpty,
-  PageError,
-  PageLoading,
-} from "@/components/PageState/PageState";
+import { AsyncContent } from "@/components/AsyncContent/AsyncContent";
+import { PageEmpty } from "@/components/PageState/PageState";
 import { PageSection } from "@/components/PageSection/PageSection";
 import { ProductCard } from "@/components/ProductCard/ProductCard";
 import type { Category, Product } from "@/lib/types";
@@ -43,78 +40,76 @@ export function CatalogPage() {
     load();
   }, [load]);
 
-  let body;
-  if (error) {
-    body = <PageError message={error} onRetry={load} />;
-  } else if (products == null) {
-    body = <PageLoading />;
-  } else if (products.length === 0) {
-    body = (
-      <PageEmpty
-        title="Aún no hay productos en el catálogo"
-        message="Vuelve pronto — estamos preparando nuevas piezas."
-      />
-    );
-  } else {
-    const categories = deriveCategories(products);
-    const visible =
-      selected === ALL_CATEGORIES
-        ? products
-        : products.filter((p) => p.category.id === selected);
-
-    body = (
-      <>
-        <div className={styles.chips} role="tablist" aria-label="Categorías">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={selected === ALL_CATEGORIES}
-            className={`${styles.chip} ${selected === ALL_CATEGORIES ? styles.chipActive : ""}`}
-            onClick={() => setSelected(ALL_CATEGORIES)}
-          >
-            Todos
-          </button>
-          {categories.map((c) => {
-            const isActive = selected === c.id;
-            return (
-              <button
-                key={c.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`${styles.chip} ${isActive ? styles.chipActive : ""}`}
-                onClick={() => setSelected(c.id)}
-              >
-                {c.name}
-              </button>
-            );
-          })}
-        </div>
-
-        {visible.length === 0 ? (
-          <PageEmpty
-            title="Sin productos en esta categoría"
-            message="Prueba con otra categoría."
-          />
-        ) : (
-          <ul className={styles.grid}>
-            {visible.map((p) => (
-              <li key={p.id} className={styles.gridItem}>
-                <ProductCard product={p} />
-              </li>
-            ))}
-          </ul>
-        )}
-      </>
-    );
-  }
-
   return (
     <PageSection
       title="Catálogo"
       subtitle="Papelería personalizada hecha en Saltillo."
     >
-      {body}
+      <AsyncContent
+        data={products}
+        error={error}
+        onRetry={load}
+        emptyTitle="Aún no hay productos en el catálogo"
+        emptyMessage="Vuelve pronto — estamos preparando nuevas piezas."
+      >
+        {(items) => {
+          const categories = deriveCategories(items);
+          const visible =
+            selected === ALL_CATEGORIES
+              ? items
+              : items.filter((p) => p.category.id === selected);
+
+          return (
+            <>
+              <div
+                className={styles.chips}
+                role="tablist"
+                aria-label="Categorías"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={selected === ALL_CATEGORIES}
+                  className={`${styles.chip} ${selected === ALL_CATEGORIES ? styles.chipActive : ""}`}
+                  onClick={() => setSelected(ALL_CATEGORIES)}
+                >
+                  Todos
+                </button>
+                {categories.map((c) => {
+                  const isActive = selected === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      className={`${styles.chip} ${isActive ? styles.chipActive : ""}`}
+                      onClick={() => setSelected(c.id)}
+                    >
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {visible.length === 0 ? (
+                <PageEmpty
+                  title="Sin productos en esta categoría"
+                  message="Prueba con otra categoría."
+                />
+              ) : (
+                <ul className={styles.grid}>
+                  {visible.map((p) => (
+                    <li key={p.id} className={styles.gridItem}>
+                      <ProductCard product={p} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          );
+        }}
+      </AsyncContent>
     </PageSection>
   );
 }
