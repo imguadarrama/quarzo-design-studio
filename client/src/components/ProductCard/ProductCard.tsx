@@ -15,6 +15,8 @@ const priceFormatter = new Intl.NumberFormat("es-MX", {
 
 export function ProductCard({ product }: ProductCardProps) {
   const hero = product.images[0] ?? null;
+  // Server already drops non-offered variants in the public serializer
+  // (server/src/lib/serializers.ts:142), so every price here is sellable.
   const prices = product.variants.map((v) => v.price);
   const priceFrom = prices.length > 0 ? Math.min(...prices) : null;
 
