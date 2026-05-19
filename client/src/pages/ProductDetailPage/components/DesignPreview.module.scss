@@ -1,0 +1,51 @@
+@use "../../../styles/tokens" as t;
+@use "../../../styles/mixins" as m;
+
+.figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-3;
+}
+
+.imageWrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  border-radius: t.$radius-md;
+  background-color: t.$color-surface;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.placeholder {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: t.$radius-md;
+  background-color: t.$color-surface;
+}
+
+.caption {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-1;
+}
+
+.captionLabel {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.captionName {
+  font-family: t.$font-primary;
+  font-size: t.$font-size-md;
+  color: t.$color-ink;
+}

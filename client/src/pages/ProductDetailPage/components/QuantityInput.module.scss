@@ -1,0 +1,51 @@
+@use "../../../styles/tokens" as t;
+@use "../../../styles/mixins" as m;
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+.legend {
+  display: block;
+  margin-bottom: t.$space-2;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: stretch;
+  gap: t.$space-2;
+}
+
+.stepperButton {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.value {
+  width: 56px;
+  text-align: center;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  color: t.$color-ink;
+  border: 1px solid t.$color-line;
+  border-radius: t.$radius-sm;
+  padding: t.$space-3 t.$space-4;
+}
+
+.value:focus-visible {
+  @include m.focus-ring;
+  border-color: t.$color-ink;
+}
+
+.error {
+  margin: 2px 0 0;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-error;
+  min-height: calc(t.$font-size-xxs * 1.3);
+}
