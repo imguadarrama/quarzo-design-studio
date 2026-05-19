@@ -138,21 +138,22 @@ Current layout (folders / files land when their first occupant does — many are
 
 ```
 client/src/
-  App.tsx                    BrowserRouter + composed route groups (currently adminRoutes + 404)
-                             (PublicLayout defined but unwired until Slice 8)
+  App.tsx                    BrowserRouter + composed route groups (adminRoutes + publicRoutes + 404)
   index.scss                 global reset; reads CSS custom properties
   styles/
     _tokens.scss             SCSS vars + semantic aliases + :root custom properties
     _mixins.scss             focus-ring, screen-md/lg/below-md, flex-center, sticky-header, form-error-banner
   layouts/
-    PublicLayout.tsx         public navbar + Outlet (Slice 8/9 will mount routes under it)
+    PublicLayout.tsx         public navbar + Outlet (mounts /, /catalogo, /producto/:slug)
     AuthLayout.tsx           bare centered shell (login)
     AdminLayout.tsx          admin navbar + Outlet, internally wraps in RequireAdmin
   routes/
     adminRoutes.tsx          AuthLayout (/admin/login) + AdminLayout (/admin/productos*) + /admin redirect
+    publicRoutes.tsx         PublicLayout wrapping /, /catalogo, /producto/:slug
   components/
-    Button/  Card/  ConfirmDialog/  FormField/  FullPageSpinner/  Input/  NavBarAdmin/  NavBarPublic/
-    PageState/  PhaseFlowHint/  ProductCard/  ReorderControls/  Spinner/  Textarea/  Typography/
+    AsyncContent/  Button/  Card/  ConfirmDialog/  FormField/  FullPageSpinner/  Input/
+    NavBar/  NavBarAdmin/  NavBarPublic/  PageSection/  PageState/  PhaseFlowHint/
+    ProductCard/  ReorderControls/  Spinner/  Textarea/  Typography/
     RequireAdmin.tsx
   pages/
     NotFoundPage/
@@ -160,6 +161,7 @@ client/src/
     admin/AdminProductsPage/   list with two-click delete (Slices 4 + 6) — fetch + table/cards via PageState
     admin/AdminProductForm/    create + edit (Slices 5–7 + Phase 2.7 rework) — AdminProductFormPage.tsx,
                                schema.ts (variants .length(4), designIds[]), mappers.ts,
+                               pending-images.ts (deferred R2 upload staging),
                                components/{ProductImageEditor, ProductVariantEditor, ProductDesignsSelector}.tsx.
                                Variants are 4 fixed rows (read-only label + price + sku). Designs picked via
                                checkbox grid over the global Design library.
@@ -189,6 +191,10 @@ client/src/
     useAdminDeleteFlow.ts     pending/confirm/in-flight/error for the two-click delete pattern
   lib/
     types.ts                 mirrors server response shapes
+    variant-kinds.ts         client-side VARIANT_KIND_NAMES map (mirrors server lib)
+    format.ts                price + number formatting utilities
+    slug.ts                  slug derivation helpers
+    serverFieldErrors.ts     maps API field-error envelopes onto RHF setError calls
 ```
 
 **Path alias.** Client cross-folder imports use the `@/` alias (e.g. `import { Button } from "@/components/Button/Button"`); same-folder imports stay relative (`./schema.js`, `./mappers.js`). Wired in `client/tsconfig.json` (`paths`) and `client/vite.config.ts` (`resolve.alias`). Server has no alias — keep using `../db/prisma.js`-style relative imports there (NodeNext resolution + `tsc` emit, no bundler in the loop).

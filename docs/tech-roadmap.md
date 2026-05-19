@@ -208,7 +208,7 @@ Monitoring (Fly alerts + UptimeRobot) is deferred to Phase 7 — with zero traff
 - [x] Variant selector + personalization text input on the detail page
 - [x] Mobile-responsive catalog layout
 
-### Phase 2.5 — Client foundation rebuild (SCSS modules) — in progress
+### Phase 2.5 — Client foundation rebuild (SCSS modules) ✅
 Phase 2 shipped a functional but uneven frontend on Tailwind, with a 571-line `AdminProductsPage`, no shared primitives, and brand colors scattered across raw utility classes. PR #15 abandoned that surface in favor of a clean SCSS-modules + design-token foundation (3-layout routing, zustand admin auth, `RequireAdmin` route guard, `react-hook-form` + `zod` admin login) and intentionally left the rest of the client as stubs to rebuild slice by slice. The remaining work is delivered as one PR per slice — each one specs its architecture and style decisions before code lands. Public catalog and product detail will be designed UX-first; they are not restorations of what existed before.
 
 Slice 7 added a small server change (`ProductVariant.position`) so variant order is admin-controlled. Image storage migration (base64 → R2) and the design-style data model are split into Phases 2.6 and 2.7 below — they need their own focus and were too large to fold into a Phase 2.5 slice.
