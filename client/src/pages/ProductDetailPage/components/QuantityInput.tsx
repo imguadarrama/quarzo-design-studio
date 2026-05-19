@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Controller, type Control } from "react-hook-form";
 import { Button } from "@/components/Button/Button";
 import type { PickerValues } from "../schema";
@@ -39,16 +40,10 @@ export function QuantityInput({ control }: QuantityInputProps) {
               >
                 −
               </Button>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={MIN}
-                max={MAX}
+              <QuantityField
                 value={current}
-                onChange={(e) => field.onChange(clamp(Number(e.target.value)))}
+                onCommit={(n) => field.onChange(n)}
                 onBlur={field.onBlur}
-                aria-label="Cantidad"
-                className={styles.value}
               />
               <Button
                 size="sm"
@@ -69,6 +64,41 @@ export function QuantityInput({ control }: QuantityInputProps) {
           </div>
         );
       }}
+    />
+  );
+}
+
+interface QuantityFieldProps {
+  value: number;
+  onCommit: (n: number) => void;
+  onBlur: () => void;
+}
+
+function QuantityField({ value, onCommit, onBlur }: QuantityFieldProps) {
+  // Holds the raw string while the user is typing so partial input ("",
+  // "1", "12") doesn't snap back to a clamped number mid-edit.
+  const [draft, setDraft] = useState<string>(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={MIN}
+      max={MAX}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        const clamped = clamp(Number(draft));
+        setDraft(String(clamped));
+        onCommit(clamped);
+        onBlur();
+      }}
+      aria-label="Cantidad"
+      className={styles.value}
     />
   );
 }

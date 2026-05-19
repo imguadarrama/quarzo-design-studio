@@ -9,7 +9,12 @@ import { Input } from "@/components/Input/Input";
 import { PageSection } from "@/components/PageSection/PageSection";
 import { fetchProductBySlug } from "@/services/api/products";
 import type { Design, Product, VariantKind } from "@/lib/types";
-import { isFoilKind, VARIANT_KIND_ORDER } from "@/lib/variant-kinds";
+import { formatMxn } from "@/lib/format";
+import {
+  VARIANT_KIND_ORDER,
+  isFoilKind,
+  isSelectableVariant,
+} from "@/lib/variant-kinds";
 import { DesignPicker } from "./components/DesignPicker";
 import { DesignPreview } from "./components/DesignPreview";
 import { FoilSwatchPicker } from "./components/FoilSwatchPicker";
@@ -18,22 +23,20 @@ import { VariantKindSelector } from "./components/VariantKindSelector";
 import { pickerSchema, type PickerValues } from "./schema";
 import styles from "./ProductDetailPage.module.scss";
 
-const priceFormatter = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-  maximumFractionDigits: 0,
-});
-
 function firstCompatibleKind(
   product: Product,
   designId: string,
 ): VariantKind | null {
   const design = product.designs.find((d) => d.id === designId);
   if (!design) return null;
-  const offeredKinds = new Set(product.variants.map((v) => v.kind));
+  const selectableByKind = new Map(
+    product.variants
+      .filter(isSelectableVariant)
+      .map((v) => [v.kind, v] as const),
+  );
   const compatSet = new Set(design.compatibleKinds);
   for (const kind of VARIANT_KIND_ORDER) {
-    if (offeredKinds.has(kind) && compatSet.has(kind)) return kind;
+    if (selectableByKind.has(kind) && compatSet.has(kind)) return kind;
   }
   return null;
 }
@@ -71,8 +74,11 @@ export function ProductDetailPage() {
   }, [slug]);
 
   useEffect(() => {
+    // Skip refetch when the slug changed because we just navigate-replaced
+    // to the canonical slug — the product we already have is still correct.
+    if (product && slug && product.slug === slug) return;
     load();
-  }, [load]);
+  }, [load, product, slug]);
 
   useEffect(() => {
     if (product && slug && product.slug !== slug) {
@@ -102,7 +108,7 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
     register,
     watch,
     setValue,
-    formState: { errors, isValid },
+    formState: { errors },
     trigger,
   } = useForm<PickerValues>({
     resolver: zodResolver(pickerSchema),
@@ -124,14 +130,21 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
 
   const selectedDesignKinds = useMemo<VariantKind[]>(() => {
     if (!selectedDesign) return [];
-    const offered = new Set(product.variants.map((v) => v.kind));
-    return selectedDesign.compatibleKinds.filter((k) => offered.has(k));
+    const selectableKinds = new Set(
+      product.variants.filter(isSelectableVariant).map((v) => v.kind),
+    );
+    return selectedDesign.compatibleKinds.filter((k) =>
+      selectableKinds.has(k),
+    );
   }, [product, selectedDesign]);
 
   const currentVariant = useMemo(
     () => product.variants.find((v) => v.kind === selectedVariantKind) ?? null,
     [product, selectedVariantKind],
   );
+
+  const noCompatibleKinds =
+    selectedDesign !== null && selectedDesignKinds.length === 0;
 
   const isFoilSelected = currentVariant
     ? isFoilKind(currentVariant.kind)
@@ -155,7 +168,7 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
   }, [isFoilSelected, setValue]);
 
   const headerPrice = currentVariant
-    ? `${priceFormatter.format(currentVariant.price)} MXN`
+    ? `${formatMxn(currentVariant.price)} MXN`
     : null;
 
   const personalizationText = watch("personalizationText");
@@ -165,6 +178,7 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
   const missingFields = useMemo(() => {
     const items: string[] = [];
     if (!selectedDesignId) items.push("diseño");
+    if (noCompatibleKinds) return items;
     if (isFoilSelected && !foilSwatchId) items.push("color de foil");
     if (!personalizationText || personalizationText.trim().length === 0) {
       items.push("nombre");
@@ -180,6 +194,7 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
     return items;
   }, [
     selectedDesignId,
+    noCompatibleKinds,
     isFoilSelected,
     foilSwatchId,
     personalizationText,
@@ -217,55 +232,64 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
             >
               <DesignPicker designs={product.designs} control={control} />
 
-              <VariantKindSelector
-                variants={product.variants}
-                compatibleKinds={selectedDesignKinds}
-                control={control}
-              />
+              {noCompatibleKinds ? (
+                <p role="alert" className={styles.unavailable}>
+                  Este diseño no está disponible para este producto.
+                </p>
+              ) : (
+                <>
+                  <VariantKindSelector
+                    variants={product.variants}
+                    compatibleKinds={selectedDesignKinds}
+                    control={control}
+                  />
 
-              {isFoilSelected ? (
-                <FoilSwatchPicker
-                  swatches={currentVariant?.palette?.swatches ?? []}
-                  control={control}
-                />
-              ) : null}
-
-              <div className={styles.inlineRow}>
-                <div className={styles.nameField}>
-                  <FormField
-                    label="Nombre y apellido"
-                    error={errors.personalizationText?.message}
-                  >
-                    <Input
-                      type="text"
-                      autoComplete="off"
-                      maxLength={80}
-                      {...register("personalizationText")}
+                  {isFoilSelected ? (
+                    <FoilSwatchPicker
+                      swatches={currentVariant?.palette?.swatches ?? []}
+                      control={control}
                     />
-                  </FormField>
-                </div>
-                <div className={styles.qtyField}>
-                  <QuantityInput control={control} />
-                </div>
-              </div>
+                  ) : null}
 
-              <div className={styles.cta}>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="md"
-                  disabled={missingFields.length > 0}
-                >
-                  Agregar al carrito
-                </Button>
-                {missingFields.length > 0 ? (
-                  <p className={styles.ctaMissing} role="status">
-                    Para agregar al carrito, falta: {missingFields.join(", ")}
-                  </p>
-                ) : (
-                  <p className={styles.ctaHelper}>Disponible próximamente</p>
-                )}
-              </div>
+                  <div className={styles.inlineRow}>
+                    <div className={styles.nameField}>
+                      <FormField
+                        label="Nombre y apellido"
+                        error={errors.personalizationText?.message}
+                      >
+                        <Input
+                          type="text"
+                          autoComplete="off"
+                          maxLength={80}
+                          {...register("personalizationText")}
+                        />
+                      </FormField>
+                    </div>
+                    <div className={styles.qtyField}>
+                      <QuantityInput control={control} />
+                    </div>
+                  </div>
+
+                  <div className={styles.cta}>
+                    <Button
+                      type="submit"
+                      variant="primary"
+                      size="md"
+                      disabled={missingFields.length > 0}
+                    >
+                      Agregar al carrito
+                    </Button>
+                    {missingFields.length > 0 ? (
+                      <p className={styles.ctaMissing} role="status">
+                        Para agregar al carrito, falta:{" "}
+                        {missingFields.join(", ")}
+                      </p>
+                    ) : (
+                      <p className={styles.ctaHelper}>Disponible próximamente</p>
+                    )}
+                  </div>
+                </>
+              )}
             </form>
           )}
         </div>
