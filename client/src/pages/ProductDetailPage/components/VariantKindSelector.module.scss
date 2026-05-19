@@ -1,0 +1,119 @@
+@use "../../../styles/tokens" as t;
+@use "../../../styles/mixins" as m;
+
+.fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: t.$space-2;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+}
+
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: t.$space-2;
+
+  @include m.screen-md {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.item {
+  display: block;
+}
+
+.label {
+  display: block;
+  cursor: pointer;
+}
+
+.labelDisabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: t.$space-1;
+  min-height: 60px;
+  padding: t.$space-2 t.$space-3;
+  border: 1px solid t.$color-line;
+  border-radius: t.$radius-sm;
+  background-color: t.$color-bg;
+  color: t.$color-ink;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
+  text-align: center;
+}
+
+.label:hover .tile:not(.tileSelected) {
+  background-color: t.$color-surface-light;
+  border-color: t.$color-ink;
+  color: t.$color-ink;
+}
+
+.labelDisabled:hover .tile:not(.tileSelected) {
+  background-color: t.$color-bg;
+  border-color: t.$color-line;
+  color: t.$color-ink;
+}
+
+.input:focus-visible + .tile {
+  @include m.focus-ring;
+}
+
+.tileSelected {
+  border-color: t.$color-ink;
+  background-color: t.$color-ink;
+  color: t.$color-ink-on-dark;
+}
+
+.kindName {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xs;
+  color: inherit;
+  line-height: 1.2;
+}
+
+.price {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  font-weight: t.$weight-medium;
+  color: inherit;
+  opacity: 0.75;
+}
+
+.error {
+  margin: t.$space-2 0 0;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-error;
+}

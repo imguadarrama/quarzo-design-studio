@@ -1,0 +1,97 @@
+@use "../../styles/tokens" as t;
+@use "../../styles/mixins" as m;
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: t.$space-6;
+
+  @include m.screen-md {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    gap: t.$space-8;
+    align-items: start;
+  }
+}
+
+.previewColumn {
+  min-width: 0;
+
+  @include m.screen-md {
+    position: sticky;
+    top: t.$space-6;
+  }
+}
+
+.pickerColumn {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-4;
+  min-width: 0;
+}
+
+.description {
+  margin: 0;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xs;
+  color: t.$color-text-muted;
+  line-height: 1.5;
+}
+
+.unavailable {
+  margin: 0;
+  padding: t.$space-4;
+  border: 1px solid t.$color-line;
+  border-radius: t.$radius-sm;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  color: t.$color-text-muted;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-4;
+}
+
+.inlineRow {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: t.$space-4;
+  align-items: start;
+
+  @include m.screen-md {
+    grid-template-columns: 1fr auto;
+  }
+}
+
+.nameField {
+  min-width: 0;
+}
+
+.qtyField {
+  min-width: 0;
+}
+
+.cta {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-1;
+  margin-top: t.$space-2;
+}
+
+.ctaHelper {
+  margin: 0;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-text-muted;
+  text-align: center;
+}
+
+.ctaMissing {
+  margin: 0;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  font-weight: t.$weight-medium;
+  color: t.$color-error;
+  text-align: center;
+}

@@ -1,0 +1,82 @@
+@use "../../../styles/tokens" as t;
+@use "../../../styles/mixins" as m;
+
+.fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: t.$space-2;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+}
+
+.strip {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 t.$space-2;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: t.$space-2;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.item {
+  flex: 0 0 auto;
+}
+
+.label {
+  display: block;
+  cursor: pointer;
+}
+
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tile {
+  display: block;
+  width: 72px;
+  height: 72px;
+  overflow: hidden;
+  border-radius: t.$radius-sm;
+  border: 2px solid transparent;
+  transition: border-color 120ms ease;
+  background-color: t.$color-surface;
+}
+
+.input:focus-visible + .tile {
+  @include m.focus-ring;
+}
+
+.tileSelected {
+  border-color: t.$color-ink;
+}
+
+.thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.error {
+  margin: t.$space-2 0 0;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-error;
+}

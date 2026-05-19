@@ -1,17 +1,12 @@
 import { Link } from "react-router-dom";
 import { Typography } from "@/components/Typography/Typography";
+import { formatMxn } from "@/lib/format";
 import type { Product } from "@/lib/types";
 import styles from "./ProductCard.module.scss";
 
 interface ProductCardProps {
   product: Product;
 }
-
-const priceFormatter = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-  maximumFractionDigits: 0,
-});
 
 export function ProductCard({ product }: ProductCardProps) {
   const hero = product.images[0] ?? null;
@@ -40,7 +35,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </Typography>
         {priceFrom != null ? (
           <p className={styles.priceFrom}>
-            Desde {priceFormatter.format(priceFrom)} MXN
+            Desde {formatMxn(priceFrom)} MXN
           </p>
         ) : null}
       </div>
