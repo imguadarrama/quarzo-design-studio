@@ -46,6 +46,7 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v && v.length > 0 ? v.replace(/^\/+|\/+$/g, "") : "")),
+  SHIPPING_FLAT_RATE_MXN: z.coerce.number().positive(),
 });
 
 const parsed = envSchema.safeParse(process.env);
