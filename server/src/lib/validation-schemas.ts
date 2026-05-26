@@ -1,4 +1,4 @@
-import { VariantKind } from "@prisma/client";
+import { PaymentMethod, ShippingMethod, VariantKind } from "@prisma/client";
 import { z } from "zod";
 
 export const imageUrlSchema = z
@@ -128,3 +128,60 @@ export const palettePayloadSchema = z.object({
 });
 
 export type PaletteInput = z.infer<typeof palettePayloadSchema>;
+
+export const createOrderItemSchema = z.object({
+  productId: z.string().cuid(),
+  variantKind: z.nativeEnum(VariantKind),
+  designId: z.string().cuid(),
+  foilSwatchId: z.string().cuid().nullable(),
+  personalizationText: z.string().trim().min(1).max(80),
+  quantity: z.coerce.number().int().min(1).max(999),
+});
+
+export const shippingAddressSchema = z.object({
+  calle: z.string().trim().min(1).max(120),
+  numero: z.string().trim().min(1).max(20),
+  colonia: z.string().trim().min(1).max(80),
+  ciudad: z.string().trim().min(1).max(80),
+  estado: z.string().trim().min(1).max(80),
+  codigoPostal: z.string().regex(/^\d{5}$/, "Código postal inválido"),
+  notas: z.string().trim().max(280).optional(),
+});
+
+export const createOrderSchema = z
+  .object({
+    email: z.string().email("Correo inválido"),
+    name: z.string().trim().min(1).max(120),
+    phone: z.string().trim().min(7).max(20),
+    shippingMethod: z.nativeEnum(ShippingMethod),
+    shippingAddress: shippingAddressSchema.nullable(),
+    paymentMethod: z.nativeEnum(PaymentMethod),
+    items: z.array(createOrderItemSchema).min(1).max(50),
+    notes: z.string().trim().max(500).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.shippingMethod === "NACIONAL" && data.shippingAddress === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["shippingAddress"],
+        message: "La dirección de envío es obligatoria para envíos nacionales.",
+        params: { code: "ADDRESS_REQUIRED_FOR_NACIONAL" },
+      });
+    }
+    if (
+      data.shippingMethod === "PICKUP_SALTILLO" &&
+      data.shippingAddress !== null
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["shippingAddress"],
+        message:
+          "Una orden de recogida no puede llevar dirección de envío. Envíala como null.",
+        params: { code: "ADDRESS_NOT_ALLOWED_FOR_PICKUP" },
+      });
+    }
+  });
+
+export type CreateOrderInput = z.infer<typeof createOrderSchema>;
+export type CreateOrderItemInput = z.infer<typeof createOrderItemSchema>;
+export type ShippingAddressInput = z.infer<typeof shippingAddressSchema>;

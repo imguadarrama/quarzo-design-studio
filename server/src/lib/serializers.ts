@@ -45,6 +45,8 @@ export type CategoryWithRelations = Prisma.CategoryGetPayload<{
 
 const moneyToNumber = (value: Prisma.Decimal): number => Number(value);
 
+const moneyToString = (value: Prisma.Decimal): string => value.toFixed(2);
+
 const sortByPosition = <T extends { position: number }>(items: readonly T[]): T[] =>
   items.slice().sort((a, b) => a.position - b.position);
 
@@ -242,4 +244,48 @@ export const serializeCategoryPublic = (category: CategoryWithRelations) => ({
   id: category.id,
   name: category.name,
   slug: category.slug,
+});
+
+export const orderInclude = {
+  items: true,
+} satisfies Prisma.OrderInclude;
+
+export type OrderWithItems = Prisma.OrderGetPayload<{
+  include: typeof orderInclude;
+}>;
+
+type OrderItemRecord = OrderWithItems["items"][number];
+
+const serializeOrderItemPublic = (item: OrderItemRecord) => ({
+  productId: item.productId,
+  variantKind: item.variantKind,
+  sku: item.sku,
+  productName: item.productName,
+  variantName: item.variantName,
+  unitPrice: moneyToString(item.unitPrice),
+  quantity: item.quantity,
+  personalizationText: item.personalizationText,
+  selections: item.selections,
+  designId: item.designId,
+  designName: item.designName,
+  designImageUrl: item.designImageUrl,
+});
+
+// Exposes only what a guest needs to view their own order via publicToken.
+// Order.id, customerId, mpPreferenceId, mpPaymentId, notes (admin-only), and
+// OrderItem.id are intentionally omitted — publicToken is the only handle.
+export const serializeOrderPublic = (order: OrderWithItems) => ({
+  publicToken: order.publicToken,
+  status: order.status,
+  email: order.email,
+  name: order.name,
+  phone: order.phone,
+  shippingMethod: order.shippingMethod,
+  shippingAddress: order.shippingAddress,
+  shippingFee: moneyToString(order.shippingFee),
+  subtotal: moneyToString(order.subtotal),
+  total: moneyToString(order.total),
+  paymentMethod: order.paymentMethod,
+  createdAt: order.createdAt.toISOString(),
+  items: order.items.map(serializeOrderItemPublic),
 });
