@@ -47,6 +47,16 @@ const envSchema = z.object({
     .optional()
     .transform((v) => (v && v.length > 0 ? v.replace(/^\/+|\/+$/g, "") : "")),
   SHIPPING_FLAT_RATE_MXN: z.coerce.number().positive().default(150),
+  // docker-compose forwards unset host env vars as empty strings; treat those
+  // as "not provided" so the schema default applies instead of failing.
+  ORDERS_RATE_LIMIT_PER_MINUTE: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().positive().default(10),
+  ),
+  ADMIN_LOGIN_RATE_LIMIT_PER_15MIN: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().positive().default(5),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);

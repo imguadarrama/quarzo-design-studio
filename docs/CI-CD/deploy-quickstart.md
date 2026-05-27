@@ -209,6 +209,7 @@ Before asking me for help, **copy the last ~30 lines of the failing step** and p
 - **Don't hand-edit `.prisma/client` or anything under `node_modules`.** Run `prisma generate` instead.
 - **Don't rename the Fly apps, Cloudflare projects, or Neon projects after the fact.** The secret values are wired to these names. If you must rename, update all the `FLY_APP_*`, `FLY_ORG_STAGING`, `CLOUDFLARE_PAGES_PROJECT_*`, and `NEON_PROJECT_ID_*` secrets in the same commit. Renaming `FLY_APP_STAGING` orphans every existing per-PR app — destroy them manually with `flyctl apps destroy <name> -y` after the rename, or wait for the open PRs to close.
 - **Don't manually `flyctl apps create quarzo-api-staging-pr-<N>`.** The workflow does that idempotently. If you create one by hand and the PR number doesn't match, the workflow can't reach it.
+- **Don't remove `app.set("trust proxy", 1)` from `server/src/index.ts`.** Fly's load balancer terminates TLS and forwards via `X-Forwarded-For`. Without `trust proxy`, `express-rate-limit` (Phase 3 rate-limit, issue #49) keys every request by Fly's edge IP instead of the real client — meaning a single attacker shares the bucket with all legitimate users, and the limiter is effectively a no-op. If you ever add an additional reverse proxy in front (Cloudflare Workers, a custom edge, etc.), bump the trust hop count accordingly.
 
 ---
 

@@ -158,6 +158,7 @@ model ProductImage {
 model Order {
   id              String         @id @default(cuid())
   publicToken     String         @unique
+  clientToken     String?        @unique
   customerId      String?
   customer        Customer?      @relation(fields: [customerId], references: [id])
   email           String

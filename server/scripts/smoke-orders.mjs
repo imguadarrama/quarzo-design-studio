@@ -6,6 +6,7 @@
 // Usage: with `pnpm dev` up, run `node server/scripts/smoke-orders.mjs`.
 
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 
 const BASE = process.env.SMOKE_BASE_URL ?? "http://localhost:3000";
 const ALL_KINDS = [
@@ -106,6 +107,7 @@ const discoverFixtures = async () => {
 };
 
 const baseOrder = (overrides) => ({
+  clientToken: randomUUID(),
   email: "smoke@quarzo.test",
   name: "Smoke Test",
   phone: "8444445555",
@@ -243,6 +245,42 @@ const run = async () => {
     assert.ok(happyBody, "case 1 must run before case 10");
     assert.equal(typeof happyBody.id, "undefined", `unexpected order.id=${happyBody.id}`);
     return "id absent";
+  });
+
+  // Cases 11 + 12 share state to keep the total POST count under the rate
+  // limiter's per-minute budget.
+  let publicTokenA = null;
+
+  record(11, "same clientToken → same publicToken, second call returns 200", async () => {
+    const payload = baseOrder({
+      clientToken: randomUUID(),
+      items: [foilItem(fx)],
+    });
+    const first = await request("POST", "/api/orders", payload);
+    assert.equal(first.status, 201, JSON.stringify(first.body));
+    const second = await request("POST", "/api/orders", payload);
+    assert.equal(second.status, 200, `replay status ${second.status} body ${JSON.stringify(second.body)}`);
+    assert.equal(
+      second.body.order.publicToken,
+      first.body.order.publicToken,
+      "replay must return the same publicToken",
+    );
+    publicTokenA = first.body.order.publicToken;
+    return `publicToken=${publicTokenA.slice(0, 8)}…`;
+  });
+
+  record(12, "different clientToken with same payload → distinct order", async () => {
+    assert.ok(publicTokenA, "case 11 must run before case 12");
+    const r = await request("POST", "/api/orders", baseOrder({
+      items: [foilItem(fx)],
+    }));
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    assert.notEqual(
+      r.body.order.publicToken,
+      publicTokenA,
+      "distinct clientTokens must create distinct orders",
+    );
+    return "distinct publicToken";
   });
 
   let passed = 0;
