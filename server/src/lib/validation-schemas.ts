@@ -150,6 +150,7 @@ export const shippingAddressSchema = z.object({
 
 export const createOrderSchema = z
   .object({
+    clientToken: z.string().uuid("clientToken debe ser un UUID v4"),
     email: z.string().email("Correo inválido"),
     name: z.string().trim().min(1).max(120),
     phone: z.string().trim().min(7).max(20),

@@ -7,6 +7,7 @@ import { clearAuthCookie, setAuthCookie } from "../auth/cookies.js";
 import { signAuthToken } from "../auth/jwt.js";
 import { authenticateAdmin } from "../middleware/authenticateAdmin.js";
 import { requireAdmin } from "../middleware/requireAdmin.js";
+import { adminLoginLimiter } from "../middleware/rateLimiters.js";
 
 const adminLoginSchema = z.object({
   email: z.string().email(),
@@ -15,7 +16,7 @@ const adminLoginSchema = z.object({
 
 export const adminAuthRouter = Router();
 
-adminAuthRouter.post("/login", async (req, res) => {
+adminAuthRouter.post("/login", adminLoginLimiter, async (req, res) => {
   const parsed = adminLoginSchema.safeParse(req.body);
 
   if (!parsed.success) {

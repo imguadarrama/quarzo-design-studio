@@ -13,8 +13,12 @@ import { healthRouter } from "./routes/health.js";
 import { productsRouter } from "./routes/products.js";
 import { ordersRouter } from "./routes/orders.js";
 import { errorHandler } from "./middleware/errorHandler.js";
+import { ordersPostLimiter } from "./middleware/rateLimiters.js";
 
 const app = express();
+
+// Fly proxy fronts the app; without this express-rate-limit keys by edge IP, not client.
+app.set("trust proxy", 1);
 
 const previewOriginRegex = env.CLIENT_ORIGIN_PREVIEW_PATTERN
   ? new RegExp(env.CLIENT_ORIGIN_PREVIEW_PATTERN)
@@ -37,6 +41,7 @@ app.use(express.json({ limit: "1mb" }));
 
 app.use("/api", healthRouter);
 app.use("/api", productsRouter);
+app.post("/api/orders", ordersPostLimiter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/admin/auth", adminAuthRouter);
 app.use("/api/admin", adminProductsRouter);

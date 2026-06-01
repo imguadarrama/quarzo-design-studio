@@ -105,6 +105,23 @@ Two separate principals sharing one cookie mechanism:
 
 Both use **JWT in an HTTP-only cookie** (not `localStorage` — XSS hardening) and `bcrypt` cost 12. See `docs/tech-roadmap.md` §8 for the full three-path checkout flow (guest → optional post-purchase account → returning login).
 
+### Rate limiting & abuse defense
+
+Two `express-rate-limit` limiters live in `server/src/middleware/rateLimiters.ts`. Both key on IP, both reply `429 { error, code: "RATE_LIMITED" }`, and both emit `standardHeaders: "draft-7"` (the `RateLimit-*` headers) with legacy headers off.
+
+- **`ordersPostLimiter`** — `POST /api/orders`, 60s window, prod default **30/min/IP** (`env.ORDERS_RATE_LIMIT_PER_MINUTE`). Mounted app-level in `index.ts` *before* `ordersRouter` (`app.post("/api/orders", ordersPostLimiter)`) so it gates only the POST, not the public `GET /:publicToken`. It's the only unauthenticated write in the app and each call inserts up to ~51 rows in one transaction, so it's the highest-value abuse target.
+- **`adminLoginLimiter`** — `POST /api/admin/auth/login`, 15min window, prod default **5/15min/IP** (`env.ADMIN_LOGIN_RATE_LIMIT_PER_15MIN`). Mounted inside the route (`adminAuthRouter.post("/login", adminLoginLimiter, ...)`). Brute-force defense on the single seeded admin; no shared-IP concern since there's one operator.
+
+**Key on IP, never on `clientToken`.** `clientToken` is client-minted (a UUID the browser generates), so it's forgeable and can't carry security weight. It does idempotency only — the unique `Order.clientToken` index dedupes double-submits and StrictMode/retry replays (returning the existing order with `200`). Rate limiting is a *separate* concern that caps abuse; until customer login exists, IP is the only signal a guest can't forge.
+
+**`app.set("trust proxy", 1)` is mandatory under Fly.** Fly's proxy fronts the app and passes the client IP in `X-Forwarded-For`; without trust-proxy, `express-rate-limit` buckets every request behind Fly's single edge IP and the limiter becomes a no-op. The `1` means "trust exactly one proxy hop." Also guarded by a "Don't remove" note in `docs/CI-CD/deploy-quickstart.md`.
+
+**Where the knobs live (maintenance):** prod defaults are the Zod schema defaults in `config/env.ts` (each wrapped in a `z.preprocess` that maps the empty string Compose forwards for unset vars to `undefined` so the default fires). `.env.example` carries the dev values (currently equal to prod) and is forwarded into the container via `docker-compose.yml`. In production, override per-app via **Fly secrets** — no redeploy needed.
+
+**Scaling caveat:** the default store is **in-memory**, so with N Fly machines the effective limit is N × the configured value. Fine for v1 (single machine). Swap to `rate-limit-redis` if/when horizontal scaling lands (Phase 7+). MercadoPago webhooks (Phase 4) will rely on signature verification rather than a limiter.
+
+**Phase 5 evolution:** once customer login exists, key the orders limiter on the server-verified `customerId` for authenticated requests, falling back to IP for guests (tracked in `docs/tech-roadmap.md` Phase 5).
+
 ### Data model invariants (`server/prisma/schema.prisma`)
 
 - `Order.customerId` is nullable to support pure guest orders.

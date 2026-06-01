@@ -209,6 +209,7 @@ Before asking me for help, **copy the last ~30 lines of the failing step** and p
 - **Don't hand-edit `.prisma/client` or anything under `node_modules`.** Run `prisma generate` instead.
 - **Don't rename the Fly apps, Cloudflare projects, or Neon projects after the fact.** The secret values are wired to these names. If you must rename, update all the `FLY_APP_*`, `FLY_ORG_STAGING`, `CLOUDFLARE_PAGES_PROJECT_*`, and `NEON_PROJECT_ID_*` secrets in the same commit. Renaming `FLY_APP_STAGING` orphans every existing per-PR app — destroy them manually with `flyctl apps destroy <name> -y` after the rename, or wait for the open PRs to close.
 - **Don't manually `flyctl apps create quarzo-api-staging-pr-<N>`.** The workflow does that idempotently. If you create one by hand and the PR number doesn't match, the workflow can't reach it.
+- **Don't remove `app.set("trust proxy", 1)` from `server/src/index.ts`.** Fly forwards client IPs via `X-Forwarded-For`; without trust-proxy, `express-rate-limit` buckets every request behind Fly's edge IP and the limiter becomes a no-op.
 
 ---
 

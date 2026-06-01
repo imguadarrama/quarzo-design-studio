@@ -47,6 +47,15 @@ const envSchema = z.object({
     .optional()
     .transform((v) => (v && v.length > 0 ? v.replace(/^\/+|\/+$/g, "") : "")),
   SHIPPING_FLAT_RATE_MXN: z.coerce.number().positive().default(150),
+  // Compose forwards unset host vars as "", so map "" → undefined to hit the default.
+  ORDERS_RATE_LIMIT_PER_MINUTE: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().positive().default(30),
+  ),
+  ADMIN_LOGIN_RATE_LIMIT_PER_15MIN: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z.coerce.number().int().positive().default(5),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);
