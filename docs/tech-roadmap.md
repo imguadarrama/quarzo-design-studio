@@ -277,6 +277,7 @@ Full plan: [`phase-2.7-execution-plan.md`](phase-2.7-execution-plan.md). Merged 
 - [ ] Post-purchase "create account" prompt (§8, Path B)
 - [ ] `/mi-cuenta` order history
 - [ ] Order tracking page (public, by token)
+- [ ] Key the `POST /api/orders` rate limiter on the server-verified `customerId` for authenticated requests, falling back to IP for guests. Do **not** key on `clientToken` — it's client-minted and forgeable, so it can't carry security weight. (Until login exists, IP is the only signal a guest can't forge; the limit is 30/min/IP.)
 
 ### Phase 6 — Admin orders + polish
 - [ ] Admin order list with filters and status transitions

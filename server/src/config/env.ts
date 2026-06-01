@@ -50,7 +50,7 @@ const envSchema = z.object({
   // Compose forwards unset host vars as "", so map "" → undefined to hit the default.
   ORDERS_RATE_LIMIT_PER_MINUTE: z.preprocess(
     (v) => (v === "" ? undefined : v),
-    z.coerce.number().int().positive().default(10),
+    z.coerce.number().int().positive().default(30),
   ),
   ADMIN_LOGIN_RATE_LIMIT_PER_15MIN: z.preprocess(
     (v) => (v === "" ? undefined : v),
