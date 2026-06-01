@@ -224,7 +224,7 @@ These rules are enforceable in code review. Cite them by name when pushing back 
 
 **Principles.** SOLID / KISS / DRY. Default to one-shape-one-place. Bias toward extraction on the *second* duplicate, not the first — if a pattern only exists once, leaving it inline is correct. Three near-identical lines side-by-side are better than a premature abstraction that has to bend to fit each caller.
 
-**Comments.** Only when the *why* is non-obvious — a hidden constraint, a subtle invariant, a workaround for a specific bug. Don't explain *what* the code does (well-named identifiers do that). Don't write reference-comments like "used by X" or "added for Y flow" — that belongs in the PR description and rots fast. No multi-paragraph docstrings.
+**Comments.** Default to none. Before writing one, refactor first — better names, smaller functions, clearer control flow usually eliminate the need. Only when refactoring won't help and the *why* is genuinely non-obvious (a hidden constraint, a subtle invariant, a workaround for a specific bug) write a **single line**. Never explain *what* the code does — identifiers do that. Never write reference-comments ("used by X", "added for Y flow") — those belong in the PR description and rot fast. No multi-paragraph docstrings, no multi-line block headers above functions. **Fewer comments are better; when in doubt, delete.**
 
 **Client — when to extract a hook.** Extract when at least two consumers want the same `useState` + `useEffect` shape, or the same async-submit-with-error pattern. Hooks live under `client/src/hooks/`. Examples: `useFormSubmit` (form submit + submitError state) wraps the try/catch each form page would otherwise repeat. Don't pre-extract for one consumer — wait for the second use.
 

@@ -14,8 +14,6 @@ ordersRouter.post("/", async (req, res, next) => {
   try {
     const parsed = createOrderSchema.parse(req.body);
 
-    // Idempotency check: same clientToken returns the existing order so a
-    // double-submit / retry / StrictMode re-run never creates duplicates.
     const existing = await prisma.order.findUnique({
       where: { clientToken: parsed.clientToken },
       include: orderInclude,
@@ -60,9 +58,7 @@ ordersRouter.post("/", async (req, res, next) => {
         });
       });
     } catch (err) {
-      // Race: two concurrent posts with the same clientToken. The unique
-      // constraint catches the loser; we re-look-up and return the winner's
-      // row instead of bubbling the P2002 up as a 409.
+      // P2002 race: another concurrent post won on clientToken — return its row, not a 409.
       if (
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === "P2002"

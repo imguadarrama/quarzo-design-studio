@@ -17,8 +17,7 @@ import { ordersPostLimiter } from "./middleware/rateLimiters.js";
 
 const app = express();
 
-// Fly's proxy + Cloudflare Pages preview routing both set X-Forwarded-For.
-// Without this, express-rate-limit keys by the proxy IP — useless per-client.
+// Fly proxy fronts the app; without this express-rate-limit keys by edge IP, not client.
 app.set("trust proxy", 1);
 
 const previewOriginRegex = env.CLIENT_ORIGIN_PREVIEW_PATTERN
