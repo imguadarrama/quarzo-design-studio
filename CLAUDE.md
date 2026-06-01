@@ -224,7 +224,25 @@ These rules are enforceable in code review. Cite them by name when pushing back 
 
 **Principles.** SOLID / KISS / DRY. Default to one-shape-one-place. Bias toward extraction on the *second* duplicate, not the first — if a pattern only exists once, leaving it inline is correct. Three near-identical lines side-by-side are better than a premature abstraction that has to bend to fit each caller.
 
-**Comments.** Default to none. Before writing one, refactor first — better names, smaller functions, clearer control flow usually eliminate the need. Only when refactoring won't help and the *why* is genuinely non-obvious (a hidden constraint, a subtle invariant, a workaround for a specific bug) write a **single line**. Never explain *what* the code does — identifiers do that. Never write reference-comments ("used by X", "added for Y flow") — those belong in the PR description and rot fast. No multi-paragraph docstrings, no multi-line block headers above functions. **Fewer comments are better; when in doubt, delete.**
+**Comments.** Guiding principle: *the best comment is the one you found a way not to write.* Before adding one, ask whether a clearer name, a small refactor, or an extracted helper would remove the need. **Don't comment bad code — rewrite it.**
+
+*Write a comment only when it falls into one of these categories:*
+- **Intent (the why).** A constraint, decision, or motivation the code can't express on its own. Example: "Nullable so pre-existing rows aren't blocked; new orders always set it."
+- **Warning of consequences.** A non-obvious failure mode if a future reader changes the surrounding setup. Example: "Without `app.set('trust proxy', 1)`, express-rate-limit keys by the proxy IP — silently broken."
+- **Non-obvious gotcha.** A behavior of an external system (framework, library, env, runtime) that the code is working around. Example: "docker-compose forwards unset host env vars as empty strings; treat them as undefined so the schema default applies."
+- **TODO.** Use `// TODO:` for known follow-up. Reference an issue if one exists.
+
+*Don't write:*
+- **Restatements of identifier names.** `// POST /api/admin/auth/login` above `adminLoginLimiter` is noise — the name already says it.
+- **Reference comments.** "Used by X", "added for Y flow", "called from the Z page". Rots fast and belongs in the PR description.
+- **Journal entries.** "Changed on 2026-05-26 to fix #50." Git already knows.
+- **Attributions.** "Added by …". Git blame already knows.
+- **Commented-out code.** Delete it; git keeps the history.
+- **Multi-paragraph docstrings on internal code.** One short line max. Save full docs for true public API surfaces (which this codebase doesn't have many of).
+- **Mandated headers.** No JSDoc on every function "just because."
+- **Nonlocal context.** A comment must describe the code it sits next to, not the wider system.
+
+*If you can't classify a comment into one of the keep categories, delete it or rewrite the code instead.* When in doubt, ship without the comment — clear code with a few load-bearing comments beats noisy code with many.
 
 **Client — when to extract a hook.** Extract when at least two consumers want the same `useState` + `useEffect` shape, or the same async-submit-with-error pattern. Hooks live under `client/src/hooks/`. Examples: `useFormSubmit` (form submit + submitError state) wraps the try/catch each form page would otherwise repeat. Don't pre-extract for one consumer — wait for the second use.
 
