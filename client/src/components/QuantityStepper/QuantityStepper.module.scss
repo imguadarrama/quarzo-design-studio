@@ -1,0 +1,12 @@
+@use "../../styles/tokens" as t;
+
+.stepper {
+  display: inline-flex;
+  align-items: stretch;
+  gap: t.$space-2;
+}
+
+.button {
+  min-width: 44px;
+  min-height: 44px;
+}

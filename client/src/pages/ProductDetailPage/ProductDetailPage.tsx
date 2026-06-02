@@ -126,9 +126,13 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
   const handleAddToCart = (values: PickerValues) => {
     const variant = product.variants.find((v) => v.kind === values.variantKind);
     const design = product.designs.find((d) => d.id === values.designId);
+    // The form's isValid gate guarantees both exist; bail loudly rather than
+    // letting a $0 / blank line slip into the cart if that invariant breaks.
+    if (!variant || !design) return;
+
     const foilColorName =
       values.foilSwatchId !== null
-        ? (variant?.palette?.swatches.find((s) => s.id === values.foilSwatchId)
+        ? (variant.palette?.swatches.find((s) => s.id === values.foilSwatchId)
             ?.name ?? null)
         : null;
 
@@ -139,11 +143,11 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
       productImageUrl: product.images[0]?.url ?? "",
       variantKind: values.variantKind,
       variantName: VARIANT_KIND_LABELS[values.variantKind],
-      unitPrice: variant?.price ?? 0,
+      unitPrice: variant.price,
       quantity: values.quantity,
       designId: values.designId,
-      designName: design?.name ?? "",
-      designImageUrl: design?.imageUrl ?? "",
+      designName: design.name,
+      designImageUrl: design.imageUrl ?? "",
       foilSwatchId: values.foilSwatchId,
       foilColorName,
       personalizationText: values.personalizationText.trim(),

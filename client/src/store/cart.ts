@@ -38,7 +38,7 @@ export const useCartStore = create<CartState>()(
   ),
 );
 
-export const useCartLineCount = (): number =>
+export const useCartItemCount = (): number =>
   useCartStore((state) => state.lines.reduce((sum, l) => sum + l.quantity, 0));
 
 export const useCartSubtotal = (): number =>

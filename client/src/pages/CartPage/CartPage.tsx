@@ -1,7 +1,7 @@
-import { Button } from "@/components/Button/Button";
 import { ButtonLink } from "@/components/ButtonLink/ButtonLink";
 import { PageEmpty } from "@/components/PageState/PageState";
 import { PageSection } from "@/components/PageSection/PageSection";
+import { QuantityStepper } from "@/components/QuantityStepper/QuantityStepper";
 import { formatMxn } from "@/lib/format";
 import type { CartLine } from "@/lib/types";
 import { useCartStore, useCartSubtotal } from "@/store/cart";
@@ -65,7 +65,11 @@ function CartLineRow({ line }: CartLineRowProps) {
   return (
     <article className={styles.item}>
       {thumb ? (
-        <img className={styles.thumb} src={thumb} alt={line.designName} />
+        <img
+          className={styles.thumb}
+          src={thumb}
+          alt={line.designName || line.productName}
+        />
       ) : null}
 
       <div className={styles.itemBody}>
@@ -77,27 +81,13 @@ function CartLineRow({ line }: CartLineRowProps) {
         <p className={styles.personalization}>"{line.personalizationText}"</p>
 
         <div className={styles.itemFooter}>
-          <div className={styles.qtyStepper}>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label="Reducir cantidad"
-              disabled={line.quantity <= 1}
-              onClick={() => updateQuantity(line.id, line.quantity - 1)}
-            >
-              −
-            </Button>
+          <QuantityStepper
+            value={line.quantity}
+            onDecrement={() => updateQuantity(line.id, line.quantity - 1)}
+            onIncrement={() => updateQuantity(line.id, line.quantity + 1)}
+          >
             <span className={styles.qtyValue}>{line.quantity}</span>
-            <Button
-              size="sm"
-              variant="ghost"
-              aria-label="Aumentar cantidad"
-              disabled={line.quantity >= 999}
-              onClick={() => updateQuantity(line.id, line.quantity + 1)}
-            >
-              +
-            </Button>
-          </div>
+          </QuantityStepper>
 
           <div className={styles.priceCol}>
             <span className={styles.lineTotal}>{formatMxn(lineTotal)}</span>

@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { NavBar } from "../NavBar/NavBar";
-import { useCartLineCount } from "@/store/cart";
+import { useCartItemCount } from "@/store/cart";
 import styles from "./NavBarPublic.module.scss";
 
 const links = [
@@ -13,7 +13,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   isActive ? `${styles.link} ${styles.linkActive}` : styles.link;
 
 export function NavBarPublic() {
-  const cartCount = useCartLineCount();
+  const cartCount = useCartItemCount();
 
   return (
     <NavBar

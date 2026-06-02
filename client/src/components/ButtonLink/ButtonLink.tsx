@@ -1,8 +1,6 @@
 import { Link, type LinkProps } from "react-router-dom";
+import type { ButtonSize, ButtonVariant } from "@/components/Button/Button";
 import styles from "./ButtonLink.module.scss";
-
-type ButtonSize = "sm" | "md";
-type ButtonVariant = "primary" | "ghost" | "danger";
 
 type ButtonLinkProps = LinkProps & {
   size?: ButtonSize;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Controller, type Control } from "react-hook-form";
-import { Button } from "@/components/Button/Button";
+import { QuantityStepper } from "@/components/QuantityStepper/QuantityStepper";
 import type { PickerValues } from "../schema";
 import styles from "./QuantityInput.module.scss";
 
@@ -29,33 +29,19 @@ export function QuantityInput({ control }: QuantityInputProps) {
         return (
           <div className={styles.wrapper}>
             <span className={styles.legend}>Cantidad</span>
-            <div className={styles.stepper}>
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label="Disminuir cantidad"
-                disabled={current <= MIN}
-                onClick={decrement}
-                className={styles.stepperButton}
-              >
-                −
-              </Button>
+            <QuantityStepper
+              value={current}
+              min={MIN}
+              max={MAX}
+              onDecrement={decrement}
+              onIncrement={increment}
+            >
               <QuantityField
                 value={current}
                 onCommit={(n) => field.onChange(n)}
                 onBlur={field.onBlur}
               />
-              <Button
-                size="sm"
-                variant="ghost"
-                aria-label="Aumentar cantidad"
-                disabled={current >= MAX}
-                onClick={increment}
-                className={styles.stepperButton}
-              >
-                +
-              </Button>
-            </div>
+            </QuantityStepper>
             {fieldState.error?.message ? (
               <p role="alert" className={styles.error}>
                 {fieldState.error.message}

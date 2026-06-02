@@ -15,17 +15,6 @@
   color: t.$color-ink;
 }
 
-.stepper {
-  display: inline-flex;
-  align-items: stretch;
-  gap: t.$space-2;
-}
-
-.stepperButton {
-  min-width: 44px;
-  min-height: 44px;
-}
-
 .value {
   width: 56px;
   text-align: center;
