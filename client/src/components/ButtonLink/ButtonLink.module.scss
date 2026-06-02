@@ -1,0 +1,27 @@
+.link {
+  composes: button from "../Button/Button.module.scss";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.sm {
+  composes: sm from "../Button/Button.module.scss";
+}
+
+.md {
+  composes: md from "../Button/Button.module.scss";
+}
+
+.primary {
+  composes: primary from "../Button/Button.module.scss";
+}
+
+.ghost {
+  composes: ghost from "../Button/Button.module.scss";
+}
+
+.danger {
+  composes: danger from "../Button/Button.module.scss";
+}

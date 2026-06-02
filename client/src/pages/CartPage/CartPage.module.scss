@@ -1,0 +1,164 @@
+@use "../../styles/tokens" as t;
+@use "../../styles/mixins" as m;
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: t.$space-6;
+
+  @include m.screen-md {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    align-items: start;
+  }
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-4;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: t.$space-4;
+  padding: t.$space-4;
+  border: 1px solid t.$color-line;
+  border-radius: t.$radius-md;
+}
+
+.thumb {
+  width: 88px;
+  height: 88px;
+  object-fit: cover;
+  border-radius: t.$radius-sm;
+  background-color: t.$color-surface;
+}
+
+.itemBody {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-1;
+  min-width: 0;
+}
+
+.itemTitle {
+  margin: 0;
+  font-family: t.$font-primary;
+  font-size: t.$font-size-sm;
+  color: t.$color-ink;
+}
+
+.itemMeta {
+  margin: 0;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-text-muted;
+}
+
+.personalization {
+  margin: 0;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xs;
+  font-style: italic;
+  color: t.$color-ink;
+}
+
+.itemFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: t.$space-4;
+  margin-top: t.$space-2;
+}
+
+.qtyStepper {
+  display: flex;
+  align-items: center;
+  gap: t.$space-2;
+}
+
+.qtyValue {
+  min-width: 24px;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  text-align: center;
+}
+
+.priceCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.lineTotal {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+}
+
+.unitPrice {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-text-muted;
+}
+
+.removeButton {
+  align-self: flex-start;
+  margin-top: t.$space-2;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-text-muted;
+  text-decoration: underline;
+  cursor: pointer;
+
+  &:hover {
+    color: t.$color-error;
+  }
+
+  &:focus-visible {
+    @include m.focus-ring;
+  }
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-4;
+  padding: t.$space-6;
+  border: 1px solid t.$color-line;
+  border-radius: t.$radius-md;
+  background-color: t.$color-surface-light;
+
+  @include m.screen-md {
+    position: sticky;
+    top: t.$space-6;
+  }
+}
+
+.summaryRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: t.$space-4;
+}
+
+.summaryLabel {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  color: t.$color-text-muted;
+}
+
+.summaryValue {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-md;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+}
