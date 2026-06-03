@@ -9,6 +9,7 @@ import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";
 import { useAdminDeleteFlow } from "@/hooks/useAdminDeleteFlow";
 import { useAdminListResource } from "@/hooks/useAdminListResource";
 import { deleteDesign, listDesigns } from "@/services/api/admin";
+import { ApiError } from "@/services/api/fetchJson";
 import type { AdminDesign, VariantKind } from "@/lib/types";
 import styles from "./AdminDesignsPage.module.scss";
 
@@ -18,6 +19,17 @@ const KIND_LABELS: Record<VariantKind, string> = {
   CON_FOIL_Y_TINTA: "Foil + Tinta",
   PAPEL_TEXTURIZADO: "Texturizado",
 };
+
+async function deleteDesignWithFriendlyError(id: string): Promise<void> {
+  try {
+    await deleteDesign(id);
+  } catch (err) {
+    if (err instanceof ApiError && err.code === "DESIGN_IN_USE") {
+      throw new Error(err.message);
+    }
+    throw err;
+  }
+}
 
 export function AdminDesignsPage() {
   const {
@@ -43,7 +55,7 @@ export function AdminDesignsPage() {
     cancelDelete,
     confirmDelete,
   } = useAdminDeleteFlow<AdminDesign>({
-    deleteFn: deleteDesign,
+    deleteFn: deleteDesignWithFriendlyError,
     onDeleted: handleDeleted,
   });
 
@@ -149,8 +161,8 @@ export function AdminDesignsPage() {
           confirming ? (
             <>
               <p>
-                Esto eliminará el diseño <strong>{confirming.name}</strong> y lo
-                quitará de todos los productos donde esté asignado.
+                Esto eliminará el diseño <strong>{confirming.name}</strong> de
+                forma permanente.
               </p>
               <p>Esta acción no se puede deshacer.</p>
             </>
