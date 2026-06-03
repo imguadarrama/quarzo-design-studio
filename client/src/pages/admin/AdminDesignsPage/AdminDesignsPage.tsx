@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { Link } from "react-router-dom";
 import { AsyncContent } from "@/components/AsyncContent/AsyncContent";
 import { Button } from "@/components/Button/Button";
-import { ButtonLink } from "@/components/Button/ButtonLink";
+import { ButtonLink } from "@/components/ButtonLink/ButtonLink";
 import { ConfirmDialog } from "@/components/ConfirmDialog/ConfirmDialog";
 import { PageSection } from "@/components/PageSection/PageSection";
 import { PhaseFlowHint } from "@/components/PhaseFlowHint/PhaseFlowHint";

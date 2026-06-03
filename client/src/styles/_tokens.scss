@@ -13,6 +13,7 @@ $color-black-hover: rgba(28, 25, 23, 0.85);
 $color-black-line: rgba(28, 25, 23, 0.08);
 
 $color-danger: #b91c1c;
+$color-overlay: rgba(0, 0, 0, 0.45);
 
 // Semantic aliases — components use these, not the raw palette.
 $color-bg: $color-white;
@@ -38,6 +39,7 @@ $weight-medium: 500;
 $weight-bold: 700;
 
 // Font sizes
+$font-size-nano: 10px;
 $font-size-xxs: 12px;
 $font-size-xs: 14px;
 $font-size-sm: 16px;
@@ -45,9 +47,10 @@ $font-size-md: 18px;
 $font-size-lg: clamp(18px, 1.6vw + 12px, 20px);
 $font-size-xl: clamp(20px, 2vw + 12px, 24px);
 $font-size-xxl: clamp(22px, 2.5vw + 14px, 28px);
-$font-size-display: 64px;
+$font-size-display: clamp(36px, 12vw, 64px);
 
 // Spacing scale
+$space-0-5: 2px;
 $space-1: 4px;
 $space-2: 8px;
 $space-3: 12px;
@@ -55,6 +58,13 @@ $space-4: 16px;
 $space-6: 24px;
 $space-8: 32px;
 $space-12: 48px;
+
+// Sizes — fixed component dimensions and the minimum touch target.
+$size-touch-target: 44px;
+$size-nav: 64px;
+$size-nav-logo: 40px;
+$size-design-tile: 72px;
+$size-cart-thumb: 88px;
 
 // Radius
 $radius-sm: 4px;
