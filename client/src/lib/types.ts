@@ -174,3 +174,96 @@ export type PalettePayload = {
   active: boolean;
   swatches: OptionSwatchPayload[];
 };
+
+export type ShippingMethod = "NACIONAL" | "PICKUP_SALTILLO";
+export type PaymentMethod = "MERCADOPAGO" | "TRANSFERENCIA";
+export type OrderStatus =
+  | "PENDIENTE"
+  | "PAGADO"
+  | "ENVIADO"
+  | "ENTREGADO"
+  | "CANCELADO";
+
+export type CartLine = {
+  id: string;
+  productId: string;
+  productSlug: string;
+  productName: string;
+  productImageUrl: string;
+  variantKind: VariantKind;
+  variantName: string;
+  unitPrice: number;
+  quantity: number;
+  designId: string;
+  designName: string;
+  designImageUrl: string;
+  foilSwatchId: string | null;
+  foilColorName: string | null;
+  personalizationText: string;
+};
+
+export type ShippingAddress = {
+  calle: string;
+  numero: string;
+  colonia: string;
+  ciudad: string;
+  estado: string;
+  codigoPostal: string;
+  notas?: string;
+};
+
+export type OrderItemPublic = {
+  productId: string;
+  variantKind: VariantKind;
+  sku: string;
+  productName: string;
+  variantName: string;
+  unitPrice: string;
+  quantity: number;
+  personalizationText: string;
+  selections: {
+    foilColor?: string;
+    foilSwatchId?: string;
+    foilImageUrl?: string;
+  };
+  designId: string | null;
+  designName: string | null;
+  designImageUrl: string | null;
+};
+
+export type OrderPublic = {
+  publicToken: string;
+  status: OrderStatus;
+  email: string;
+  name: string;
+  phone: string;
+  shippingMethod: ShippingMethod;
+  shippingAddress: ShippingAddress | null;
+  shippingFee: string;
+  subtotal: string;
+  total: string;
+  paymentMethod: PaymentMethod;
+  createdAt: string;
+  items: OrderItemPublic[];
+};
+
+export type CreateOrderItemPayload = {
+  productId: string;
+  variantKind: VariantKind;
+  designId: string;
+  foilSwatchId: string | null;
+  personalizationText: string;
+  quantity: number;
+};
+
+export type CreateOrderPayload = {
+  clientToken: string;
+  email: string;
+  name: string;
+  phone: string;
+  shippingMethod: ShippingMethod;
+  shippingAddress: ShippingAddress | null;
+  paymentMethod: PaymentMethod;
+  notes?: string;
+  items: CreateOrderItemPayload[];
+};

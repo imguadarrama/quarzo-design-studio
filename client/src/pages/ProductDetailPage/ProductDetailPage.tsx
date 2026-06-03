@@ -11,10 +11,12 @@ import { fetchProductBySlug } from "@/services/api/products";
 import type { Design, Product, VariantKind } from "@/lib/types";
 import { formatMxn } from "@/lib/format";
 import {
+  VARIANT_KIND_LABELS,
   VARIANT_KIND_ORDER,
   isFoilKind,
   isSelectableVariant,
 } from "@/lib/variant-kinds";
+import { useCartStore } from "@/store/cart";
 import { DesignPicker } from "./components/DesignPicker";
 import { DesignPreview } from "./components/DesignPreview";
 import { FoilSwatchPicker } from "./components/FoilSwatchPicker";
@@ -101,6 +103,9 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
   const isUnavailable =
     product.variants.length === 0 || product.designs.length === 0;
 
+  const navigate = useNavigate();
+  const addLine = useCartStore((s) => s.addLine);
+
   const defaults = useMemo(() => buildDefaults(product), [product]);
 
   const {
@@ -110,11 +115,47 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
     setValue,
     formState: { errors },
     trigger,
+    handleSubmit,
+    reset,
   } = useForm<PickerValues>({
     resolver: zodResolver(pickerSchema),
     defaultValues: defaults,
     mode: "onChange",
   });
+
+  const handleAddToCart = (values: PickerValues) => {
+    const variant = product.variants.find((v) => v.kind === values.variantKind);
+    const design = product.designs.find((d) => d.id === values.designId);
+    // The form's isValid gate guarantees both exist; bail loudly rather than
+    // letting a $0 / blank line slip into the cart if that invariant breaks.
+    if (!variant || !design) return;
+
+    const foilColorName =
+      values.foilSwatchId !== null
+        ? (variant.palette?.swatches.find((s) => s.id === values.foilSwatchId)
+            ?.name ?? null)
+        : null;
+
+    addLine({
+      productId: product.id,
+      productSlug: product.slug,
+      productName: product.name,
+      productImageUrl: product.images[0]?.url ?? "",
+      variantKind: values.variantKind,
+      variantName: VARIANT_KIND_LABELS[values.variantKind],
+      unitPrice: variant.price,
+      quantity: values.quantity,
+      designId: values.designId,
+      designName: design.name,
+      designImageUrl: design.imageUrl ?? "",
+      foilSwatchId: values.foilSwatchId,
+      foilColorName,
+      personalizationText: values.personalizationText.trim(),
+    });
+
+    reset(buildDefaults(product));
+    navigate("/carrito");
+  };
 
   useEffect(() => {
     void trigger();
@@ -228,7 +269,7 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
             <form
               className={styles.form}
               noValidate
-              onSubmit={(e) => e.preventDefault()}
+              onSubmit={handleSubmit(handleAddToCart)}
             >
               <DesignPicker designs={product.designs} control={control} />
 
@@ -284,9 +325,7 @@ function ProductDetailBody({ product }: ProductDetailBodyProps) {
                         Para agregar al carrito, falta:{" "}
                         {missingFields.join(", ")}
                       </p>
-                    ) : (
-                      <p className={styles.ctaHelper}>Disponible próximamente</p>
-                    )}
+                    ) : null}
                   </div>
                 </>
               )}

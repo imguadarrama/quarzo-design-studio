@@ -29,3 +29,14 @@
 .linkActive {
   color: t.$color-ink;
 }
+
+.cartCount {
+  display: inline-block;
+  margin-left: t.$space-1;
+  padding: 0 t.$space-2;
+  border-radius: t.$radius-lg;
+  background-color: t.$color-ink;
+  color: t.$color-ink-on-dark;
+  font-size: t.$font-size-xxs;
+  line-height: 1.5;
+}

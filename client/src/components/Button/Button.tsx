@@ -1,8 +1,8 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 import styles from "./Button.module.scss";
 
-type ButtonSize = "sm" | "md";
-type ButtonVariant = "primary" | "ghost" | "danger";
+export type ButtonSize = "sm" | "md";
+export type ButtonVariant = "primary" | "ghost" | "danger";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: ButtonSize;
