@@ -65,15 +65,15 @@
 .kinds {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: t.$space-1;
 }
 
 .kindBadge {
   font-family: t.$font-secondary;
-  font-size: 10px;
+  font-size: t.$font-size-nano;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  padding: 2px 6px;
+  padding: t.$space-0-5 t.$space-2;
   border-radius: t.$radius-sm;
   background-color: t.$color-surface-light;
   color: t.$color-ink;
@@ -81,7 +81,7 @@
 
 .kindBadgeMuted {
   font-family: t.$font-secondary;
-  font-size: 10px;
+  font-size: t.$font-size-nano;
   font-style: italic;
   color: t.$color-text-muted;
 }

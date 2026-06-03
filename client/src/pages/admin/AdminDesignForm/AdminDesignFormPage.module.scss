@@ -12,8 +12,8 @@
 }
 
 .preview {
-  width: 240px;
-  height: 240px;
+  width: min(240px, 100%);
+  aspect-ratio: 1;
   object-fit: cover;
   border-radius: t.$radius-md;
   border: 1px solid t.$color-line;
@@ -21,8 +21,8 @@
 }
 
 .previewEmpty {
-  width: 240px;
-  height: 240px;
+  width: min(240px, 100%);
+  aspect-ratio: 1;
   border-radius: t.$radius-md;
   border: 1px dashed t.$color-line;
   background-color: t.$color-surface-light;
@@ -97,44 +97,16 @@
   color: t.$color-text-muted;
 }
 
-.activeRow {
-  display: flex;
-  align-items: flex-start;
-  gap: t.$space-3;
-  margin: t.$space-2 0 t.$space-6;
-  cursor: pointer;
-}
-
 .checkbox {
   width: 18px;
   height: 18px;
-  margin-top: 2px;
+  margin-top: t.$space-0-5;
   accent-color: t.$color-ink;
   flex-shrink: 0;
 }
 
 .checkbox:focus-visible {
   @include m.focus-ring;
-}
-
-.activeText {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.activeLabel {
-  font-family: t.$font-secondary;
-  font-size: t.$font-size-xxs;
-  font-weight: t.$weight-medium;
-  color: t.$color-ink;
-}
-
-.activeHint {
-  font-family: t.$font-secondary;
-  font-size: t.$font-size-xxs;
-  line-height: 1.3;
-  color: t.$color-text-muted;
 }
 
 .formError {

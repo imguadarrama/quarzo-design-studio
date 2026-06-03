@@ -9,8 +9,8 @@
 }
 
 .iconButton {
-  width: 32px;
-  height: 32px;
+  width: t.$size-touch-target;
+  height: t.$size-touch-target;
   display: inline-flex;
   align-items: center;
   justify-content: center;

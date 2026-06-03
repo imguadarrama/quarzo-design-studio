@@ -15,10 +15,8 @@
 .content {
   flex: 1;
   padding: t.$space-6 t.$space-4;
-}
 
-@include m.screen-md {
-  .content {
+  @include m.screen-md {
     padding: t.$space-8;
   }
 }

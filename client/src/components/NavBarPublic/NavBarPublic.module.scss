@@ -2,7 +2,7 @@
 @use "../../styles/mixins" as m;
 
 .links {
-  display: flex;
+  display: none;
   gap: t.$space-6;
   margin: 0;
   padding: 0;
@@ -10,6 +10,10 @@
   font-family: t.$font-secondary;
   font-size: t.$font-size-xs;
   font-weight: t.$weight-medium;
+
+  @include m.screen-md {
+    display: flex;
+  }
 }
 
 .link {
@@ -39,4 +43,58 @@
   color: t.$color-ink-on-dark;
   font-size: t.$font-size-xxs;
   line-height: 1.5;
+}
+
+.toggle {
+  @include m.flex-center;
+  width: t.$size-touch-target;
+  height: t.$size-touch-target;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: t.$color-ink;
+  font-size: t.$font-size-lg;
+  cursor: pointer;
+
+  @include m.screen-md {
+    display: none;
+  }
+}
+
+.toggle:focus-visible {
+  @include m.focus-ring;
+}
+
+.drawer {
+  position: absolute;
+  top: t.$size-nav;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: t.$space-2 t.$space-4 t.$space-4;
+  list-style: none;
+  background-color: t.$color-bg;
+  border-bottom: 1px solid t.$color-line;
+  box-shadow: t.$shadow-card;
+
+  @include m.screen-md {
+    display: none;
+  }
+}
+
+.drawerLink {
+  display: block;
+  padding: t.$space-3 0;
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-sm;
+  font-weight: t.$weight-medium;
+  color: t.$color-text-muted;
+  text-decoration: none;
+}
+
+.drawerLink:focus-visible {
+  @include m.focus-ring;
 }

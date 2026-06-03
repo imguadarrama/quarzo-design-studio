@@ -50,8 +50,8 @@
 
 .tile {
   display: block;
-  width: 72px;
-  height: 72px;
+  width: t.$size-design-tile;
+  height: t.$size-design-tile;
   overflow: hidden;
   border-radius: t.$radius-sm;
   border: 2px solid transparent;
