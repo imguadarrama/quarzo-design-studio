@@ -1,5 +1,6 @@
 import { Link, type LinkProps } from "react-router-dom";
 import type { ButtonSize, ButtonVariant } from "@/components/Button/Button";
+import buttonStyles from "@/components/Button/Button.module.scss";
 import styles from "./ButtonLink.module.scss";
 
 type ButtonLinkProps = LinkProps & {
@@ -13,7 +14,7 @@ export function ButtonLink({
   variant = "primary",
   ...rest
 }: ButtonLinkProps) {
-  const base = `${styles.link} ${styles[size]} ${styles[variant]}`;
+  const base = `${buttonStyles.button} ${buttonStyles[size]} ${buttonStyles[variant]} ${styles.link}`;
   const classes = className ? `${base} ${className}` : base;
   return <Link className={classes} {...rest} />;
 }
