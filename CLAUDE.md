@@ -39,9 +39,18 @@ pnpm --filter server <script>   # e.g. build, prisma:generate
 pnpm --filter client <script>   # e.g. build, preview
 ```
 
+Client tests (Vitest + React Testing Library; deps live in container volumes — run `pnpm dev:rebuild` once after pulling the test stack):
+
+```bash
+pnpm --filter client test           # Vitest unit/component tests (run once)
+pnpm --filter client test:watch     # Vitest watch mode
+pnpm --filter client test:coverage  # coverage report (HTML in client/coverage/)
+pnpm --filter client test:e2e       # Playwright E2E (requires `pnpm dev` running)
+```
+
 Ports: `api` on `3000`, `web` (Vite) on `5173`, Postgres on `5432`. The Vite dev server proxies `/api/*` → `http://api:3000` via the Compose network (`client/vite.config.ts`), so the frontend calls same-origin `/api/...` in dev.
 
-There is no test runner, linter, or formatter wired up yet. If you add one, add the command here.
+A test runner is wired up (Vitest + RTL for `client/`, with a Playwright config for E2E). There is no linter or formatter yet. If you add one, add the command here.
 
 ## Environment
 
