@@ -6,6 +6,9 @@ build/
 .env.*.local
 *.log
 coverage/
+test-results/
+playwright-report/
+.playwright/
 .DS_Store
 Thumbs.db
 .idea/
