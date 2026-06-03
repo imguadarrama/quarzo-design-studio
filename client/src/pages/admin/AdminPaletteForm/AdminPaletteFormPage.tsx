@@ -1,66 +1,36 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { ActiveToggle } from "@/components/ActiveToggle/ActiveToggle";
 import { Button } from "@/components/Button/Button";
 import { FormField } from "@/components/FormField/FormField";
+import { FormPageState } from "@/components/FormPageState";
 import { Input } from "@/components/Input/Input";
-import { PageError, PageLoading } from "@/components/PageState/PageState";
 import { PageSection } from "@/components/PageSection/PageSection";
+import { useAdminEditResource } from "@/hooks/useAdminEditResource";
 import { useFormSubmit } from "@/hooks/useFormSubmit";
+import { useSlugSync } from "@/hooks/useSlugSync";
 import { applyServerFieldError } from "@/lib/serverFieldErrors";
-import { slugify } from "@/lib/slug";
 import type { AdminOptionPalette } from "@/lib/types";
 import {
   createPalette,
   getPalette,
   updatePalette,
 } from "@/services/api/admin";
-import { ApiError } from "@/services/api/fetchJson";
-import {
-  deleteUploadedImages,
-  uploadImage,
-} from "@/services/api/uploadImage";
+import { deleteUploadedImages } from "@/services/api/uploadImage";
 import { PaletteSwatchEditor } from "./components/PaletteSwatchEditor.js";
 import { formValuesToPayload, paletteToFormValues } from "./mappers.js";
 import {
-  isPendingUrl,
-  pendingTempId,
+  resolvePendingUploads,
   usePendingImages,
 } from "../AdminProductForm/pending-images.js";
-import {
-  paletteFormSchema,
-  type PaletteFormSwatch,
-  type PaletteFormValues,
-} from "./schema.js";
+import { paletteFormSchema, type PaletteFormValues } from "./schema.js";
 import styles from "./AdminPaletteFormPage.module.scss";
-
-function describeUploadError(file: File, err: unknown): string {
-  if (err instanceof ApiError) {
-    switch (err.code) {
-      case "FILE_TOO_LARGE":
-        return `${file.name}: demasiado grande (máx 10 MB)`;
-      case "UNSUPPORTED_MEDIA_TYPE":
-        return `${file.name}: no es una imagen válida`;
-      case "INVALID_IMAGE":
-        return `${file.name}: no se pudo procesar`;
-      default:
-        return `${file.name}: ${err.message}`;
-    }
-  }
-  return `${file.name}: error de red`;
-}
 
 export function AdminPaletteFormPage() {
   const { id: editId } = useParams<{ id: string }>();
-  const mode: "create" | "edit" = editId ? "edit" : "create";
   const navigate = useNavigate();
-  const slugDirtyRef = useRef(false);
-  const loadIdRef = useRef<string | null>(null);
   const pendingImages = usePendingImages();
-
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState<boolean>(mode === "create");
 
   const formMethods = useForm<PaletteFormValues>({
     resolver: zodResolver(paletteFormSchema),
@@ -82,85 +52,33 @@ export function AdminPaletteFormPage() {
     formState: { errors, isSubmitting },
   } = formMethods;
 
-  const load = useCallback(async () => {
-    if (!editId) return;
-    const requestedId = editId;
-    loadIdRef.current = requestedId;
-    setLoadError(null);
-    setLoaded(false);
-    try {
-      const palette: AdminOptionPalette = await getPalette(requestedId);
-      if (loadIdRef.current !== requestedId) return;
-      reset(paletteToFormValues(palette));
-      slugDirtyRef.current = true;
-      setLoaded(true);
-    } catch (err) {
-      if (loadIdRef.current !== requestedId) return;
-      setLoadError(err instanceof Error ? err.message : "Error desconocido");
-    }
-  }, [editId, reset]);
+  const slugDirtyRef = useSlugSync(watch("name"), (slug) =>
+    setValue("slug", slug, { shouldValidate: false }),
+  );
 
-  useEffect(() => {
-    if (mode === "edit") {
-      void load();
-    }
-  }, [mode, load]);
+  const { mode, loaded, loadError, load } =
+    useAdminEditResource<AdminOptionPalette>(editId, getPalette, (palette) => {
+      reset(paletteToFormValues(palette));
+      // Freeze the loaded slug — editing an existing palette should not
+      // re-derive the slug from the name.
+      slugDirtyRef.current = true;
+    });
 
   const slugRegistration = register("slug");
-  const name = watch("name");
-
-  useEffect(() => {
-    if (!slugDirtyRef.current) {
-      setValue("slug", slugify(name), { shouldValidate: false });
-    }
-  }, [name, setValue]);
 
   const { submit, submitError } = useFormSubmit<PaletteFormValues>(
     async (values) => {
-      const uploads = await Promise.allSettled(
-        values.swatches.map(async (sw): Promise<PaletteFormSwatch> => {
-          if (!isPendingUrl(sw.imageUrl)) return sw;
-          const entry = pendingImages.get(pendingTempId(sw.imageUrl));
-          if (!entry) {
-            throw new Error("Pending swatch entry not found");
-          }
-          const { url } = await uploadImage(entry.file, { prefix: "swatches" });
-          return { ...sw, imageUrl: url };
-        }),
+      const { resolved, newlyUploadedUrls } = await resolvePendingUploads(
+        values.swatches,
+        {
+          pendingImages,
+          getUrl: (sw) => sw.imageUrl,
+          withUrl: (sw, url) => ({ ...sw, imageUrl: url }),
+          prefix: "swatches",
+          fallbackName: "muestra",
+          failureLabel: "muestras",
+        },
       );
-
-      const resolved: PaletteFormSwatch[] = [];
-      const failures: string[] = [];
-      const newlyUploadedUrls: string[] = [];
-      uploads.forEach((result, i) => {
-        const original = values.swatches[i]!;
-        if (result.status === "fulfilled") {
-          resolved.push(result.value);
-          if (isPendingUrl(original.imageUrl)) {
-            newlyUploadedUrls.push(result.value.imageUrl);
-          }
-        } else {
-          const entry = isPendingUrl(original.imageUrl)
-            ? pendingImages.get(pendingTempId(original.imageUrl))
-            : undefined;
-          const fallbackName = entry?.file.name ?? "muestra";
-          failures.push(
-            describeUploadError(
-              entry?.file ?? new File([], fallbackName),
-              result.reason,
-            ),
-          );
-        }
-      });
-
-      if (failures.length > 0) {
-        if (newlyUploadedUrls.length > 0) {
-          void deleteUploadedImages(newlyUploadedUrls);
-        }
-        throw new Error(
-          `No pudimos subir algunas muestras: ${failures.join(", ")}`,
-        );
-      }
 
       const payload = formValuesToPayload({ ...values, swatches: resolved });
       try {
@@ -203,100 +121,83 @@ export function AdminPaletteFormPage() {
   const submitLabel = mode === "edit" ? "Guardar cambios" : "Crear paleta";
   const submittingLabel = mode === "edit" ? "Guardando…" : "Creando…";
 
-  if (mode === "edit" && loadError) {
-    return (
-      <PageSection title={heading} width="narrow">
-        <PageError message={loadError} onRetry={load} />
-      </PageSection>
-    );
-  }
-
-  if (mode === "edit" && !loaded) {
-    return (
-      <PageSection title={heading} width="narrow">
-        <PageLoading />
-      </PageSection>
-    );
-  }
-
   const swatchesRootError =
     typeof errors.swatches?.message === "string"
       ? errors.swatches.message
       : undefined;
 
   return (
-    <PageSection title={heading} subtitle={lede} width="narrow">
-      <FormProvider {...formMethods}>
-        <form onSubmit={onSubmit} noValidate className={styles.form}>
-          <FormField label="Nombre" error={errors.name?.message}>
-            <Input
-              type="text"
-              autoComplete="off"
-              maxLength={120}
-              {...register("name")}
+    <FormPageState
+      mode={mode}
+      loaded={loaded}
+      loadError={loadError}
+      onRetry={load}
+      title={heading}
+    >
+      <PageSection title={heading} subtitle={lede} width="narrow">
+        <FormProvider {...formMethods}>
+          <form onSubmit={onSubmit} noValidate className={styles.form}>
+            <FormField label="Nombre" error={errors.name?.message}>
+              <Input
+                type="text"
+                autoComplete="off"
+                maxLength={120}
+                {...register("name")}
+              />
+            </FormField>
+
+            <FormField
+              label="Slug"
+              error={errors.slug?.message}
+              hint={
+                mode === "edit"
+                  ? "Cambiar el slug puede romper enlaces antiguos a la paleta."
+                  : "Se genera automáticamente desde el nombre. Edítalo si quieres otro."
+              }
+            >
+              <Input
+                type="text"
+                autoComplete="off"
+                maxLength={120}
+                {...slugRegistration}
+                onChange={(event) => {
+                  slugDirtyRef.current = true;
+                  void slugRegistration.onChange(event);
+                }}
+              />
+            </FormField>
+
+            <PaletteSwatchEditor
+              pendingImages={pendingImages}
+              fieldErrors={errors.swatches}
+              rootError={swatchesRootError}
             />
-          </FormField>
 
-          <FormField
-            label="Slug"
-            error={errors.slug?.message}
-            hint={
-              mode === "edit"
-                ? "Cambiar el slug puede romper enlaces antiguos a la paleta."
-                : "Se genera automáticamente desde el nombre. Edítalo si quieres otro."
-            }
-          >
-            <Input
-              type="text"
-              autoComplete="off"
-              maxLength={120}
-              {...slugRegistration}
-              onChange={(event) => {
-                slugDirtyRef.current = true;
-                void slugRegistration.onChange(event);
-              }}
-            />
-          </FormField>
-
-          <PaletteSwatchEditor
-            pendingImages={pendingImages}
-            fieldErrors={errors.swatches}
-            rootError={swatchesRootError}
-          />
-
-          {mode === "edit" ? (
-            <label className={styles.activeRow}>
-              <input
-                type="checkbox"
-                className={styles.checkbox}
+            {mode === "edit" ? (
+              <ActiveToggle
+                label="Paleta activa"
+                hint="Si está apagada, la paleta no aparece en el selector de opciones SWATCH de los productos."
                 {...register("active")}
               />
-              <span className={styles.activeText}>
-                <span className={styles.activeLabel}>Paleta activa</span>
-                <span className={styles.activeHint}>
-                  Si está apagada, la paleta no aparece en el selector de
-                  opciones SWATCH de los productos.
-                </span>
-              </span>
-            </label>
-          ) : null}
+            ) : null}
 
-          {submitError ? (
-            <div role="alert" className={styles.formError}>
-              {submitError}
+            {submitError ? (
+              <div role="alert" className={styles.formError}>
+                {submitError}
+              </div>
+            ) : null}
+
+            <div className={styles.actions}>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? submittingLabel : submitLabel}
+              </Button>
+              <Link to="/admin/paletas" className={styles.cancelLink}>
+                Cancelar
+              </Link>
             </div>
-          ) : null}
-
-          <div className={styles.actions}>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? submittingLabel : submitLabel}
-            </Button>
-            <Link to="/admin/paletas" className={styles.cancelLink}>
-              Cancelar
-            </Link>
-          </div>
-        </form>
-      </FormProvider>
-    </PageSection>
+          </form>
+        </FormProvider>
+      </PageSection>
+    </FormPageState>
   );
 }

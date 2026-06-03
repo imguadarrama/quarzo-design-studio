@@ -1,0 +1,42 @@
+@use "../../styles/tokens" as t;
+@use "../../styles/mixins" as m;
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: t.$space-3;
+  margin: t.$space-2 0 t.$space-6;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  margin-top: t.$space-0-5;
+  accent-color: t.$color-ink;
+  flex-shrink: 0;
+}
+
+.checkbox:focus-visible {
+  @include m.focus-ring;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: t.$space-0-5;
+}
+
+.label {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  font-weight: t.$weight-medium;
+  color: t.$color-ink;
+}
+
+.hint {
+  font-family: t.$font-secondary;
+  font-size: t.$font-size-xxs;
+  line-height: 1.3;
+  color: t.$color-text-muted;
+}

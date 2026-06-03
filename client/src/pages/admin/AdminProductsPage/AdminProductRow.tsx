@@ -1,5 +1,5 @@
 import { Button } from "@/components/Button/Button";
-import { ButtonLink } from "@/components/Button/ButtonLink";
+import { ButtonLink } from "@/components/ButtonLink/ButtonLink";
 import type {
   AdminProduct,
   AdminProductImage,

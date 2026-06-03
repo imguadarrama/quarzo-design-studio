@@ -1,4 +1,10 @@
 import { useEffect, useRef } from "react";
+import {
+  deleteUploadedImages,
+  describeUploadError,
+  uploadImage,
+  type UploadImagePrefix,
+} from "@/services/api/uploadImage";
 import { PENDING_URL_PREFIX } from "./schema.js";
 
 export interface PendingImageEntry {
@@ -37,4 +43,71 @@ export function usePendingImages(): PendingImageMap {
     };
   }, []);
   return ref.current;
+}
+
+interface ResolvePendingUploadsOptions<T> {
+  pendingImages: PendingImageMap;
+  getUrl: (item: T) => string;
+  withUrl: (item: T, url: string) => T;
+  prefix?: UploadImagePrefix;
+  fallbackName: string;
+  failureLabel: string;
+}
+
+// Uploads every pending item to R2 in parallel and returns the resolved items
+// with their final URLs. On any failure it rolls back the uploads that did
+// succeed (so a half-finished submit doesn't orphan R2 objects) and throws an
+// aggregated Spanish message. Shared by the product and palette forms.
+export async function resolvePendingUploads<T>(
+  items: T[],
+  opts: ResolvePendingUploadsOptions<T>,
+): Promise<{ resolved: T[]; newlyUploadedUrls: string[] }> {
+  const { pendingImages, getUrl, withUrl, prefix, fallbackName, failureLabel } =
+    opts;
+
+  const settled = await Promise.allSettled(
+    items.map(async (item): Promise<T> => {
+      const url = getUrl(item);
+      if (!isPendingUrl(url)) return item;
+      const entry = pendingImages.get(pendingTempId(url));
+      if (!entry) throw new Error("Pending image entry not found");
+      const uploaded = await uploadImage(
+        entry.file,
+        prefix ? { prefix } : undefined,
+      );
+      return withUrl(item, uploaded.url);
+    }),
+  );
+
+  const resolved: T[] = [];
+  const failures: string[] = [];
+  const newlyUploadedUrls: string[] = [];
+
+  settled.forEach((result, i) => {
+    const original = items[i]!;
+    if (result.status === "fulfilled") {
+      resolved.push(result.value);
+      if (isPendingUrl(getUrl(original))) {
+        newlyUploadedUrls.push(getUrl(result.value));
+      }
+    } else {
+      const entry = isPendingUrl(getUrl(original))
+        ? pendingImages.get(pendingTempId(getUrl(original)))
+        : undefined;
+      failures.push(
+        describeUploadError(result.reason, entry?.file.name ?? fallbackName),
+      );
+    }
+  });
+
+  if (failures.length > 0) {
+    if (newlyUploadedUrls.length > 0) {
+      void deleteUploadedImages(newlyUploadedUrls);
+    }
+    throw new Error(
+      `No pudimos subir algunas ${failureLabel}: ${failures.join(", ")}`,
+    );
+  }
+
+  return { resolved, newlyUploadedUrls };
 }

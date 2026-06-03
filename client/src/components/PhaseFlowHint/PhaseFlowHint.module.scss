@@ -24,7 +24,7 @@
 .step {
   color: t.$color-text-muted;
   text-decoration: none;
-  padding: 2px 4px;
+  padding: t.$space-0-5 t.$space-1;
   border-radius: t.$radius-sm;
 }
 

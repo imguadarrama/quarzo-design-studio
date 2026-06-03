@@ -1,0 +1,2 @@
+# Playwright E2E specs live here. Run with `pnpm --filter client test:e2e`
+# while the dev stack (`pnpm dev`) is up.

@@ -10,6 +10,26 @@ export interface UploadImageResponse {
 
 export type UploadImagePrefix = "products" | "designs" | "swatches";
 
+// Maps an R2 upload failure to Spanish operator copy. Pass `fileName` to
+// prefix the message in multi-file forms (products, palettes); omit it for
+// single-image forms (designs) where there's no ambiguity about which file.
+export function describeUploadError(err: unknown, fileName?: string): string {
+  const label = fileName ?? "La imagen";
+  if (err instanceof ApiError) {
+    switch (err.code) {
+      case "FILE_TOO_LARGE":
+        return `${label}: demasiado grande (máx 10 MB)`;
+      case "UNSUPPORTED_MEDIA_TYPE":
+        return `${label}: no es una imagen válida`;
+      case "INVALID_IMAGE":
+        return `${label}: no se pudo procesar`;
+      default:
+        return fileName ? `${fileName}: ${err.message}` : err.message;
+    }
+  }
+  return `${label}: error de red`;
+}
+
 export async function uploadImage(
   file: File,
   opts?: { prefix?: UploadImagePrefix },
