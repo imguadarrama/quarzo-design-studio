@@ -102,7 +102,7 @@ jobs:
           DATABASE_URL: ${{ env.DATABASE_URL_POOLED }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL_STAGING }}
           ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD_STAGING }}
-        run: pnpm --filter server seed
+        run: pnpm --filter server seed:demo
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
 

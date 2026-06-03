@@ -6,6 +6,11 @@ export const imageUrlSchema = z
   .trim()
   .regex(/^https:\/\//, "Image must be an https URL");
 
+// FK references: validate presence, not generator format. Category/Design IDs
+// are cuid in fresh DBs but UUID where a migration backfilled them
+// (gen_random_uuid). Existence is enforced by the DB foreign keys.
+export const idSchema = z.string().trim().min(1);
+
 export const variantPriceSchema = z
   .object({
     kind: z.nativeEnum(VariantKind),
@@ -73,7 +78,7 @@ export const productSchema = z.object({
         });
       }
     }),
-  designIds: z.array(z.string().cuid()).max(200).default([]),
+  designIds: z.array(idSchema).max(200).default([]),
 });
 
 export type ProductInput = z.infer<typeof productSchema>;
@@ -102,7 +107,7 @@ export const designSchema = z.object({
     .max(4, "Máximo 4 variantes compatibles")
     .default([]),
   categoryIds: z
-    .array(z.string().cuid())
+    .array(idSchema)
     .max(20, "Máximo 20 categorías")
     .default([]),
 });
@@ -130,10 +135,10 @@ export const palettePayloadSchema = z.object({
 export type PaletteInput = z.infer<typeof palettePayloadSchema>;
 
 export const createOrderItemSchema = z.object({
-  productId: z.string().cuid(),
+  productId: idSchema,
   variantKind: z.nativeEnum(VariantKind),
-  designId: z.string().cuid(),
-  foilSwatchId: z.string().cuid().nullable(),
+  designId: idSchema,
+  foilSwatchId: idSchema.nullable(),
   personalizationText: z.string().trim().min(1).max(80),
   quantity: z.coerce.number().int().min(1).max(999),
 });

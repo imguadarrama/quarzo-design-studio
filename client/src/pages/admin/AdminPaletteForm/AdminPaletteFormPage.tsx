@@ -27,19 +27,22 @@ import {
 import { paletteFormSchema, type PaletteFormValues } from "./schema.js";
 import styles from "./AdminPaletteFormPage.module.scss";
 
+// The store has exactly one palette: the foil palette. Its slug is load-bearing
+// — VARIANT_PALETTE_SLUG keys on it — so create mode pre-fills and locks it.
+const FOIL_PALETTE_NAME = "Colores de foil";
+const FOIL_PALETTE_SLUG = "colores-foil";
+
 export function AdminPaletteFormPage() {
   const { id: editId } = useParams<{ id: string }>();
+  const isCreate = !editId;
   const navigate = useNavigate();
   const pendingImages = usePendingImages();
 
   const formMethods = useForm<PaletteFormValues>({
     resolver: zodResolver(paletteFormSchema),
-    defaultValues: {
-      name: "",
-      slug: "",
-      active: true,
-      swatches: [],
-    },
+    defaultValues: isCreate
+      ? { name: FOIL_PALETTE_NAME, slug: FOIL_PALETTE_SLUG, active: true, swatches: [] }
+      : { name: "", slug: "", active: true, swatches: [] },
   });
   const {
     register,
@@ -55,6 +58,11 @@ export function AdminPaletteFormPage() {
   const slugDirtyRef = useSlugSync(watch("name"), (slug) =>
     setValue("slug", slug, { shouldValidate: false }),
   );
+
+  // The foil slug is fixed; never re-derive it from the name in create mode.
+  if (isCreate) {
+    slugDirtyRef.current = true;
+  }
 
   const { mode, loaded, loadError, load } =
     useAdminEditResource<AdminOptionPalette>(editId, getPalette, (palette) => {
@@ -113,11 +121,11 @@ export function AdminPaletteFormPage() {
 
   const onSubmit = handleSubmit(submit);
 
-  const heading = mode === "edit" ? "Editar paleta" : "Nueva paleta";
+  const heading = mode === "edit" ? "Editar paleta" : "Crear paleta de foil";
   const lede =
     mode === "edit"
       ? "Actualiza el nombre, las muestras y la disponibilidad de la paleta."
-      : "Crea una paleta global de imágenes para usar en opciones SWATCH.";
+      : "Crea la paleta de foil y agrega los colores que verá el cliente al elegir variantes con foil.";
   const submitLabel = mode === "edit" ? "Guardar cambios" : "Crear paleta";
   const submittingLabel = mode === "edit" ? "Guardando…" : "Creando…";
 
@@ -150,15 +158,16 @@ export function AdminPaletteFormPage() {
               label="Slug"
               error={errors.slug?.message}
               hint={
-                mode === "edit"
-                  ? "Cambiar el slug puede romper enlaces antiguos a la paleta."
-                  : "Se genera automáticamente desde el nombre. Edítalo si quieres otro."
+                isCreate
+                  ? "Fijo: la paleta de foil siempre usa el slug colores-foil."
+                  : "Cambiar el slug puede romper enlaces antiguos a la paleta."
               }
             >
               <Input
                 type="text"
                 autoComplete="off"
                 maxLength={120}
+                readOnly={isCreate}
                 {...slugRegistration}
                 onChange={(event) => {
                   slugDirtyRef.current = true;
