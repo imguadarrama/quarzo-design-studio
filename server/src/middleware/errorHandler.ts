@@ -91,6 +91,12 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
       res.status(404).json({ error: "No encontrado", code: "NOT_FOUND" });
       return;
     }
+    if (err.code === "P2003") {
+      res
+        .status(400)
+        .json({ error: "Referencia inválida", code: "INVALID_REFERENCE" });
+      return;
+    }
   }
 
   console.error("[errorHandler]", err);

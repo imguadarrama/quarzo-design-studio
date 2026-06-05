@@ -48,6 +48,22 @@ adminPalettesRouter.post("/palettes", async (req, res, next) => {
   try {
     const data = palettePayloadSchema.parse(req.body);
 
+    // Single, default palette: only the foil palette may exist, and only one of
+    // it. The foil resolver (VARIANT_PALETTE_SLUG) keys on the exact slug, so a
+    // mistyped slug would silently leave foil variants with no swatches.
+    if (!PROTECTED_PALETTE_SLUGS.has(data.slug)) {
+      throw new ConflictError(
+        "PALETTE_SLUG_LOCKED",
+        'La única paleta permitida usa el slug "colores-foil".',
+      );
+    }
+    if ((await prisma.optionPalette.count()) > 0) {
+      throw new ConflictError(
+        "PALETTE_LIMIT_REACHED",
+        "Ya existe la paleta de foil. Solo puede haber una paleta.",
+      );
+    }
+
     const palette = await prisma.optionPalette.create({
       data: {
         ...buildPaletteMetadata(data),

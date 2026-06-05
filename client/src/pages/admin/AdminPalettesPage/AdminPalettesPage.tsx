@@ -54,27 +54,28 @@ export function AdminPalettesPage() {
     onDeleted: handleDeleted,
   });
 
-  const count = palettes?.length ?? 0;
   const swatchCount = confirming?.swatches.length ?? 0;
   const swatchText = swatchCount === 1 ? "muestra" : "muestras";
 
   return (
     <PageSection
       title="Paletas"
-      subtitle={`${count} ${count === 1 ? "paleta" : "paletas"} de imágenes globales, vinculadas a tipos de variante.`}
+      subtitle="La paleta de foil es la única paleta de la tienda. Sus colores se muestran cuando el cliente elige una variante con foil."
       prefix={<PhaseFlowHint current="paletas" />}
       actions={
-        <ButtonLink to="/admin/paletas/nuevo" size="sm">
-          Nueva paleta
-        </ButtonLink>
+        palettes?.length === 0 ? (
+          <ButtonLink to="/admin/paletas/nuevo" size="sm">
+            Crear paleta de foil
+          </ButtonLink>
+        ) : undefined
       }
     >
       <AsyncContent
         data={palettes}
         error={error}
         onRetry={reload}
-        emptyTitle="Aún no hay paletas"
-        emptyMessage="Crea tu primera paleta para usarla en opciones tipo SWATCH."
+        emptyTitle="Aún no hay paleta de foil"
+        emptyMessage='Crea la paleta de foil con el botón "Crear paleta de foil" y agrega sus colores.'
       >
         {(items) => (
           <div className={styles.tableWrap}>

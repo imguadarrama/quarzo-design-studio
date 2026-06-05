@@ -12,7 +12,7 @@ import {
   buildDesignCompatRows,
   buildDesignMetadata,
 } from "../lib/design-write.js";
-import { NotFoundError } from "../lib/errors.js";
+import { ConflictError, NotFoundError } from "../lib/errors.js";
 import { deleteImageKeys, extractKeyFromUrl } from "../lib/storage.js";
 
 export const adminDesignsRouter = Router();
@@ -114,6 +114,16 @@ adminDesignsRouter.delete("/designs/:id", async (req, res, next) => {
       select: { id: true, imageUrl: true },
     });
     if (!existing) throw new NotFoundError("Design not found");
+
+    const productCount = await prisma.productDesign.count({
+      where: { designId: req.params.id },
+    });
+    if (productCount > 0) {
+      throw new ConflictError(
+        "DESIGN_IN_USE",
+        `Este diseño está asignado a ${productCount} producto(s). Quítalo de esos productos antes de eliminarlo.`,
+      );
+    }
 
     await prisma.design.delete({ where: { id: req.params.id } });
 
