@@ -19,7 +19,8 @@ pnpm dev           # docker compose up — starts db + api + web
 pnpm dev:rebuild   # rebuild images (run after changing Dockerfiles or root deps)
 pnpm dev:down      # stop the stack
 pnpm migrate       # prisma migrate dev inside the api container
-pnpm seed          # run src/seed.ts (admin user + sample products); requires stack to be up
+pnpm seed          # run src/seed.ts (admin user only — prod-safe bootstrap); requires stack to be up
+pnpm seed:demo     # run src/seed-demo.ts (admin + sample catalog); for local dev and staging only
 ```
 
 Pre-push preflight (run before `git push` to catch bugs locally that CI would otherwise catch on the PR):
