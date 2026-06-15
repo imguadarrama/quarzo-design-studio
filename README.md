@@ -2,6 +2,8 @@
 
 Custom-stationery e-commerce store (Saltillo, Coahuila — Spanish copy, MXN payments) built on a deliberately pedagogical stack: TypeScript monorepo, Express + Prisma, Vite + React, Postgres, all wrapped in Docker Compose.
 
+**Live:** [quarzo.pages.dev](https://quarzo.pages.dev/)
+
 > **Status:** **Phases 2, 2.5, 2.6, and 2.7 are complete. Phase 3 (cart + guest checkout) is next.** Phase 2 shipped the functional skeleton (catalog, product detail, admin auth, admin product CRUD). Phase 2.5 (all 10 slices) rebuilt the client on SCSS modules + design tokens — three sibling layouts, zustand admin auth, full admin CRUD, public `/catalogo` and `/producto/:slug` with the design-first picker flow, a11y-clean out of the box. Phase 2.6 (PR #34) moved product images to Cloudflare R2 with a server-side Sharp pipeline. Phase 2.7 (PR #36) introduced the fixed `VariantKind` enum, global `Design` library, first-class `Category`, `ProductSlugAlias`, and server-generated SKUs. Plans: [`docs/phase-2-execution-plan.md`](docs/phase-2-execution-plan.md) · [`docs/phase-2.5-execution-plan.md`](docs/phase-2.5-execution-plan.md) · [`docs/phase-2.6-execution-plan.md`](docs/phase-2.6-execution-plan.md) · [`docs/phase-2.7-execution-plan.md`](docs/phase-2.7-execution-plan.md).
 >
 > See [`docs/tech-roadmap.md`](docs/tech-roadmap.md) for the phased plan and [`CLAUDE.md`](CLAUDE.md) for architecture conventions and invariants.
