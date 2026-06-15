@@ -13,18 +13,12 @@ primary_region = "dfw"  # Dallas — closest still-active Fly region to Saltillo
   release_command = "node scripts/smoke-prisma.mjs"
   strategy = "rolling"
 
-# Scale to zero pre-launch — prod is a demo URL for the client, not a
-# serving workload, and Fly's Hobby "always-free 3 machines" allowance
-# was retired Oct 2024 (we're pay-as-you-go now). Phase 7 in
-# docs/tech-roadmap.md flips both knobs back to always-on
-# (auto_stop_machines = false, min_machines_running = 1) when public
-# traffic arrives. See docs/CI-CD/deploy-setup.md §1.
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = "stop"
+  auto_stop_machines = false
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
 
   # See fly.staging.toml for rationale on the tight windows.
   [[http_service.checks]]
@@ -35,10 +29,6 @@ primary_region = "dfw"  # Dallas — closest still-active Fly region to Saltillo
     protocol = "http"
     timeout = "3s"
 
-# Pre-launch sizing. Prod is currently a demo URL for the client, not a
-# serving workload — 256 MB is the cheapest tier and combined with
-# scale-to-zero (above) keeps the bill near $0. Phase 7 in
-# docs/tech-roadmap.md bumps this to 512 MB before public launch.
 [[vm]]
   cpu_kind = "shared"
   cpus = 1
