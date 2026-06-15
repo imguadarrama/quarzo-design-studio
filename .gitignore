@@ -19,3 +19,4 @@ Thumbs.db
 server/prisma/*.db
 server/prisma/*.db-journal
 *settings.local.json
+studying.md
