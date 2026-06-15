@@ -22,11 +22,6 @@ runs:
         node-version-file: .node-version
         cache: pnpm
 
-    # `pnpm install` runs server's `postinstall: prisma generate` automatically,
-    # so a separate generate step would be duplicate work. The server/client
-    # build commands (`tsc` and `tsc -b && vite build`) run the TypeScript
-    # compiler themselves, so a prior `tsc --noEmit` pass would also duplicate
-    # work — if types break, the build fails with the same error.
     - name: Install deps
       shell: bash
       run: pnpm install --frozen-lockfile
@@ -41,17 +36,10 @@ runs:
         VITE_API_BASE_URL: ${{ inputs.vite-api-base-url }}
       run: pnpm --filter client build
 
-    # Runs before the Docker build so a failing test aborts the gate without
-    # paying for the (slow) image build. Tests verify logic correctness; the
-    # smoke below verifies the shipped image boots — different failure classes,
-    # both required before any environment is mutated. Server has no suite yet.
     - name: Run client tests
       shell: bash
       run: pnpm --filter client test
 
-    # Catches runtime-only Dockerfile bugs (e.g. missing Prisma client in the
-    # final image) that no amount of typechecking can surface. If this fails,
-    # flyctl deploy is never invoked.
     - name: Smoke-test production Docker image
       shell: bash
       run: |
