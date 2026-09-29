@@ -181,9 +181,11 @@ Four workflows under `.github/workflows/`. **The YAML files themselves are the s
 
 File: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).
 
-Runs on `push: main` only — not on PRs. Delegates to the shared `build-and-check` composite action (install → build server → build client → docker smoke), so post-merge runs the same pipeline the deploy workflows run.
+Runs on `push: main` only — not on PRs. Delegates to the shared `build-and-check` composite action, so post-merge runs the same pipeline the deploy workflows run.
 
-**Why CI doesn't run on PRs.** `deploy-staging.yml`'s Fly Docker build runs `tsc` (via `pnpm --filter server build`), and the client's build script is `tsc -b && vite build` — so every type error `ci.yml` would catch is also caught during the staging deploy. Running both on every PR doubled install + build work for no new signal.
+**What `build-and-check` runs** ([`.github/actions/build-and-check/action.yml`](../../.github/actions/build-and-check/action.yml)), in order: `pnpm install --frozen-lockfile` (its `postinstall` runs `prisma generate`) → `pnpm --filter server build` (`tsc`) → `pnpm --filter client build` (`tsc -b && vite build`) → `pnpm --filter client test` (Vitest) → `docker build --target runtime` + `scripts/smoke-prisma.mjs`. Any failure stops the calling workflow before it touches a DB, Fly, or Cloudflare. **Not in the gate yet:** server Vitest (`pnpm --filter server test`) and Playwright E2E — run those locally.
+
+**Why CI doesn't run on PRs.** `deploy-staging.yml` invokes the same `build-and-check` composite on every non-draft PR, so every type error or failing client test `ci.yml` would catch is already caught there. Running both on every PR doubled install + build + test work for no new signal. Consequence: **draft PRs and docs-only PRs get no CI at all** (staging skips drafts and `paths-ignore`d changes) — mark a PR ready for review and push again to get it checked.
 
 Enable branch protection on `main` when the repo goes public: Settings → Branches → Add rule → require `build` status check, require PR, disallow direct pushes. (Paywalled on private repos — skip until public.)
 
@@ -191,16 +193,18 @@ Enable branch protection on `main` when the repo goes public: Settings → Branc
 
 File: [`.github/workflows/deploy-staging.yml`](../../.github/workflows/deploy-staging.yml).
 
-Triggered on `pull_request` (opened / synchronize / reopened). Skipped for docs-only PRs via `paths-ignore` (`**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes`). Concurrency cancels in-flight runs when you push again to the same PR.
+Triggered on `pull_request` (opened / synchronize / reopened). Skipped for draft PRs (`if: github.event.pull_request.draft == false`; `ready_for_review` is not a trigger type, so after marking a draft ready you need one more push to start a run) and for docs-only PRs via `paths-ignore` (`**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes`). Concurrency cancels in-flight runs when you push again to the same PR.
 
 **Every PR gets its own complete stack — frontend, DB, *and* API.** That isolation is the whole point: closing or pushing to one PR can never affect another reviewer's environment. Specifically, the workflow:
 
 1. Resolves the per-PR app name as `${FLY_APP_STAGING}-pr-<N>` (e.g. `quarzo-api-staging-pr-15`).
 2. Creates a per-PR Neon branch (`pr-<N>`).
-3. On first deploy for the PR, runs `flyctl apps create <per-PR-app> --org ${FLY_ORG_STAGING}` (idempotent — subsequent pushes find the existing app and skip).
-4. Sets that app's secrets and runs `flyctl deploy -a <per-PR-app> -c fly.staging.toml`. The `app = "..."` line in `fly.staging.toml` is overridden by `-a`, so the same toml is reused across every per-PR app.
-5. Deploys the client to Cloudflare Pages with `branch: pr-<N>` (per-PR preview).
-6. Upserts a single **sticky comment** on the PR (via `marocchino/sticky-pull-request-comment@v2`, identified by `header: staging-preview`) with the stable Pages branch-alias URL `https://pr-<N>.<project>.pages.dev` (always the latest build for this PR) and the per-PR API health URL `https://<per-PR-app>.fly.dev/api/health`. Re-running the workflow updates that comment in place rather than stacking new ones; per-commit Pages URLs still exist on Cloudflare's side for rollback but are not surfaced.
+3. Runs the shared `build-and-check` gate (§6.1) — build, client tests, image smoke. Nothing below runs if it fails.
+4. Runs `prisma migrate deploy` against the PR branch, then seeds it with `pnpm --filter server seed:demo` (admin + sample catalog).
+5. On first deploy for the PR, runs `flyctl apps create <per-PR-app> --org ${FLY_ORG_STAGING}` (idempotent — subsequent pushes find the existing app and skip).
+6. Sets that app's secrets and runs `flyctl deploy -a <per-PR-app> -c fly.staging.toml`. The `app = "..."` line in `fly.staging.toml` is overridden by `-a`, so the same toml is reused across every per-PR app.
+7. Deploys the client to Cloudflare Pages with `branch: pr-<N>` (per-PR preview).
+8. Upserts a single **sticky comment** on the PR (via `marocchino/sticky-pull-request-comment@v2`, identified by `header: staging-preview`) with the stable Pages branch-alias URL `https://pr-<N>.<project>.pages.dev` (always the latest build for this PR) and the per-PR API health URL `https://<per-PR-app>.fly.dev/api/health`. Re-running the workflow updates that comment in place rather than stacking new ones; per-commit Pages URLs still exist on Cloudflare's side for rollback but are not surfaced.
 
 This is paired with `cleanup-staging.yml` (§6.4) which destroys the per-PR Fly app on PR close. There is no shared staging API anymore — the original single `quarzo-api-staging` app is decommissioned and can be destroyed manually once the new flow is verified.
 
@@ -210,7 +214,7 @@ This is paired with `cleanup-staging.yml` (§6.4) which destroys the per-PR Fly 
 
 File: [`.github/workflows/deploy-production.yml`](../../.github/workflows/deploy-production.yml).
 
-`workflow_dispatch` only — you must click the button and type `ship` in the confirmation input. Runs prod migrations, deploys API to Fly prod, deploys client to Cloudflare Pages prod, and tags the commit `release-<utc-stamp>`.
+`workflow_dispatch` only — you must click the button and type `ship` in the confirmation input. Runs the shared `build-and-check` gate (§6.1) first, then prod migrations, deploys API to Fly prod, deploys client to Cloudflare Pages prod, and tags the commit `release-<utc-stamp>`.
 
 **How to deploy production:** GitHub → Actions tab → "Deploy Production" → Run workflow → type `ship` → Run. That's the weekly release ritual.
 
@@ -218,13 +222,14 @@ File: [`.github/workflows/deploy-production.yml`](../../.github/workflows/deploy
 
 File: [`.github/workflows/cleanup-staging.yml`](../../.github/workflows/cleanup-staging.yml).
 
-Triggered on `pull_request: closed`. Tears down the per-PR stack regardless of whether the PR was merged or abandoned:
+Triggered on `pull_request: closed`, with the same `paths-ignore` list as `deploy-staging.yml` (a docs-only PR never deployed anything, so there is nothing to tear down). Tears down the per-PR stack regardless of whether the PR was merged or abandoned:
 
 1. Deletes the `pr-<N>` Neon branch.
 2. Runs `flyctl apps destroy ${FLY_APP_STAGING}-pr-<N> -y` to remove the per-PR Fly app.
 3. Calls the Cloudflare API to list every preview deployment whose `deployment_trigger.metadata.branch == pr-<N>` and `DELETE`s each one with `?force=true`. This removes both the per-commit deployments and the alias deployment, so `https://pr-<N>.<project>.pages.dev` stops resolving.
+4. Runs `aws s3 rm s3://<staging-bucket>/pr-<N>/ --recursive` against the R2 endpoint to purge the PR's uploaded images (the staging R2 token is scoped to the staging bucket, so this can never touch prod).
 
-All three steps are `continue-on-error: true`. PRs that closed without ever deploying (`paths-ignore` filtered every push, draft PRs that never opened, etc.) won't have a Neon branch, Fly app, or Pages deployments to delete, and that's fine — the workflow shouldn't fail just because there's nothing to clean up.
+All four steps are `continue-on-error: true`. PRs that closed without ever deploying (draft PRs that were never marked ready, etc.) won't have a Neon branch, Fly app, Pages deployments, or R2 keys to delete, and that's fine — the workflow shouldn't fail just because there's nothing to clean up.
 
 Because each PR has its own dedicated Fly app, this teardown cannot affect any other open PR. That's the property that the previous "scale shared app to zero" approach lacked.
 
@@ -304,8 +309,9 @@ Run these only after buying the GoDaddy domain.
 
 ## 10. Out of scope for now
 
-- ESLint / Prettier / test runner (Vitest). Add in a later phase; CI is install + build both packages + docker smoke only.
-- E2E tests (Playwright) in the staging pipeline.
+- ESLint / Prettier. Add in a later phase. (Vitest client tests already run in `build-and-check` — see §6.1.)
+- Server Vitest (`pnpm --filter server test`) in `build-and-check`. The suite exists but only runs locally today.
+- E2E tests (Playwright) in the staging pipeline. The config exists (`client/playwright.config.ts`) but `client/e2e/` has no specs yet.
 - Sentry / error monitoring (Fly dashboard + UptimeRobot cover enough for v1 — see §11).
 - Blue/green or canary deploys.
 - DB backups beyond Neon's default PITR.

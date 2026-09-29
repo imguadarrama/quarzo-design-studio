@@ -4,7 +4,7 @@ Custom-stationery e-commerce store (Saltillo, Coahuila — Spanish copy, MXN pay
 
 **Live:** [quarzo.pages.dev](https://quarzo.pages.dev/)
 
-> **Status:** **Phases 2, 2.5, 2.6, and 2.7 are complete. Phase 3 (cart + guest checkout) is next.** Phase 2 shipped the functional skeleton (catalog, product detail, admin auth, admin product CRUD). Phase 2.5 (all 10 slices) rebuilt the client on SCSS modules + design tokens — three sibling layouts, zustand admin auth, full admin CRUD, public `/catalogo` and `/producto/:slug` with the design-first picker flow, a11y-clean out of the box. Phase 2.6 (PR #34) moved product images to Cloudflare R2 with a server-side Sharp pipeline. Phase 2.7 (PR #36) introduced the fixed `VariantKind` enum, global `Design` library, first-class `Category`, `ProductSlugAlias`, and server-generated SKUs. Plans: [`docs/phase-2-execution-plan.md`](docs/phase-2-execution-plan.md) · [`docs/phase-2.5-execution-plan.md`](docs/phase-2.5-execution-plan.md) · [`docs/phase-2.6-execution-plan.md`](docs/phase-2.6-execution-plan.md) · [`docs/phase-2.7-execution-plan.md`](docs/phase-2.7-execution-plan.md).
+> **Status:** **Phases 2, 2.5, 2.6, and 2.7 are complete. Phase 3 (cart + guest checkout) is in progress** — the public order API (`POST`/`GET /api/orders`, PRs #45 + #52) and the client cart (`/carrito`, PR #54) are merged; the `/checkout` page and `/pedido/:publicToken` confirmation page are next ([`docs/phase-3-execution-plan.md`](docs/phase-3-execution-plan.md)). Phase 2 shipped the functional skeleton (catalog, product detail, admin auth, admin product CRUD). Phase 2.5 (all 10 slices) rebuilt the client on SCSS modules + design tokens — three sibling layouts, zustand admin auth, full admin CRUD, public `/catalogo` and `/producto/:slug` with the design-first picker flow, a11y-clean out of the box. Phase 2.6 (PR #34) moved product images to Cloudflare R2 with a server-side Sharp pipeline. Phase 2.7 (PR #36) introduced the fixed `VariantKind` enum, global `Design` library, first-class `Category`, `ProductSlugAlias`, and server-generated SKUs. Plans: [`docs/phase-2-execution-plan.md`](docs/phase-2-execution-plan.md) · [`docs/phase-2.5-execution-plan.md`](docs/phase-2.5-execution-plan.md) · [`docs/phase-2.6-execution-plan.md`](docs/phase-2.6-execution-plan.md) · [`docs/phase-2.7-execution-plan.md`](docs/phase-2.7-execution-plan.md).
 >
 > See [`docs/tech-roadmap.md`](docs/tech-roadmap.md) for the phased plan and [`CLAUDE.md`](CLAUDE.md) for architecture conventions and invariants.
 
@@ -49,13 +49,13 @@ pnpm dev:rebuild
 # 4. In a second terminal, apply the Prisma migrations
 pnpm migrate                    # Prisma prompts for a name on the first run
 
-# 5. Seed the admin user + sample products
-pnpm seed
+# 5. Seed the admin user + sample catalog (categories, designs, foil palette, products)
+pnpm seed:demo                  # or `pnpm seed` for the admin user only (what prod uses)
 ```
 
 Smoke-check:
 
-- Web: http://localhost:5173 should load the Vite placeholder page.
+- Web: http://localhost:5173 should redirect to `/catalogo` and show the seeded products.
 - API health: http://localhost:3000/api/health should return `{"ok":true}`.
 
 ---
@@ -67,8 +67,20 @@ pnpm dev            # start the stack (db + api + web) — same as `docker compo
 pnpm dev:down       # stop the stack
 pnpm dev:rebuild    # rebuild images (after Dockerfile or root-dep changes)
 pnpm migrate        # create/apply a new Prisma migration after editing schema.prisma
-pnpm seed           # re-run the seed script (requires the stack to be up)
+pnpm seed           # seed the admin user only — prod-safe (requires the stack to be up)
+pnpm seed:demo      # admin + sample catalog — local dev and staging only
 ```
+
+### Before you push
+
+```bash
+pnpm preflight                  # ~30s: prisma generate + typecheck + build both packages (no tests)
+pnpm preflight:full             # + docker runtime-image smoke; run after Dockerfile / prisma / server deps changes
+pnpm --filter client test       # client unit tests — CI runs these, so run them first
+pnpm --filter server test       # server unit tests — NOT in CI yet, run them locally
+```
+
+`pnpm --filter client test:e2e` (Playwright, needs `pnpm dev` up) and `pnpm --filter server smoke:orders` (order API smoke, needs `pnpm dev` + `pnpm seed:demo`) are available for manual end-to-end checks. See the CI section of [`CLAUDE.md`](CLAUDE.md) for exactly what the shared `build-and-check` gate runs.
 
 Hot reload is already wired: the `api` service runs `tsx watch` and the `web` service runs `vite` — edits in `server/` or `client/` are picked up inside the containers via bind mounts.
 
@@ -79,7 +91,7 @@ Hot reload is already wired: the `api` service runs `tsx watch` and the `web` se
 | Port | Service | Notes |
 |---|---|---|
 | `5173` | Vite dev server (`web`) | Frontend. Proxies `/api/*` → `api:3000` (see `client/vite.config.ts`), so the browser calls same-origin `/api/...` |
-| `3000` | Express API (`api`) | `/api/health`, `/api/products`, `/api/admin/auth/*`, `/api/admin/products/*`, `/api/admin/categories/*`, `/api/admin/designs/*`, `/api/admin/palettes/*`, `POST /api/admin/images` are live. Cart/checkout routes land in Phase 3. |
+| `3000` | Express API (`api`) | `/api/health`, `/api/products`, `POST /api/orders`, `GET /api/orders/:publicToken`, `/api/admin/auth/*`, `/api/admin/products/*`, `/api/admin/categories/*`, `/api/admin/designs/*`, `/api/admin/palettes/*`, `POST /api/admin/images` are live. |
 | `5432` | Postgres 16 (`db`) | Exposed on localhost so you can connect with TablePlus / DBeaver / `psql` |
 
 ---
@@ -115,12 +127,15 @@ All variables live in `.env` at the repo root. `docker-compose.yml` reads it and
 | `ADMIN_AUTH_COOKIE_NAME` | Admin-session cookie name (default `quarzo_admin_session`) |
 | `CUSTOMER_AUTH_COOKIE_NAME` | Customer-session cookie name (default `quarzo_customer_session`; wired in Phase 5) |
 | `AUTH_TOKEN_TTL_HOURS` | Lifetime of admin/customer JWTs in hours (default `12`) |
-| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Seeded admin-user credentials (consumed by `server/src/seed.ts`). There is intentionally no public admin registration endpoint |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Seeded admin-user credentials (consumed by `server/src/seed-admin.ts`, which both `pnpm seed` and `pnpm seed:demo` call). There is intentionally no public admin registration endpoint |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account ID — used by the R2 S3-compatible client. Same value as the GitHub secret of the same name |
 | `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | Credentials for the R2 access token. Local dev uses the **staging-only** token (`quarzo-r2-rw-staging`) so a mistake can't touch prod. Captured once on token creation; if lost, delete and recreate the token |
 | `R2_BUCKET` | R2 bucket name (default `quarzo-media-staging` locally; `quarzo-media` in prod) |
 | `R2_PUBLIC_BASE_URL` | Public `pub-<hash>.r2.dev` base URL Cloudflare assigns after enabling public access on the bucket. No trailing slash |
 | `R2_KEY_PREFIX` | Optional segment prefixed to every R2 key. Empty locally and in prod; `deploy-staging.yml` sets it to `pr-<N>` per PR so `cleanup-staging.yml` can purge per-PR uploads on close |
+| `SHIPPING_FLAT_RATE_MXN` | Flat national shipping fee in MXN (default `150`; pickup is always `0`). Server-authoritative — used by `server/src/lib/shipping.ts` when pricing an order. Placeholder until the client confirms the real rate |
+| `ORDERS_RATE_LIMIT_PER_MINUTE` | Per-IP cap on `POST /api/orders` (default `30`). Raise locally if manual testing trips it |
+| `ADMIN_LOGIN_RATE_LIMIT_PER_15MIN` | Per-IP cap on `POST /api/admin/auth/login` (default `5`). Raise locally if iterating on the login form trips it |
 
 Never read `process.env.*` directly from app code — import `env` from `server/src/config/env.ts`.
 
@@ -132,7 +147,7 @@ Never read `process.env.*` directly from app code — import `env` from `server/
 - **`Prisma Client did not initialize`** — the generated client inside the image is stale. Run `pnpm dev:rebuild` so the `api` image regenerates it against the current `schema.prisma`.
 - **Don't run Prisma/pnpm on the host** — always use `pnpm migrate`, `pnpm seed`, and the `pnpm dev*` wrappers. They shell into the `api` container so the generated client matches the container's Node and OpenSSL. Running `prisma generate` directly on Windows will produce a binary target that doesn't work inside Alpine.
 - **Frontend edits don't hot-reload** — Vite's watcher is configured to poll the filesystem (`server.watch.usePolling` in `client/vite.config.ts`). This is required on Windows and macOS because host filesystem events do not propagate through Docker bind mounts on those OSes; without polling, Vite never notices your saves. If you change that config and lose HMR, flip polling back on.
-- **Seed fails with `relation does not exist`** — you skipped `pnpm migrate`. Run it first, then `pnpm seed`.
+- **Seed fails with `relation does not exist`** — you skipped `pnpm migrate`. Run it first, then `pnpm seed:demo` (or `pnpm seed`).
 - **Windows line endings** — if Docker builds fail with odd shell errors after a fresh clone, confirm `git config core.autocrlf false` so Dockerfiles and scripts keep LF endings.
 - **Reset the database** — `pnpm dev:down` then `docker volume rm quarzo-design-studio_db_data` (Compose may prefix the name — check with `docker volume ls`). Next `pnpm dev` starts with an empty database; rerun migrate + seed.
 
@@ -143,4 +158,5 @@ Never read `process.env.*` directly from app code — import `env` from `server/
 - [`CLAUDE.md`](CLAUDE.md) — architecture conventions, auth model, data-model invariants, coding rules.
 - [`docs/tech-roadmap.md`](docs/tech-roadmap.md) — full scope, phased plan, and locked product decisions (source of truth for "why is it this way").
 - [`docs/client/discovery-with-client.md`](docs/client/discovery-with-client.md) — raw client discovery notes.
-- [`.env.example`](.env.example) — canonical template for local `.env`..
+- [`docs/CI-CD/deploy-setup.md`](docs/CI-CD/deploy-setup.md) / [`docs/CI-CD/deploy-quickstart.md`](docs/CI-CD/deploy-quickstart.md) — deploy pipeline reference and operator checklist.
+- [`.env.example`](.env.example) — canonical template for local `.env`.

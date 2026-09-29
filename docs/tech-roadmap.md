@@ -190,7 +190,7 @@ Auth mechanics (JWT-in-HTTP-only-cookie, bcrypt cost, endpoint paths, `requireAd
 - [x] Express scaffolded with target folder structure
 - [x] Vite + React scaffolded (styling system replaced with SCSS modules in Phase 2.5 — see PR #15)
 - [x] `docker-compose up` runs the full stack locally
-- [x] Seed script: admin user + 4 sample products with variants
+- [x] Seed script: admin user + 4 sample products with variants (since split: `pnpm seed` = admin only, prod-safe; `pnpm seed:demo` = admin + sample catalog)
 
 ### Phase 1.5 — Deploy the skeleton ✅
 Ship the scaffold to staging + prod before building features. Discover deploy friction on the smallest possible app; give the client a live URL from week 1; unlock per-PR preview environments for every subsequent phase. Full runbook: [`CI-CD/deploy-setup.md`](CI-CD/deploy-setup.md).
@@ -258,17 +258,20 @@ Full plan: [`phase-2.6-execution-plan.md`](phase-2.6-execution-plan.md).
 
 Full plan: [`phase-2.7-execution-plan.md`](phase-2.7-execution-plan.md). Merged in PR #36.
 
-### Phase 3 — Cart + guest checkout foundation
-- [ ] Cart in zustand + `localStorage`
-- [ ] Cart drawer / cart page
-- [ ] Checkout form (contact, shipping, payment method) with `react-hook-form` + `zod`
-- [ ] Shipping logic: flat national rate, pickup = free
-- [ ] Create pending order on submit (no payment yet)
+### Phase 3 — Cart + guest checkout foundation 🚧
+Shipped as a PR series; full plan: [`phase-3-execution-plan.md`](phase-3-execution-plan.md).
+
+- [x] Cart in zustand + `localStorage` (PR #54 — `store/cart.ts`, key `quarzo-cart-v1`; PDP "Agregar al carrito" live; navbar count badge)
+- [x] Cart page — `/carrito` (PR #54). The drawer was dropped by the plan's scope lock: a single cart page only.
+- [ ] Checkout form (contact, shipping, payment method) with `react-hook-form` + `zod` — `/checkout` not built yet; the cart's "Continuar a checkout" currently lands on the 404
+- [ ] Shipping logic: flat national rate, pickup = free — **server done** (`lib/shipping.ts`, `SHIPPING_FLAT_RATE_MXN`, PR #45); client display-only preview still pending
+- [ ] Create pending order on submit (no payment yet) — **server done** (`POST /api/orders` creates a `PENDIENTE` order, PR #45; `clientToken` idempotency + rate limits, PR #52) and `services/api/orders.ts` exists; the checkout submit that calls it is pending
+- [ ] Order confirmation page `/pedido/:publicToken` (generic "pendiente de pago" copy; payment-specific instructions land in Phase 4) — `GET /api/orders/:publicToken` is live, the page isn't built yet
 
 ### Phase 4 — Payments
 - [ ] MercadoPago integration: preference, redirect/SDK, webhook
 - [ ] Bank transfer flow: show bank details, order stays `PENDIENTE`, admin confirms manually
-- [ ] Order confirmation page with `publicToken` URL
+- [ ] Payment-specific content on the `/pedido/:publicToken` confirmation page (MP status, bank-transfer details); the base page is Phase 3
 - [ ] Resend wired up (add the `resend` SDK to `server/package.json`; drop the currently-unused `nodemailer` dep in the same PR)
 - [ ] Order confirmation email + admin new-order alert
 

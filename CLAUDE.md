@@ -8,7 +8,7 @@ Quarzo Design Studio is a custom-stationery e-commerce store (Saltillo, Coahuila
 
 The full scope, customer flows, phased plan, and locked product decisions live in `docs/tech-roadmap.md` (the PRD). Read it before making non-trivial changes — it's the source of truth for "what are we building and why." Data-model invariants, architecture, and code conventions live in this file. `docs/client/discovery-with-client.md` has the raw client discovery notes.
 
-As of the current commit: **Phases 2, 2.5, 2.6, and 2.7 are merged on `main`.** Phase 2 shipped the functional foundation — public `/api/products` + admin auth (JWT-in-HTTP-only-cookie), `authenticateAdmin` + `requireAdmin` middleware, admin product CRUD with nested variants + base64 images, and the parallel server cleanup (shared serializer, global error handler, image payload caps, 409 on duplicate slug, `passwordHash` response audit) per `docs/phase-2-execution-plan.md`. **Phase 2.5 is complete** (PR #15 pivoted off Tailwind to SCSS-modules + design tokens — three sibling layouts `PublicLayout` / `AuthLayout` / `AdminLayout`, zustand admin auth store, `<RequireAdmin>` route guard, `AdminLoginPage` on `react-hook-form` + `zod`). All ten slices have shipped: foundation (PR #15), `Typography` (commit `70b23af`), form primitives `Input` + `FormField` (PR #24), page-state helpers `PageLoading` / `PageError` / `PageEmpty` + shared `Spinner` (PR #25), the read-only admin product list at `/admin/productos` (PR #26), the admin product create form at `/admin/productos/nuevo` (PR #28), admin product edit + delete at `/admin/productos/:id/editar` (PR #30), the full admin product editor with nested images + variants via `useFieldArray` plus a `ProductVariant.position` migration, the public `/catalogo` with `<ProductCard>` + category-chip tablist that wired `PublicLayout` for the first time (Slice 8, PR #40), the public `/producto/:slug` with the design-first picker flow (Slice 9 — design radiogroup → variant kind radiogroup with `compatibleKinds` gating → conditional foil-swatch picker → required "Nombre y apellido" → quantity stepper → disabled "Agregar al carrito" CTA gated by RHF + zod with a `.superRefine` for the foil-swatch rule, slug-alias `navigate-replace` honored), and the a11y pass (Slice 10 — shipped a11y-clean by Slice 9: native `<input type="radio">` in `<fieldset>` + `<legend>` for free arrow-key roving, `aria-label` on the `−`/`+` quantity buttons, `role="alert"` on per-field errors, `alt` on every image, `lang="es-MX"` on `<html>`, `focus-ring` already on `Button`/`Input`/`Textarea`). **Phase 2.6 is merged** (PR #34): image storage moved off base64-in-Postgres to Cloudflare R2 via a server-side Sharp pipeline (1600 px max, JPEG q82, EXIF stripped) behind `POST /api/admin/images`. The admin form uses deferred upload + two-phase submit so picks don't hit R2 until form submit; product delete cascades to R2 keys; per-PR staging gets an `R2_KEY_PREFIX=pr-<N>` that `cleanup-staging.yml` prunes on PR close (`docs/phase-2.6-execution-plan.md`). **Phase 2.7 is merged** (PR #36, reworked mid-PR + a follow-up iteration). Variants became a fixed enum `VariantKind { CON_FOIL | CON_TINTA_NORMAL | CON_FOIL_Y_TINTA | PAPEL_TEXTURIZADO }` with one `ProductVariantPrice(productId, kind, price, sku, offered)` composite-PK row per kind (always 4 per product) — admin no longer names variants and no longer types SKUs (server auto-generates `<slug>-<KIND_SHORT>-<4charRandom>` via `lib/sku-generator.ts` with stable suffixes across slug edits). The `offered` boolean per row lets the admin hide a variant from the storefront without deleting the row. Designs became a top-level global `Design` table (no `productId`) joined to products via `ProductDesign(productId, designId)`; per-design compat is `DesignVariantCompat(designId, kind)` + `DesignCategory(designId, categoryId)`. Categories are first-class: `Category(id, name, slug, position, active)` with `Product.categoryId` FK (replaces the old String column). The design picker in the product form filters by the product's selected category. The `ProductVariantOption` table and `VariantOptionType` enum were removed entirely; personalization is hardcoded ("Nombre y apellido", always required) and the foil-color picker is derived from `VARIANT_PALETTE_SLUG`. Slug edits now create `ProductSlugAlias(productId, slug @unique)` rows so old URLs keep resolving via a SPA navigate-replace; `OrderItem.variantId` became `variantKind: VariantKind` and a new `OrderItem.sku` snapshot column was added pre-Phase-3. New admin surfaces: `/admin/categorias`, `/admin/paletas` (DELETE blocked by `PALETTE_PROTECTED` for `colores-foil`), `/admin/disenos`. Product form has 4 fixed variant rows (read-only label + offered toggle + price), no SKU input, a category dropdown, and a `<ProductDesignsSelector>` checkbox grid filtered by the chosen category. A shared `<PhaseFlowHint>` "Paso 1: Categorías → Paso 2: Paletas → Paso 3: Diseños → Paso 4: Productos" sits at the top of all four list/form pages (`docs/phase-2.7-execution-plan.md`). Slice 9 consumes the Phase 2.7 data model — public `Product` payload inlines `palette.swatches[]` on foil-bearing variant-price rows via `loadPaletteMap`, each `Design` carries `compatibleKinds: VariantKind[]`, and `ProductSlugAlias` lookups return the canonical slug so the SPA can `navigate-replace`. **Phase 3 (cart + guest checkout) is unblocked** and has not started — wiring the cart against the existing picker schema is a matter of deleting the "Disponible próximamente" helper line in `ProductDetailPage.tsx` and replacing the `onSubmit` no-op with an `addToCart(values)` call.
+As of the current commit: **Phases 2, 2.5, 2.6, and 2.7 are merged on `main`.** Phase 2 shipped the functional foundation — public `/api/products` + admin auth (JWT-in-HTTP-only-cookie), `authenticateAdmin` + `requireAdmin` middleware, admin product CRUD with nested variants + base64 images, and the parallel server cleanup (shared serializer, global error handler, image payload caps, 409 on duplicate slug, `passwordHash` response audit) per `docs/phase-2-execution-plan.md`. **Phase 2.5 is complete** (PR #15 pivoted off Tailwind to SCSS-modules + design tokens — three sibling layouts `PublicLayout` / `AuthLayout` / `AdminLayout`, zustand admin auth store, `<RequireAdmin>` route guard, `AdminLoginPage` on `react-hook-form` + `zod`). All ten slices have shipped: foundation (PR #15), `Typography` (commit `70b23af`), form primitives `Input` + `FormField` (PR #24), page-state helpers `PageLoading` / `PageError` / `PageEmpty` + shared `Spinner` (PR #25), the read-only admin product list at `/admin/productos` (PR #26), the admin product create form at `/admin/productos/nuevo` (PR #28), admin product edit + delete at `/admin/productos/:id/editar` (PR #30), the full admin product editor with nested images + variants via `useFieldArray` plus a `ProductVariant.position` migration, the public `/catalogo` with `<ProductCard>` + category-chip tablist that wired `PublicLayout` for the first time (Slice 8, PR #40), the public `/producto/:slug` with the design-first picker flow (Slice 9 — design radiogroup → variant kind radiogroup with `compatibleKinds` gating → conditional foil-swatch picker → required "Nombre y apellido" → quantity stepper → disabled "Agregar al carrito" CTA gated by RHF + zod with a `.superRefine` for the foil-swatch rule, slug-alias `navigate-replace` honored), and the a11y pass (Slice 10 — shipped a11y-clean by Slice 9: native `<input type="radio">` in `<fieldset>` + `<legend>` for free arrow-key roving, `aria-label` on the `−`/`+` quantity buttons, `role="alert"` on per-field errors, `alt` on every image, `lang="es-MX"` on `<html>`, `focus-ring` already on `Button`/`Input`/`Textarea`). **Phase 2.6 is merged** (PR #34): image storage moved off base64-in-Postgres to Cloudflare R2 via a server-side Sharp pipeline (1600 px max, JPEG q82, EXIF stripped) behind `POST /api/admin/images`. The admin form uses deferred upload + two-phase submit so picks don't hit R2 until form submit; product delete cascades to R2 keys; per-PR staging gets an `R2_KEY_PREFIX=pr-<N>` that `cleanup-staging.yml` prunes on PR close (`docs/phase-2.6-execution-plan.md`). **Phase 2.7 is merged** (PR #36, reworked mid-PR + a follow-up iteration). Variants became a fixed enum `VariantKind { CON_FOIL | CON_TINTA_NORMAL | CON_FOIL_Y_TINTA | PAPEL_TEXTURIZADO }` with one `ProductVariantPrice(productId, kind, price, sku, offered)` composite-PK row per kind (always 4 per product) — admin no longer names variants and no longer types SKUs (server auto-generates `<slug>-<KIND_SHORT>-<4charRandom>` via `lib/sku-generator.ts` with stable suffixes across slug edits). The `offered` boolean per row lets the admin hide a variant from the storefront without deleting the row. Designs became a top-level global `Design` table (no `productId`) joined to products via `ProductDesign(productId, designId)`; per-design compat is `DesignVariantCompat(designId, kind)` + `DesignCategory(designId, categoryId)`. Categories are first-class: `Category(id, name, slug, position, active)` with `Product.categoryId` FK (replaces the old String column). The design picker in the product form filters by the product's selected category. The `ProductVariantOption` table and `VariantOptionType` enum were removed entirely; personalization is hardcoded ("Nombre y apellido", always required) and the foil-color picker is derived from `VARIANT_PALETTE_SLUG`. Slug edits now create `ProductSlugAlias(productId, slug @unique)` rows so old URLs keep resolving via a SPA navigate-replace; `OrderItem.variantId` became `variantKind: VariantKind` and a new `OrderItem.sku` snapshot column was added pre-Phase-3. New admin surfaces: `/admin/categorias`, `/admin/paletas` (DELETE blocked by `PALETTE_PROTECTED` for `colores-foil`), `/admin/disenos`. Product form has 4 fixed variant rows (read-only label + offered toggle + price), no SKU input, a category dropdown, and a `<ProductDesignsSelector>` checkbox grid filtered by the chosen category. A shared `<PhaseFlowHint>` "Paso 1: Categorías → Paso 2: Paletas → Paso 3: Diseños → Paso 4: Productos" sits at the top of all four list/form pages (`docs/phase-2.7-execution-plan.md`). Slice 9 consumes the Phase 2.7 data model — public `Product` payload inlines `palette.swatches[]` on foil-bearing variant-price rows via `loadPaletteMap`, each `Design` carries `compatibleKinds: VariantKind[]`, and `ProductSlugAlias` lookups return the canonical slug so the SPA can `navigate-replace`. **Phase 3 (cart + guest checkout) is in progress** (`docs/phase-3-execution-plan.md`), shipped as a PR series: PR-A (#45) added public `POST /api/orders` + `GET /api/orders/:publicToken` — server re-derives all money, re-checks variant/design/foil-swatch validity, snapshots line items, creates a `PENDIENTE` order; PR-B (#52) hardened it with `Order.clientToken` idempotency and IP rate limits (`ordersPostLimiter`, `adminLoginLimiter`); PR-C (#54) shipped the client cart — `store/cart.ts` (zustand `persist`, key `quarzo-cart-v1`, one line per add, never merged), live PDP "Agregar al carrito", navbar item-count badge, and the `/carrito` page. PR #56 (client scale-audit) followed with shared form-page hooks/components, the mobile public navbar, and the Vitest/RTL/Playwright test stack; PR #59 added client tests to the CI gate. **Remaining for Phase 3:** `/checkout` page (the cart's "Continuar a checkout" currently lands on the 404), client shipping-fee preview, and the `/pedido/:publicToken` confirmation page — `services/api/orders.ts` (`createOrder`, `getOrderByToken`) is already in place for them.
 
 ## Common commands
 
@@ -26,7 +26,7 @@ pnpm seed:demo     # run src/seed-demo.ts (admin + sample catalog); for local de
 Pre-push preflight (run before `git push` to catch bugs locally that CI would otherwise catch on the PR):
 
 ```bash
-pnpm preflight         # fast (~30s): prisma generate + tsc both + build both
+pnpm preflight         # fast (~30s): prisma generate + tsc both + build both (does NOT run tests)
 pnpm preflight:image   # slower (~3–5 min): docker build runtime image + smoke the Prisma client loads
 pnpm preflight:full    # both of the above in sequence
 ```
@@ -40,35 +40,40 @@ pnpm --filter server <script>   # e.g. build, prisma:generate
 pnpm --filter client <script>   # e.g. build, preview
 ```
 
-Client tests (Vitest + React Testing Library; deps live in container volumes — run `pnpm dev:rebuild` once after pulling the test stack):
+Tests (Vitest in both packages; deps live in container volumes — run `pnpm dev:rebuild` once after pulling test-dep changes). There is no root `pnpm test` script:
 
 ```bash
-pnpm --filter client test           # Vitest unit/component tests (run once)
-pnpm --filter client test:watch     # Vitest watch mode
-pnpm --filter client test:coverage  # coverage report (HTML in client/coverage/)
-pnpm --filter client test:e2e       # Playwright E2E (requires `pnpm dev` running)
+pnpm --filter client test           # client: Vitest + RTL + jsdom (client/vitest.config.ts) — runs in CI
+pnpm --filter client test:watch     # client: watch mode
+pnpm --filter client test:coverage  # client: coverage report (HTML in client/coverage/)
+pnpm --filter client test:e2e       # client: Playwright (client/playwright.config.ts, specs in client/e2e/); requires `pnpm dev` running
+pnpm --filter server test           # server: Vitest, node env (server/vitest.config.ts) — NOT in CI yet
+pnpm --filter server test:watch     # server: watch mode
+pnpm --filter server smoke:orders   # server: POST/GET /api/orders smoke (server/scripts/smoke-orders.mjs); requires `pnpm dev` + `pnpm seed:demo`
 ```
+
+Test files are co-located as `src/**/*.test.ts(x)` and excluded from both packages' build `tsconfig`, so `pnpm preflight` never typechecks or runs them. Current suites: client `lib/format`, `lib/slug`, `ProductDetailPage/schema`, `AdminProductForm/schema`; server `lib/validation-schemas`. `client/e2e/` has no specs yet, and no E2E runs in CI.
 
 Ports: `api` on `3000`, `web` (Vite) on `5173`, Postgres on `5432`. The Vite dev server proxies `/api/*` → `http://api:3000` via the Compose network (`client/vite.config.ts`), so the frontend calls same-origin `/api/...` in dev.
 
-A test runner is wired up (Vitest + RTL for `client/`, with a Playwright config for E2E). There is no linter or formatter yet. If you add one, add the command here.
+There is no linter or formatter yet. If you add one, add the command here.
 
 ## Environment
 
 Copy `.env.example` → `.env` at the repo root. `docker-compose.yml` reads it and forwards a subset into the `api` container. `server/src/config/env.ts` validates with Zod and exits the process on invalid env — always update that schema when adding a new variable. Never read `process.env.*` directly from app code; import `env` from `config/env.ts`.
 
-The admin user is seeded from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (see `server/src/seed.ts` — lives in `src/` not `prisma/` so the single tsconfig covers it; `package.json`'s `prisma.seed` field points `tsx` at the right path). There is intentionally no public admin-registration endpoint.
+The admin user is seeded from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (`server/src/seed-admin.ts`, called by both `seed.ts` and `seed-demo.ts` — seeds live in `src/` not `prisma/` so the single tsconfig covers it; `package.json`'s `prisma.seed` field points `tsx` at the right path). There is intentionally no public admin-registration endpoint.
 
 ## CI / deploy workflows
 
 Four workflows under `.github/workflows/`:
 
-- `ci.yml` — **`push: main` only** (not on PRs). Post-merge tripwire: delegates to the shared `build-and-check` composite action, so post-merge runs the same install → build server → build client → docker-smoke pipeline the deploy workflows run. Skips pushes that only touch `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes` via `paths-ignore`. PR coverage comes from `deploy-staging.yml` invoking the same composite — no duplicated install/tsc/build work.
-- `deploy-staging.yml` — PR-triggered (with `paths-ignore` for `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes`). Review-app pattern: every PR gets its own complete stack — Neon DB branch, **Fly app** `${FLY_APP_STAGING}-pr-<N>` (created idempotently on first deploy), and Cloudflare Pages preview. Runs `build-and-check`, deploys API to the per-PR Fly app, client to Cloudflare Pages, then upserts a single sticky PR comment (`marocchino/sticky-pull-request-comment@v2`, header `staging-preview`) linking the stable per-PR Pages alias `pr-<N>.<project>.pages.dev` and the per-PR API. The same comment is updated on every push — no stacking.
+- `ci.yml` — **`push: main` only** (not on PRs). Post-merge tripwire: delegates to the shared `build-and-check` composite action, so post-merge runs the same install → build server → build client → client tests → docker-smoke pipeline the deploy workflows run. Skips pushes that only touch `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes` via `paths-ignore`. PR coverage comes from `deploy-staging.yml` invoking the same composite — no duplicated install/tsc/build work.
+- `deploy-staging.yml` — PR-triggered (`opened` / `synchronize` / `reopened`; **draft PRs are skipped**; `paths-ignore` for `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, `.gitattributes`). Review-app pattern: every PR gets its own complete stack — Neon DB branch, **Fly app** `${FLY_APP_STAGING}-pr-<N>` (created idempotently on first deploy), and Cloudflare Pages preview. Runs `build-and-check`, migrates + seeds the PR's Neon branch with `seed:demo` (auto-recreating the branch once if `migrate deploy` fails), deploys API to the per-PR Fly app, client to Cloudflare Pages, then upserts a single sticky PR comment (`marocchino/sticky-pull-request-comment@v2`, header `staging-preview`) linking the stable per-PR Pages alias `pr-<N>.<project>.pages.dev` and the per-PR API. The same comment is updated on every push — no stacking.
 - `deploy-production.yml` — `workflow_dispatch` only. Requires typing `ship` to confirm. Runs `build-and-check` **before** `prisma migrate deploy`, `flyctl deploy`, and the Cloudflare upload — so prod state is never mutated unless every gate has passed.
-- `cleanup-staging.yml` — on PR close, deletes the per-PR Neon branch, destroys the per-PR Fly app (`flyctl apps destroy ${FLY_APP_STAGING}-pr-<N>`), and deletes every Cloudflare Pages preview deployment for branch `pr-<N>` via the CF API (`DELETE /pages/projects/.../deployments/{id}?force=true`, reusing the existing `Pages: Edit` token). All three steps are `continue-on-error: true` so a PR that closed without ever deploying doesn't fail cleanup.
+- `cleanup-staging.yml` — on PR close (same `paths-ignore` as staging), deletes the per-PR Neon branch, destroys the per-PR Fly app (`flyctl apps destroy ${FLY_APP_STAGING}-pr-<N>`), deletes every Cloudflare Pages preview deployment for branch `pr-<N>` via the CF API (`DELETE /pages/projects/.../deployments/{id}?force=true`, reusing the existing `Pages: Edit` token), and purges the PR's `pr-<N>/` R2 keys from the staging bucket. All four steps are `continue-on-error: true` so a PR that closed without ever deploying doesn't fail cleanup.
 
-Shared pre-deploy gate: `.github/actions/build-and-check/action.yml`. Both deploy workflows and `ci.yml` invoke it so staging, prod, and post-merge main run the exact same pipeline (install → build server → build client → `docker build --target runtime` + Prisma-client smoke test). `pnpm install` runs `postinstall: prisma generate` automatically, and the `build` scripts (`tsc` for server, `tsc -b && vite build` for client) run the TypeScript compiler — so explicit `prisma generate` / `tsc --noEmit` steps would be duplicate work. Changing the pre-deploy gates = edit one file, all three workflows pick it up. The smoke step specifically catches runtime-only Dockerfile bugs (e.g. missing generated Prisma client in the image) that typechecks can't see.
+Shared pre-deploy gate: `.github/actions/build-and-check/action.yml`. Both deploy workflows and `ci.yml` invoke it so staging, prod, and post-merge main run the exact same pipeline (install → build server → build client → `pnpm --filter client test` → `docker build --target runtime` + Prisma-client smoke test). **Server tests (`pnpm --filter server test`) and Playwright E2E are not in the gate yet** — run them locally. `pnpm install` runs `postinstall: prisma generate` automatically, and the `build` scripts (`tsc` for server, `tsc -b && vite build` for client) run the TypeScript compiler — so explicit `prisma generate` / `tsc --noEmit` steps would be duplicate work. Changing the pre-deploy gates = edit one file, all three workflows pick it up. The smoke step specifically catches runtime-only Dockerfile bugs (e.g. missing generated Prisma client in the image) that typechecks can't see.
 
 Belt-and-suspenders at the Fly layer: `fly.toml` and `fly.staging.toml` both set `[deploy] release_command = "node scripts/smoke-prisma.mjs"`. Fly runs this in an ephemeral machine before rolling out serving machines; a non-zero exit aborts the deploy, so even a hand-run `flyctl deploy` can't push a broken image.
 
@@ -91,16 +96,24 @@ server/src/
   auth/         JWT sign/verify, cookie helpers, shared auth types
   config/       env loader (env.ts)
   db/           Prisma client singleton (prisma.ts)
-  middleware/   authenticateAdmin, requireAdmin
-  routes/       REST endpoints (health, products, admin-auth, admin-products)
+  lib/          validation-schemas, <resource>-write builders (product, category, design,
+                palette, order), serializers, errors, image-pipeline + storage (R2),
+                sku-generator, variant-kinds, variant-palettes, shipping, public-token
+  middleware/   authenticateAdmin, requireAdmin, errorHandler, rateLimiters
+  routes/       REST endpoints (health, products, orders, admin-auth, admin-products,
+                admin-categories, admin-designs, admin-palettes, admin-images)
   types/        Express augmentations (e.g. req.auth shape)
   index.ts      app bootstrap
-  seed.ts       admin user + sample products seed
+  seed.ts       prod-safe seed: admin user only (via seed-admin.ts)
+  seed-demo.ts  admin + sample catalog (local dev + staging)
+  seed-admin.ts shared admin-user upsert
+server/scripts/ smoke-prisma.mjs (image + Fly release_command smoke), smoke-orders.mjs,
+                migrate-base64-to-r2.mjs (one-off Phase 2.6 backfill)
 ```
 
-Planned (added when their first consumer lands): `controllers/` (if routes grow thick enough to justify splitting), `services/` (orders, payments, email — Phase 3+), `lib/` (MercadoPago wrapper, Resend mailer — Phase 4).
+Planned (added when their first consumer lands): `controllers/` (if routes grow thick enough to justify splitting), `services/` (payments, email — Phase 4), MercadoPago wrapper + Resend mailer in `lib/` (Phase 4).
 
-`server/src/index.ts` is the entrypoint; `helmet`, `cors` (predicate function — exact match on `env.CLIENT_ORIGIN` plus optional `env.CLIENT_ORIGIN_PREVIEW_PATTERN` regex for Cloudflare Pages previews, `credentials: true`), `cookie-parser`, and `express.json({ limit: "1mb" })` are already wired. Routes currently mounted under `/api` and `/api/admin`: `healthRouter` (`GET /api/health`), `productsRouter` (public `/api/products`, `/api/products/:slug`), `adminAuthRouter` (`/api/admin/auth/{login,logout,me}`), `adminProductsRouter` (`/api/admin/products*`), `adminCategoriesRouter` (`/api/admin/categories*`), `adminDesignsRouter` (`/api/admin/designs*`), `adminPalettesRouter` (`/api/admin/palettes*`), `adminImagesRouter` (`POST /api/admin/images`) — all admin routes gated by `authenticateAdmin` + `requireAdmin`. Future routes follow the same pattern.
+`server/src/index.ts` is the entrypoint; `helmet`, `cors` (predicate function — exact match on `env.CLIENT_ORIGIN` plus optional `env.CLIENT_ORIGIN_PREVIEW_PATTERN` regex for Cloudflare Pages previews, `credentials: true`), `cookie-parser`, and `express.json({ limit: "1mb" })` are already wired. Routes currently mounted under `/api` and `/api/admin`: `healthRouter` (`GET /api/health`), `productsRouter` (public `/api/products`, `/api/products/:slug`), `ordersRouter` (public `POST /api/orders` behind `ordersPostLimiter`, `GET /api/orders/:publicToken`), `adminAuthRouter` (`/api/admin/auth/{login,logout,me}`), `adminProductsRouter` (`/api/admin/products*`), `adminCategoriesRouter` (`/api/admin/categories*`), `adminDesignsRouter` (`/api/admin/designs*`), `adminPalettesRouter` (`/api/admin/palettes*`), `adminImagesRouter` (`POST /api/admin/images`) — all admin routes gated by `authenticateAdmin` + `requireAdmin`. Future routes follow the same pattern.
 
 Import Prisma via `import { prisma } from "../db/prisma.js"` (note the `.js` extension — required for NodeNext ESM resolution even though the source is `.ts`).
 
@@ -135,7 +148,9 @@ Two `express-rate-limit` limiters live in `server/src/middleware/rateLimiters.ts
 ### Data model invariants (`server/prisma/schema.prisma`)
 
 - `Order.customerId` is nullable to support pure guest orders.
-- `Order.publicToken` is an unguessable URL slug — it's how a guest views their order without logging in. Generate with CSPRNG; never expose `Order.id` externally.
+- `Order.publicToken` is an unguessable URL slug — it's how a guest views their order without logging in. Generate with CSPRNG (`lib/public-token.ts`); never expose `Order.id` externally.
+- `Order.clientToken` (nullable, `@unique`) is a client-minted UUID sent with `POST /api/orders` for idempotency — a replay returns the existing order with `200`. Never trust it for security (see "Rate limiting & abuse defense").
+- Order money (`subtotal`, `shippingFee`, `total`, `OrderItem.unitPrice`) is always re-derived server-side from `ProductVariantPrice.price` and `env.SHIPPING_FLAT_RATE_MXN` (`lib/shipping.ts`); the request body never carries prices.
 - `OrderItem` **snapshots** `productName`, `variantName`, and `unitPrice` at purchase time so past orders stay correct when the catalog changes. Do not lazily join back to `Product` for historical display.
 - `OrderItem.personalizationText` is required and carries the customer-supplied "Nombre y apellido" string. Two orders of the same SKU are not interchangeable — this field is load-bearing for fulfillment. The PDP always renders one required text input labeled "Nombre y apellido"; there is no configurable per-product personalization in the schema.
 - `OrderItem.selections` (Json) snapshots the customer's foil-color pick on `CON_FOIL` / `CON_FOIL_Y_TINTA` orders (e.g. `{ "foilColor": "Dorado", "foilSwatchId": "..." }`). Empty `{}` for `CON_TINTA_NORMAL` / `PAPEL_TEXTURIZADO`.
@@ -147,7 +162,7 @@ Two `express-rate-limit` limiters live in `server/src/middleware/rateLimiters.ts
 - **Designs are global.** `Design` rows have no `productId`. `ProductDesign(productId, designId)` is a many-to-many join. `DesignVariantCompat(designId, kind)` records which variant kinds a design supports — set at design creation, applies to every product the design is attached to. `DesignCategory(designId, categoryId)` is a M2M with `Category` — designs surface in the product form's design picker only when the design's category set intersects the product's `categoryId`.
 - **Categories are first-class.** `Category(id, name, slug, position, active)` with `Product.categoryId` FK (`onDelete: Restrict` — can't delete a category that has products). `DesignCategory(designId, categoryId)` is the M2M with designs. Admin manages at `/admin/categorias` (CRUD + `CATEGORY_IN_USE` 409 guard).
 - **Slug edits create aliases**, not breakage. `ProductSlugAlias(productId, slug @unique, createdAt)`. PATCH on `Product.slug` writes the prior slug into this table. Public `GET /api/products/:slug` first looks up by current slug; on miss, falls back via the alias and returns the product with `slug` set to the **canonical current value**. The SPA reads `product.slug` from the payload and `navigate(canonical, { replace: true })` when it differs from the URL — SPA equivalent of an HTTP 301. Full HTTP 301 is a Phase-7 polish item (needs SSR).
-- **OrderItem.sku** is a snapshot column (NOT a FK). At checkout time, the cart writes `OrderItem.sku` from the picked `ProductVariantPrice.sku` so historical orders survive product/variant SKU changes. Phase 3 (cart) owns the write path; the column exists pre-Phase-3 to avoid a follow-up migration.
+- **OrderItem.sku** is a snapshot column (NOT a FK). At order creation, `lib/order-write.ts` copies `OrderItem.sku` from the picked `ProductVariantPrice.sku` so historical orders survive product/variant SKU changes.
 - **Foil-color palette mapping is hardcoded** in `server/src/lib/variant-palettes.ts` (`VARIANT_PALETTE_SLUG`). `CON_FOIL` and `CON_FOIL_Y_TINTA` resolve to palette slug `colores-foil`; the other two kinds resolve to no palette. The public product serializer inlines the palette (with active swatches) on each variant-price row via `loadPaletteMap(prisma)` (one query per request). `admin-palettes.ts` DELETE rejects with `code: "PALETTE_PROTECTED"` when the slug appears in this map.
 - `Design.position`, `ProductImage.position`, `Category.position` (Int, default 0) control display order in their respective scopes. Variant order is enum-declaration order, not a DB column.
 - All money is `Decimal(10,2)`. Construct with `new Prisma.Decimal(...)`, never with `Number`.
@@ -161,7 +176,7 @@ Two paths, both produce an `Order` row:
 
 ### Client
 
-Current layout (folders / files land when their first occupant does — many are stubs awaiting their Phase 2.5 slice):
+Current layout (folders / files land when their first occupant does). Tests are co-located as `*.test.ts(x)`; `test/setup.ts` wires `@testing-library/jest-dom`:
 
 ```
 client/src/
@@ -171,16 +186,18 @@ client/src/
     _tokens.scss             SCSS vars + semantic aliases + :root custom properties
     _mixins.scss             focus-ring, screen-md/lg/below-md, flex-center, sticky-header, form-error-banner
   layouts/
-    PublicLayout.tsx         public navbar + Outlet (mounts /, /catalogo, /producto/:slug)
+    PublicLayout.tsx         public navbar + Outlet (mounts /, /catalogo, /producto/:slug, /carrito)
     AuthLayout.tsx           bare centered shell (login)
     AdminLayout.tsx          admin navbar + Outlet, internally wraps in RequireAdmin
   routes/
-    adminRoutes.tsx          AuthLayout (/admin/login) + AdminLayout (/admin/productos*) + /admin redirect
-    publicRoutes.tsx         PublicLayout wrapping /, /catalogo, /producto/:slug
+    adminRoutes.tsx          AuthLayout (/admin/login) + AdminLayout (/admin/{productos,paletas,disenos,
+                             categorias} list + /nuevo + /:id/editar) + /admin redirect
+    publicRoutes.tsx         PublicLayout wrapping /, /catalogo, /producto/:slug, /carrito
   components/
-    AsyncContent/  Button/  Card/  ConfirmDialog/  FormField/  FullPageSpinner/  Input/
-    NavBar/  NavBarAdmin/  NavBarPublic/  PageSection/  PageState/  PhaseFlowHint/
-    ProductCard/  ReorderControls/  Spinner/  Textarea/  Typography/
+    ActiveToggle/  AsyncContent/  Button/  ButtonLink/  Card/  ConfirmDialog/  FormField/
+    FullPageSpinner/  Input/  NavBar/  NavBarAdmin/  NavBarPublic/  PageSection/  PageState/
+    PhaseFlowHint/  ProductCard/  QuantityStepper/  ReorderControls/  Spinner/  Textarea/  Typography/
+    FormPageState.tsx        edit-mode loading / load-error shell for admin form pages
     RequireAdmin.tsx
   pages/
     NotFoundPage/
@@ -190,7 +207,8 @@ client/src/
                                schema.ts (variants .length(4), designIds[]), mappers.ts,
                                pending-images.ts (deferred R2 upload staging),
                                components/{ProductImageEditor, ProductVariantEditor, ProductDesignsSelector}.tsx.
-                               Variants are 4 fixed rows (read-only label + price + sku). Designs picked via
+                               Variants are 4 fixed rows (read-only label + offered toggle + price; SKU is
+                               server-generated). Designs picked via
                                checkbox grid over the global Design library.
     admin/AdminPalettesPage/   global palette CRUD list
     admin/AdminPaletteForm/    palette create + edit (swatch list + R2 upload)
@@ -206,16 +224,23 @@ client/src/
                                FoilSwatchPicker, QuantityInput}.tsx. 2-col layout (sticky design preview left
                                / dense form right) sized to fit a single desktop viewport. Preview hero shows
                                the currently selected design so the customer sees their pick in a large image
-                               while configuring. RHF + zod, mode "onChange", isValid gates the disabled
-                               "Agregar al carrito" CTA (Slice 9).
+                               while configuring. RHF + zod, mode "onChange", isValid gates the
+                               "Agregar al carrito" CTA, which adds a line to the cart store (Slice 9 + Phase 3).
+    CartPage/                  public /carrito — cart lines (QuantityStepper + "Quitar") + subtotal aside;
+                               "Continuar a checkout" links to /checkout (not built yet — Phase 3)
   store/
     adminAuth.ts             zustand: admin / status / hydrate / login / logout
+    cart.ts                  zustand + persist (localStorage key `quarzo-cart-v1`): lines / addLine / removeLine /
+                             updateQuantity / clear; selectors useCartItemCount, useCartSubtotal (display only)
   services/
-    api/{client.ts, fetchJson.ts, admin.ts, products.ts, uploadImage.ts}
+    api/{client.ts, fetchJson.ts, admin.ts, products.ts, orders.ts, uploadImage.ts}
   hooks/
     useFormSubmit.ts          wraps async submit handlers with submitError state
     useAdminListResource.ts   fetch + retry + reload + setData for admin list pages
     useAdminDeleteFlow.ts     pending/confirm/in-flight/error for the two-click delete pattern
+    useAdminEditResource.ts   load-by-id for admin edit forms (pairs with <FormPageState>)
+    useCategories.ts          loads the category list once for admin forms that filter by category
+    useSlugSync.ts            auto-derives slug from name until the slug field is edited
   lib/
     types.ts                 mirrors server response shapes
     variant-kinds.ts         client-side VARIANT_KIND_NAMES map (mirrors server lib)
@@ -232,7 +257,7 @@ client/src/
 
 **Styling.** SCSS modules only — no global utility classes, no Tailwind, no `clsx`. Tokens live in `styles/_tokens.scss`. Components import `_tokens.scss` via `@use "../../styles/tokens" as t;` (or `mixins`) and reference values as `t.$color-accent`. The same semantic tokens are re-emitted as CSS custom properties on `:root` so runtime consumers (media queries, future theme switching, JS-set overrides) can read them as `var(--color-accent)`.
 
-**Stack.** `react-router-dom`, `zustand`, `react-hook-form`, `@hookform/resolvers/zod`, `zod`, native `fetch`. The cart will live in `localStorage` for guests and sync to the DB when a customer logs in (Phase 3+). Mobile-first — primary traffic is Instagram on phones.
+**Stack.** `react-router-dom`, `zustand`, `react-hook-form`, `@hookform/resolvers/zod`, `zod`, `@radix-ui/react-dialog` (behind `ConfirmDialog`), native `fetch`. Tests: Vitest + React Testing Library + jsdom; Playwright for E2E. The cart lives in `localStorage` (`store/cart.ts`) and is PII-free — product picks only, no tokens/contact data. DB sync on customer login is Phase 5. Mobile-first — primary traffic is Instagram on phones.
 
 **Brand assets.** Brand palette (cream-light bg, cream surface, pink accent, mint/sage/lavender, grey muted) is in `_tokens.scss`. Typography is Lora (primary, serif) + Quicksand (secondary, sans), loaded via Google Fonts in `index.html`. References: sugarpaper.com, theatelier.com.mx.
 

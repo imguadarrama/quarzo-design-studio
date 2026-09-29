@@ -1,5 +1,7 @@
 # Client scalability audit — `client/src/`
 
+> **Historical report.** Dated snapshot; the "Outcome" section below was merged in PR #56, and PR #59 added `pnpm --filter client test` to the CI gate. For the current test commands and what CI runs, see `CLAUDE.md` ("Common commands" + "CI / deploy workflows"). Two items below did not ship as written: `msw` was never installed, and `client/e2e/` has no specs yet.
+
 **Date:** 2026-06-03
 **Scope:** `client/src/` only (no server code). Baseline: `pnpm preflight` green before the audit.
 **Method:** three specialist agents (senior-frontend, senior-architect, qa-engineer) analyzed read-only in parallel; findings synthesized and de-duplicated below.
