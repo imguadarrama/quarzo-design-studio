@@ -8,6 +8,18 @@
 > 3. Cart UX is a single `/carrito` page. No drawer in Phase 3.
 >
 > Companion docs: PRD → `docs/tech-roadmap.md`; data-model invariants → `CLAUDE.md` §"Data model invariants".
+>
+> **Status (as built on `main`):**
+> - ✅ **§4 server** — PR-A (#45): `POST /api/orders`, `GET /api/orders/:publicToken`, `lib/{shipping,public-token,order-write}.ts`, `createOrderSchema`, `serializeOrderPublic`. Automated smoke: `pnpm --filter server smoke:orders` (needs `pnpm dev` + `pnpm seed:demo`).
+> - ✅ **Hardening (not in the original plan)** — PR-B (#52): `Order.clientToken` (nullable `@unique`, migration `order_client_token`) makes `POST /api/orders` idempotent — the body **must** include `clientToken: <uuid v4>`, and a replay returns the existing order with `200`. Per-IP rate limits: `ordersPostLimiter` (30/min) and `adminLoginLimiter` (5/15 min), with `app.set("trust proxy", 1)`. See `CLAUDE.md` → "Rate limiting & abuse defense".
+> - ✅ **§5a–§5f client** — PR-C (#54): types, `store/cart.ts`, `services/api/orders.ts`, PDP add-to-cart, navbar badge, `/carrito`.
+> - ⏳ **§5g–§5k** — `/checkout`, shipping preview, `/pedido/:publicToken`, route wiring, then §6 E2E. Not started.
+>
+> **As-built deviations from the task text below** (the code wins; the task text is kept as the original plan):
+> - Cart store is `useCartStore`; the count selector is `useCartItemCount` (not `useCartLineCount`). `CartLine.unitPrice` is a `number` (not a string).
+> - Service paths include the `/api` prefix (`fetchJson("/api/orders", …)`), and both wrappers return the unwrapped `order`.
+> - The `/carrito` quantity control uses the shared `components/QuantityStepper`.
+> - §5g submit payload must also send `clientToken` — mint it once per checkout attempt (e.g. `crypto.randomUUID()` held in a ref) so a double-submit/retry reuses the same value.
 
 ---
 
@@ -56,7 +68,7 @@
 | PDP "Disponible próximamente" helper line | `client/src/pages/ProductDetailPage/ProductDetailPage.tsx:288` (`<p className={styles.ctaHelper}>Disponible próximamente</p>`) | Delete. The CTA becomes live. |
 | Dead `/carrito` nav link | `client/src/components/NavBarPublic/NavBarPublic.tsx:5-9` | Stays — Phase 3 builds the route it points to. Add a cart-count badge. |
 | Dead `/mi-cuenta` nav link | `client/src/components/NavBarPublic/NavBarPublic.tsx:5-9` | **Leave** — Phase 5 owns it. Don't add it to this PR's scope. |
-| Unused `@aws-sdk/client-s3` dep | `server/package.json` | **Out of scope.** Separate cleanup PR. Don't fold in. |
+| ~~Unused `@aws-sdk/client-s3` dep~~ | `server/package.json` | **Correction: not unused** — `server/src/lib/storage.ts` uses it as the R2 (S3-compatible) client. Do **not** remove it. |
 
 ### 1c. Out of scope for this phase
 

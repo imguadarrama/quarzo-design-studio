@@ -15,7 +15,7 @@ GitHub sees a new PR (or a push to an existing PR) and fires this workflow. The 
 
 1. **Resolve the per-PR app name.** `${FLY_APP_STAGING}-pr-<N>` — e.g. `quarzo-api-staging-pr-15`. Used everywhere downstream so the workflow targets *this PR's* Fly app, not a shared one.
 2. **Make a throwaway DB.** Calls Neon to clone the `main` branch of your staging Postgres into a short-lived branch named `pr-<N>`. Outputs a connection string. Subsequent pushes to the same PR reuse this branch.
-3. **Get the code ready.** Installs pnpm deps, runs `prisma generate` (builds the typed DB client), applies pending migrations to the throwaway DB, seeds the admin user + sample products.
+3. **Check the code, then prepare the DB.** Runs the shared `build-and-check` gate: installs pnpm deps (which runs `prisma generate`, building the typed DB client), builds server + client (type errors fail here), runs the client unit tests (`pnpm --filter client test` — a failing test stops the deploy here), and smoke-tests the production Docker image. Then applies pending migrations to the throwaway DB and seeds it with `seed:demo` (admin user + sample catalog).
 4. **Ensure the per-PR Fly app exists, then ship the server.** On the PR's first push, `flyctl apps create quarzo-api-staging-pr-<N>` creates a brand-new app under your Fly org. Subsequent pushes find it already there and skip. Then `flyctl deploy -a <per-PR-app> -c fly.staging.toml` builds your Dockerfile's `runtime` stage (which runs `tsc` — type errors fail the build here) and rolls out a machine in that app. The `app = "..."` line in `fly.staging.toml` is overridden by the `-a` flag, so the same toml is reused across every per-PR app.
 5. **Ship the website.** Runs `pnpm --filter client build` (which is `tsc -b && vite build` — type errors fail here) with `VITE_API_BASE_URL` pointing at this PR's API URL (`https://quarzo-api-staging-pr-<N>.fly.dev`), then uploads `client/dist/` to Cloudflare Pages as a preview deployment.
 6. **Tell you.** Upserts a single sticky comment on the PR (one per PR, updated in place on every push) with the **stable web URL** (`pr-<N>.<project>.pages.dev` — always the latest build for this PR) and the per-PR API health URL. Per-commit URLs still exist on Cloudflare's side for rollback, but the comment doesn't link them.
@@ -24,20 +24,26 @@ Every push to the PR repeats this. The `concurrency` block cancels in-flight run
 
 **Doc-only PRs are skipped.** The workflow has `paths-ignore` for `**/*.md`, `docs/**`, `.gitignore`, `LICENSE`, `.editorconfig`, and `.gitattributes` — README or runbook changes don't spin up Fly + Neon.
 
+**Draft PRs are skipped too.** The job only runs when the PR is not a draft. Marking a draft "Ready for review" does **not** start a run on its own — push one more commit afterwards. Until then the PR has no build, test, or preview.
+
 ### When the PR is closed (merged or abandoned) → `cleanup-staging.yml` runs
 Tears down everything that was specific to this PR:
 
 1. Deletes the `pr-<N>` Neon DB branch.
 2. Runs `flyctl apps destroy quarzo-api-staging-pr-<N> -y` to delete the per-PR Fly app.
 3. Calls the Cloudflare API to delete every Pages preview deployment for branch `pr-<N>`, including the alias deployment — so `pr-<N>.<project>.pages.dev` stops resolving.
+4. Deletes everything under `pr-<N>/` in the staging R2 bucket (the images uploaded while testing this PR).
 
-All three steps tolerate "nothing to delete" failures, so closing a PR that never deployed (e.g. a docs-only PR that `paths-ignore` skipped) won't error out. And because every destroyed resource belongs only to this PR, this teardown can never affect any other open PR's staging environment.
+All four steps tolerate "nothing to delete" failures, so closing a PR that never deployed (e.g. a draft that was never marked ready) won't error out. Docs-only PRs skip cleanup entirely — same `paths-ignore` list as staging. And because every destroyed resource belongs only to this PR, this teardown can never affect any other open PR's staging environment.
 
-### When you merge to `main` → only `ci.yml` runs (post-merge tripwire)
-Install + build server + build client + docker smoke (via the shared `build-and-check` composite action). **No deploy.** This runs on `main` pushes only — **not on PRs**. Why? `deploy-staging.yml` already invokes the same composite on every PR, so running ci on PRs was duplicate work. On main it's a cheap sanity check that catches any merge-conflict weirdness that slipped past staging.
+### When you merge to `main` → `ci.yml` runs (post-merge tripwire)
+(Alongside `cleanup-staging.yml` from the PR closing. Docs-only merges skip `ci.yml` via the same `paths-ignore` list.)
+
+Install + build server + build client + client tests + docker smoke (via the shared `build-and-check` composite action). **No deploy.** Server tests and Playwright E2E are not part of this gate yet — run them locally (see README "Before you push"). This runs on `main` pushes only — **not on PRs**. Why? `deploy-staging.yml` already invokes the same composite on every PR, so running ci on PRs was duplicate work. On main it's a cheap sanity check that catches any merge-conflict weirdness that slipped past staging.
 
 ### When you want to ship prod → you click a button
 GitHub → Actions tab → **Deploy Production** → **Run workflow** → type the word **`ship`** → Run. This runs `deploy-production.yml`:
+- Runs the same `build-and-check` gate (build, client tests, image smoke). If it fails, nothing below runs and prod is untouched.
 - Runs migrations against the real prod Neon DB.
 - Deploys the server to Fly prod (`quarzo-api`).
 - Builds the client with the prod API URL and deploys it to Cloudflare Pages prod.
@@ -152,7 +158,7 @@ Open the PR in GitHub. Go to the Actions tab and watch **Deploy Staging** run. W
 - (Optional but instructive) `flyctl apps list | findstr quarzo-api-staging-pr` → you should see this PR's app listed.
 
 ### Step 6 — Merge the test PR
-On GitHub, click Merge. This triggers `ci.yml` (typecheck+build only) and `cleanup-staging.yml` (deletes the Neon branch, destroys the per-PR Fly app, *and* deletes the PR's Cloudflare Pages deployments). Confirm both pass. Confirm the Neon branch disappears, run `flyctl apps list | findstr quarzo-api-staging-pr` again — your PR's app should be gone — and visit `https://pr-<N>.quarzo-staging.pages.dev` to confirm it now 404s.
+On GitHub, click Merge. This triggers `ci.yml` (the `build-and-check` gate — build, client tests, image smoke; no deploy) and `cleanup-staging.yml` (deletes the Neon branch, destroys the per-PR Fly app, deletes the PR's Cloudflare Pages deployments, *and* purges the PR's R2 uploads). Confirm both pass. Confirm the Neon branch disappears, run `flyctl apps list | findstr quarzo-api-staging-pr` again — your PR's app should be gone — and visit `https://pr-<N>.quarzo-staging.pages.dev` to confirm it now 404s.
 
 ### Step 7 — Ship prod for the first time
 GitHub → Actions → **Deploy Production** → Run workflow → type `ship` → Run. Wait for it. Expected:
@@ -172,7 +178,13 @@ Always start in the **Actions tab** of your GitHub repo. Click the failed run. E
 
 ### If "Create Neon branch" fails
 - Wrong `NEON_API_KEY` or `NEON_PROJECT_ID_STAGING` secret. Regenerate the API key in Neon → Account Settings → API Keys, paste the new value into GitHub → repo Settings → Secrets.
-- Rate-limit error ("too many branches") → free tier caps at 10 simultaneous branches. Close stale PRs to clean them up, or run `cleanup-staging.yml` by hand on one.
+- Rate-limit error ("too many branches") → free tier caps at 10 simultaneous branches. Close stale PRs to clean them up (`cleanup-staging.yml` only runs on PR close — it has no manual trigger), or delete leftover `pr-<N>` branches in the Neon console.
+
+### If "Build, typecheck, and smoke-test image" fails
+This step is the shared `build-and-check` gate; expand it to see which sub-step broke.
+- **Build server / Build client** → a TypeScript error. Reproduce locally with `pnpm preflight`.
+- **Run client tests** → a Vitest failure. Reproduce with `pnpm --filter client test`; the log names the failing file and assertion.
+- **Smoke-test production Docker image** → a runtime-only image bug (e.g. missing Prisma client). Reproduce with `pnpm preflight:image`.
 
 ### If "Run migrations on PR branch" or the install step fails
 - "DATABASE_URL resolved to an empty string" → the Neon step didn't produce an output. Check the previous step's logs; usually a secret mismatch.
